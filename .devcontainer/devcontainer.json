@@ -4,7 +4,6 @@
 	"build": {
 		"dockerfile": "Dockerfile"
 	},
-	"remoteUser": "node",
-	"workspaceFolder": "/workspaces/SkyLite-UX/app"
-
+	"appPort": 3000,
+	"remoteUser": "node"
 }
