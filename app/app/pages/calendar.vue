@@ -39,7 +39,6 @@ const calendarApp = createCalendar({
 <template>
   <div>
     <ClientOnly fallback-tag="span" fallback="Loading calendar...">
-      <NuxtLoadingIndicator />
       <ScheduleXCalendar :calendar-app="calendarApp" />
     </ClientOnly>
   </div>

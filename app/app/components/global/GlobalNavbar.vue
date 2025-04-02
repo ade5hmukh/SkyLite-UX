@@ -24,17 +24,3 @@
       </div>
     </UContainer>
 </template>
-
-<style scoped>
-.navbar {
-  margin: 0;
-  padding: 0;
-  width: 100%;
-  height: 75px;
-  background-color: gray;
-}
-.navbarbtn {
-  width: 75px;
-  height: 50px;
-}
-</style>
