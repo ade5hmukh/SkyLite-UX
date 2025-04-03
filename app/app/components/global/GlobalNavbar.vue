@@ -11,7 +11,7 @@
 </script>
 
 <template>
-    <UContainer class="flex items-center justify-between navbar">
+    <UContainer class="flex items-center justify-between">
       <UButtonGroup size="xl" class="navbarbtn">
         <UButton to="/calendar" color="primary" variant="subtle" icon="i-lucide-calendar-days" />
         <UButton to="/todo" color="primary" variant="subtle" icon="i-lucide-list-todo" />
