@@ -14,34 +14,7 @@ import { createEventsServicePlugin } from '@schedule-x/events-service'
 import { createCalendarControlsPlugin } from '@schedule-x/calendar-controls'
 import { createEventRecurrencePlugin } from "@schedule-x/event-recurrence";
 import { createCurrentTimePlugin } from '@schedule-x/current-time'
-import { createIcalendarPlugin } from '@schedule-x/ical'
  
-const icalendarPlugin = createIcalendarPlugin({
-  data: 'BEGIN:VCALENDAR\n' +
-    'VERSION:2.0\n' +
-    'CALSCALE:GREGORIAN\n' +
-    'BEGIN:VEVENT\n' +
-    'SUMMARY:Good morning\n' +
-    'DTSTART;TZID=America/New_York:20240801T103400\n' +
-    'DTEND;TZID=America/New_York:20240801T110400\n' +
-    'LOCATION:1000 Broadway Ave.\\, Brooklyn\n' +
-    'DESCRIPTION: Access-A-Ride trip to 900 Jay St.\\, Brooklyn\n' +
-    'STATUS:CONFIRMED\n' +
-    'SEQUENCE:3\n' +
-    'END:VEVENT\n' +
-    'BEGIN:VEVENT\n' +
-    'RRULE:FREQ=DAILY;COUNT=3\n' +
-    'SUMMARY:Good night\n' +
-    'DTSTART;TZID=America/New_York:20240902T200000\n' +
-    'DTEND;TZID=America/New_York:20240902T203000\n' +
-    'LOCATION:900 Jay St.\\, Brooklyn\n' +
-    'DESCRIPTION: Access-A-Ride trip to 1000 Broadway Ave.\\, Brooklyn\n' +
-    'STATUS:CONFIRMED\n' +
-    'SEQUENCE:3\n' +
-    'END:VEVENT\n' +
-    'END:VCALENDAR',
-})
-
 const plugins = [
   createDragAndDropPlugin(),
   createEventModalPlugin(),
@@ -49,13 +22,11 @@ const plugins = [
   createCalendarControlsPlugin(),
   createEventRecurrencePlugin(),
   createCurrentTimePlugin(),
-  icalendarPlugin
 ]
 // Do not use a ref here, as the calendar instance is not reactive, and doing so might cause issues
 // For updating events, use the events service plugin
 const calendarApp = createCalendar({
   isDark: true,
-  //theme: 'static',
   selectedDate: '2024-01-05',
   views: [
     createViewDay(),
