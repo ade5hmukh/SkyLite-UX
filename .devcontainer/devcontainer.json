@@ -12,7 +12,10 @@
       "extensions": [
         "ms-vscode-remote.remote-containers",
         "ms-azuretools.vscode-docker",
-        "Vue.volar"
+        "Vue.volar",
+        "dbaeumer.vscode-eslint",
+        "jcbuisson.vue",
+        "GitHub.codespaces"
       ]
     }
   }
