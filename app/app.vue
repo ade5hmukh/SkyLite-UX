@@ -1,7 +1,7 @@
 <template>
   <UApp>
-    <NuxtPage class="page"/>
-    <GlobalNavbar class="navbar bg-gray-900 dark:bg-gray-950 fixed bottom-0 w-full"/>
+    <NuxtPage class="page" />
+    <GlobalNavbar class="navbar bg-gray-900 dark:bg-gray-950 fixed bottom-0 w-full" />
   </UApp>
 </template>
 

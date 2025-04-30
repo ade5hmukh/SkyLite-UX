@@ -1,10 +1,19 @@
 // See https://containers.dev/implementors/json_reference/ for configuration reference
 {
-	"name": "Untitled Node.js project",
-	"build": {
-		"dockerfile": "Dockerfile"
-	},
-	"appPort": 3000,
-	"remoteUser": "node",
-	"postCreateCommand": "cd ./app && npm install"
+  "name": "Untitled Node.js project",
+  "build": {
+    "dockerfile": "Dockerfile"
+  },
+  "appPort": 3000,
+  "remoteUser": "node",
+  "postCreateCommand": "npm install",
+  "customizations": {
+    "vscode": {
+      "extensions": [
+        "ms-vscode-remote.remote-containers",
+        "ms-azuretools.vscode-docker",
+        "Vue.volar"
+      ]
+    }
+  }
 }
