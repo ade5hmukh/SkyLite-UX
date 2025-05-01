@@ -1,6 +1,5 @@
 <template>
   <UApp>
-    <NuxtPage />
-    <GlobalNavbar />
+    <GlobalSideBar />
   </UApp>
 </template>
