@@ -11,39 +11,42 @@ const isDark = computed({
 </script>
 
 <template>
-  <UContainer class="flex items-center justify-between">
-    <UButtonGroup size="xl" class="navbarbtn">
-      <UButton
-        to="/calendar"
-        color="primary"
-        variant="subtle"
-        icon="i-lucide-calendar-days"
-      />
-      <UButton
-        to="/todolists"
-        color="primary"
-        variant="subtle"
-        icon="i-lucide-list-todo"
-      />
-      <UButton
-        to="/shoppinglists"
-        color="primary"
-        variant="subtle"
-        icon="i-lucide-shopping-cart"
-      />
-      <UButton
-        to="/mealplanner"
-        color="primary"
-        variant="subtle"
-        icon="i-lucide-utensils"
-      />
-      <UButton
-        to="/settings"
-        color="primary"
-        variant="subtle"
-        icon="i-lucide-settings"
-      />
-    </UButtonGroup>
+  <div class="dock dock-lg">
+    <UButton
+      to="/calendar"
+      color="neutral"
+      variant="ghost"
+      icon="i-lucide-calendar-days"
+      size="xl"
+    />
+    <UButton
+      to="/todolists"
+      color="neutral"
+      variant="ghost"
+      icon="i-lucide-list-todo"
+      size="xl"
+    />
+    <UButton
+      to="/shoppinglists"
+      color="neutral"
+      variant="ghost"
+      icon="i-lucide-shopping-cart"
+      size="xl"
+    />
+    <UButton
+      to="/mealplanner"
+      color="neutral"
+      variant="ghost"
+      icon="i-lucide-utensils"
+      size="xl"
+    />
+    <UButton
+      to="/settings"
+      color="neutral"
+      variant="ghost"
+      icon="i-lucide-settings"
+      size="xl"
+    />
     <div class="flex items-center justify-center gap-2">
       <USwitch
         v-model="isDark"
@@ -53,5 +56,5 @@ const isDark = computed({
         size="xl"
       />
     </div>
-  </UContainer>
+  </div>
 </template>

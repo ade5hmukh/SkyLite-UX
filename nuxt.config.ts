@@ -1,4 +1,6 @@
 // https://nuxt.com/docs/api/configuration/nuxt-config
+import tailwindcss from "@tailwindcss/vite";
+
 export default defineNuxtConfig({
   devtools: { enabled: true },
 
@@ -10,6 +12,10 @@ export default defineNuxtConfig({
     config: {
       standalone: false, // <---
     },
+  },
+
+  vite: {
+    plugins: [tailwindcss()],
   },
 
   css: ["~/assets/css/main.css"],
