@@ -9,7 +9,7 @@ const isDark = computed({
     colorMode.value = colorMode.value === "dark" ? "light" : "dark";
   },
 });
-function isActivePath(path) {
+function isActivePath(path: string) {
   return route.path === path;
 };
 </script>
