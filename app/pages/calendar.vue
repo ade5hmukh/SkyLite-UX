@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CalendarEvent } from "~/utils/calendarTypes";
 
-// Sample events data
+// events data
 const events = ref<CalendarEvent[]>([
   {
     id: "1",
@@ -62,7 +62,6 @@ function handleEventDelete(eventId: string) {
 </script>
 
 <template>
-  <!-- New unified calendar view -->
   <CalendarMainView
     :events="events"
     initial-view="week"

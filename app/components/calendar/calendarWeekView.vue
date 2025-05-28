@@ -39,7 +39,7 @@ const allDayEvents = computed(() => {
 // Process events for positioning in the week view
 const processedDayEvents = computed(() => {
   return props.days.map((day) => {
-    const dayEvents = getAllEventsForDay(props.events, day);
+    const dayEvents = getAllEventsForDay(props.events, day).filter(event => !event.allDay);
     return sortEvents(dayEvents).map((event, index) => {
       const eventStart = new Date(event.start);
       const eventEnd = new Date(event.end);
@@ -113,13 +113,13 @@ function handleEventDrop(event: CalendarEvent) {
 
 <template>
   <div data-slot="week-view" class="flex h-full w-full flex-col">
-    <div class="sticky top-0 z-30 grid h-16 w-full grid-cols-7 border-y border-base-300 bg-base-200/80 backdrop-blur-md uppercase">
+    <div class="sticky top-[80px] z-30 grid h-16 w-full grid-cols-7 border-y border-gray-200 dark:border-gray-700 bg-gray-100/80 dark:bg-gray-800/80 backdrop-blur-md uppercase">
       <div
         v-for="day in days"
         :key="day.toString()"
-        class="py-2 text-center text-xs text-base-content/70"
+        class="py-2 text-center text-xs text-gray-600 dark:text-gray-400"
         :class="{
-          'text-base-content font-medium': isToday(day),
+          'text-gray-900 dark:text-gray-100 font-medium': isToday(day),
         }"
       >
         <span class="sm:hidden" aria-hidden="true">
@@ -129,19 +129,19 @@ function handleEventDrop(event: CalendarEvent) {
       </div>
     </div>
 
-    <div v-if="showAllDaySection" class="w-full border-b border-base-300 bg-base-200/50">
+    <div v-if="showAllDaySection" class="w-full border-b border-gray-200 dark:border-gray-700 bg-gray-100/50 dark:bg-gray-800/50">
       <div class="grid w-full grid-cols-8">
-        <div class="relative border-r border-base-300">
-          <span class="absolute bottom-0 left-0 h-6 w-16 max-w-full pe-2 text-right text-[10px] text-base-content/70 sm:pe-4 sm:text-xs">
+        <div class="relative border-r border-gray-200 dark:border-gray-700">
+          <span class="absolute bottom-0 left-0 h-6 w-16 max-w-full pe-2 text-right text-[10px] text-gray-600 dark:text-gray-400 sm:pe-4 sm:text-xs">
             All day
           </span>
         </div>
         <div
           v-for="(day, dayIndex) in days"
           :key="day.toString()"
-          class="relative border-r border-base-300 p-1 last:border-r-0"
+          class="relative border-r border-gray-200 dark:border-gray-700 p-1 last:border-r-0"
           :class="{
-            'bg-primary/10': isToday(day),
+            'bg-blue-100/10 dark:bg-blue-900/10': isToday(day),
           }"
         >
           <CalendarEventItem
@@ -168,15 +168,15 @@ function handleEventDrop(event: CalendarEvent) {
     </div>
 
     <div class="grid h-[calc(100%-4rem)] w-full flex-1 grid-cols-8 overflow-hidden">
-      <div class="grid h-full auto-cols-fr border-r border-base-300">
+      <div class="grid h-full auto-cols-fr border-r border-gray-200 dark:border-gray-700">
         <div
           v-for="(hour, index) in hours"
           :key="hour.toString()"
-          class="relative min-h-[var(--week-cells-height)] border-b border-base-300 last:border-b-0"
+          class="relative min-h-[var(--week-cells-height)] border-b border-gray-200 dark:border-gray-700 last:border-b-0"
         >
           <span
             v-if="index > 0"
-            class="absolute -top-3 left-0 flex h-6 w-16 max-w-full items-center justify-end bg-base-100 pe-2 text-[10px] text-base-content/70 sm:pe-4 sm:text-xs"
+            class="absolute -top-3 left-0 flex h-6 w-16 max-w-full items-center justify-end bg-white dark:bg-gray-900 pe-2 text-[10px] text-gray-600 dark:text-gray-400 sm:pe-4 sm:text-xs"
           >
             {{ format(hour, "h a") }}
           </span>
@@ -186,9 +186,9 @@ function handleEventDrop(event: CalendarEvent) {
       <div
         v-for="(day, dayIndex) in days"
         :key="day.toString()"
-        class="relative grid h-full auto-cols-fr border-r border-base-300 last:border-r-0"
+        class="relative grid h-full auto-cols-fr border-r border-gray-200 dark:border-gray-700 last:border-r-0"
         :class="{
-          'bg-primary/10': isToday(day),
+          'bg-blue-100/10 dark:bg-blue-900/10': isToday(day),
         }"
       >
         <!-- Positioned events -->
@@ -223,15 +223,15 @@ function handleEventDrop(event: CalendarEvent) {
           :style="{ top: `${currentTimePosition}%` }"
         >
           <div class="relative flex items-center">
-            <div class="absolute -left-1 h-2 w-2 rounded-full bg-error" />
-            <div class="h-[2px] w-full bg-error" />
+            <div class="absolute -left-1 h-2 w-2 rounded-full bg-red-500" />
+            <div class="h-[2px] w-full bg-red-500" />
           </div>
         </div>
 
         <div
           v-for="hour in hours"
           :key="hour.toString()"
-          class="relative min-h-[var(--week-cells-height)] border-b border-base-300 last:border-b-0"
+          class="relative min-h-[var(--week-cells-height)] border-b border-gray-200 dark:border-gray-700 last:border-b-0"
         >
           <CalendarDroppableCell
             v-for="quarter in [0, 1, 2, 3]"

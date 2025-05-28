@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { differenceInDays } from "date-fns";
 import draggable from "vuedraggable";
+import { watch } from "vue";
 
 import { useDraggableEvents } from "~/composables/useDraggableEvents";
 
@@ -51,6 +52,17 @@ function onDragEnd(_event: any) {
   handleDragEnd();
   emit("dragend");
 }
+
+// Add a watch to update the event when it changes
+watch(() => props.event, (newEvent) => {
+  if (newEvent) {
+    // Update the event in the draggable component
+    const draggableComponent = document.querySelector(`[data-event-id="${newEvent.id}"]`);
+    if (draggableComponent) {
+      draggableComponent.setAttribute('data-event', JSON.stringify(newEvent));
+    }
+  }
+}, { deep: true });
 </script>
 
 <template>
@@ -72,7 +84,7 @@ function onDragEnd(_event: any) {
         :is-first-day="isFirstDay"
         :is-last-day="isLastDay"
         :aria-hidden="ariaHidden"
-        class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow duration-200"
+        class="bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm hover:shadow-md transition-shadow duration-200"
         @click="$emit('click', $event)"
       />
     </template>

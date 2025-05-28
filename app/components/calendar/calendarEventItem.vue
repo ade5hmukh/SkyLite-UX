@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { format } from "date-fns";
+import { getEventColorClasses } from "~/utils/calendarUtils";
 
 const props = defineProps<{
   event: {
@@ -33,21 +34,6 @@ function isPast(date: Date) {
 
 function formatTimeWithOptionalMinutes(date: Date) {
   return format(date, "h:mm a");
-}
-
-function getEventColorClasses(color?: string) {
-  if (!color)
-    return "bg-primary text-primary-content";
-
-  const colorMap: Record<string, string> = {
-    red: "bg-error text-error-content",
-    blue: "bg-info text-info-content",
-    green: "bg-success text-success-content",
-    yellow: "bg-warning text-warning-content",
-    purple: "bg-secondary text-secondary-content",
-  };
-
-  return colorMap[color] || "bg-primary text-primary-content";
 }
 
 function handleClick(e: MouseEvent) {

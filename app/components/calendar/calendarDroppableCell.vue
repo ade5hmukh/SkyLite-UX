@@ -38,7 +38,13 @@ function onAdd(event: any) {
     newEvent.id = `event-${Date.now()}`;
   }
 
+  // Emit the updated event
   emit("drop", newEvent);
+  
+  // Remove the dragged element from the DOM
+  if (event.item && event.item.parentNode) {
+    event.item.parentNode.removeChild(event.item);
+  }
 }
 </script>
 

@@ -60,11 +60,11 @@ function handleEventDrop(event: CalendarEvent) {
 <template>
   <div class="h-full w-full">
     <!-- Days of week header -->
-    <div class="grid grid-cols-7 border-b border-base-300">
+    <div class="sticky top-[80px] z-30 grid grid-cols-7 border-b border-gray-200 dark:border-gray-700 bg-gray-100/80 dark:bg-gray-800/80 backdrop-blur-md">
       <div
         v-for="day in ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']"
         :key="day"
-        class="py-2 text-center text-sm font-medium text-base-content/70"
+        class="py-2 text-center text-sm font-medium text-gray-600 dark:text-gray-400"
       >
         {{ day }}
       </div>
@@ -79,13 +79,17 @@ function handleEventDrop(event: CalendarEvent) {
         <div
           v-for="day in week"
           :key="day.toString()"
-          class="group flex h-full flex-col border border-base-300 last:border-r-0"
+          class="group flex h-full flex-col border border-gray-200 dark:border-gray-700 last:border-r-0"
           :class="{
-            'bg-base-200/25 text-base-content/70': !isCurrentMonth,
-            'bg-primary text-primary-content': isToday(day),
+            'bg-gray-100/25 dark:bg-gray-800/25 text-gray-600 dark:text-gray-400': !isCurrentMonth,
           }"
         >
-          <div class="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-sm">
+          <div class="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-sm"
+            :class="{
+              'bg-primary text-white': isToday(day),
+              'text-gray-600 dark:text-gray-400': !isToday(day)
+            }"
+          >
             {{ format(day, 'd') }}
           </div>
           <div
@@ -125,7 +129,7 @@ function handleEventDrop(event: CalendarEvent) {
             <Popover v-if="hasMore" modal>
               <PopoverTrigger as-child>
                 <button
-                  class="btn btn-ghost btn-sm mt-[var(--event-gap)] h-[var(--event-height)] w-full justify-start px-1 text-[10px] sm:px-2 sm:text-xs"
+                  class="mt-[var(--event-gap)] h-[var(--event-height)] w-full justify-start px-1 text-[10px] sm:px-2 sm:text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
                   @click.stop
                 >
                   <span>
@@ -136,7 +140,7 @@ function handleEventDrop(event: CalendarEvent) {
               </PopoverTrigger>
               <PopoverContent
                 align="center"
-                class="card w-52 p-3"
+                class="w-52 p-3 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
                 :style="{
                   '--event-height': `${eventHeight}px`,
                 }"

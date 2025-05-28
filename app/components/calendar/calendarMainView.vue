@@ -152,6 +152,20 @@ function handleEventCreate(startTime: Date) {
   isEventDialogOpen.value = true;
 }
 
+function handleEventSave(event: CalendarEvent) {
+  if (event.id) {
+    _emit('eventUpdate', event);
+  } else {
+    _emit('eventAdd', event);
+  }
+  isEventDialogOpen.value = false;
+}
+
+function handleEventDelete(eventId: string) {
+  _emit('eventDelete', eventId);
+  isEventDialogOpen.value = false;
+}
+
 // View title computation
 const viewTitle = computed(() => {
   if (view.value === "month") {
@@ -233,7 +247,7 @@ function getDaysForAgenda(date: Date) {
     }"
   >
     <!-- Calendar header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-5 sm:px-4 relative z-10 bg-base-100">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-5 sm:px-4 sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
       <div class="flex sm:flex-col max-sm:items-center justify-between gap-1.5">
         <div class="flex items-center gap-1.5">
           <h1 class="font-semibold text-xl">
@@ -329,8 +343,17 @@ function getDaysForAgenda(date: Date) {
     icon="i-lucide-plus"
     aria-label="Add Event"
     :ui="{
-      leadingIcon: 'bg-base-200 w-10 h-10',
+      leadingIcon: 'bg-gray-100 dark:bg-gray-800 w-10 h-10',
     }"
     @click="handleEventCreate(new Date())"
+  />
+
+  <!-- Event Dialog -->
+  <CalendarEventDialog
+    :event="selectedEvent"
+    :is-open="isEventDialogOpen"
+    @close="isEventDialogOpen = false"
+    @save="handleEventSave"
+    @delete="handleEventDelete"
   />
 </template>
