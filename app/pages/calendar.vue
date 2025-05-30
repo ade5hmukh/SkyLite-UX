@@ -40,6 +40,26 @@ const events = ref<CalendarEvent[]>([
     color: "emerald",
     location: "Engineering Hub",
   },
+  {
+    id: "5",
+    title: "Vacation",
+    description: "Hello Fiji!",
+    start: new Date(new Date().setDate(new Date().getDate() - 10)),
+    end: new Date(new Date().setDate(new Date().getDate() - 5)),
+    allDay: true,
+    color: "rose",
+    location: "Fiji",
+  },
+  {
+    id: "6",
+    title: "Buisness Trip",
+    description: "Meeting a client in LV",
+    start: new Date(new Date().setDate(new Date().getDate() + 5)),
+    end: new Date(new Date().setDate(new Date().getDate() + 10)),
+    allDay: true,
+    color: "rose",
+    location: "LV",
+  },
 ]);
 
 function handleEventAdd(event: CalendarEvent) {

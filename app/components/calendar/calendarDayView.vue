@@ -28,7 +28,20 @@ const hours = computed(() => {
 
 // Filter all-day events
 const allDayEvents = computed(() => {
-  return props.events.filter(event => event.allDay);
+  return props.events.filter((event) => {
+    if (!event.allDay)
+      return false;
+    const eventStart = new Date(event.start);
+    const eventEnd = new Date(event.end);
+    // Set times to start and end of day for proper comparison
+    const currentDateStart = new Date(props.currentDate);
+    currentDateStart.setHours(0, 0, 0, 0);
+    const currentDateEnd = new Date(props.currentDate);
+    currentDateEnd.setHours(23, 59, 59, 999);
+
+    // Check if the current date falls within the event's date range
+    return eventStart <= currentDateEnd && eventEnd >= currentDateStart;
+  });
 });
 
 // Process events for positioning
@@ -66,19 +79,41 @@ const currentTimePosition = computed(() => {
   return ((hours + minutes / 60) / 24) * 100;
 });
 
+function scrollToCurrentTime() {
+  if (!currentTimeVisible.value)
+    return;
+
+  const now = new Date();
+  const hours = now.getHours();
+  const currentHourElement = document.querySelector(`[data-hour="${hours}"]`);
+
+  if (currentHourElement) {
+    const headerHeight = 80; // Approximate height of the header
+    const padding = 20; // Additional padding
+    const elementPosition = currentHourElement.getBoundingClientRect().top;
+    const offsetPosition = elementPosition + window.pageYOffset - headerHeight - padding;
+
+    window.scrollTo({
+      top: offsetPosition,
+      behavior: "smooth",
+    });
+  }
+}
+
+// Scroll to current time when component is mounted
+onMounted(() => {
+  scrollToCurrentTime();
+});
+
+// Watch for changes in currentDate and scroll to current time
+watch(() => props.currentDate, () => {
+  nextTick(() => {
+    scrollToCurrentTime();
+  });
+});
+
 function handleEventClick(event: CalendarEvent, e: MouseEvent) {
   emit("eventClick", event, e);
-}
-
-function handleQuarterHourClick(hour: number, quarter: number) {
-  const startTime = new Date(props.currentDate);
-  startTime.setHours(hour);
-  startTime.setMinutes(quarter * 15);
-  emit("eventCreate", startTime);
-}
-
-function handleEventDrop(event: CalendarEvent) {
-  emit("eventUpdate", event);
 }
 </script>
 
@@ -138,13 +173,14 @@ function handleEventDrop(event: CalendarEvent) {
           }"
         >
           <div class="h-full w-full">
-            <CalendarDraggableEvent
+            <CalendarEventItem
               :event="positionedEvent.event"
               view="day"
               :show-time="true"
-              :height="positionedEvent.height"
               @click="(e) => handleEventClick(positionedEvent.event, e)"
-            />
+            >
+              <div>{{ positionedEvent.event.title }}</div>
+            </CalendarEventItem>
           </div>
         </div>
 
@@ -164,20 +200,9 @@ function handleEventDrop(event: CalendarEvent) {
         <div
           v-for="hour in hours"
           :key="hour.toString()"
+          :data-hour="getHours(hour)"
           class="border-gray-200 dark:border-gray-700 relative h-[var(--week-cells-height)] border-b last:border-b-0"
-        >
-          <!-- Quarter-hour intervals -->
-          <CalendarDroppableCell
-            v-for="quarter in [0, 1, 2, 3]"
-            :id="`day-cell-${currentDate.toISOString()}-${getHours(hour) + quarter * 0.25}`"
-            :key="`${hour.toString()}-${quarter}`"
-            :date="currentDate"
-            :time="getHours(hour) + quarter * 0.25"
-            :class="quarter === 0 ? 'top-0' : quarter === 1 ? 'top-[calc(var(--day-cells-height)/4)]' : quarter === 2 ? 'top-[calc(var(--day-cells-height)/4*2)]' : 'top-[calc(var(--day-cells-height)/4*3)]'"
-            @click="handleQuarterHourClick(getHours(hour), quarter)"
-            @drop="handleEventDrop"
-          />
-        </div>
+        />
       </div>
     </div>
   </div>

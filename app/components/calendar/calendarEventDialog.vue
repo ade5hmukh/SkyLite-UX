@@ -1,185 +1,165 @@
 <script setup lang="ts">
-import { format, isBefore } from 'date-fns'
+import type { DateValue } from "@internationalized/date";
 
-interface CalendarEvent {
-  id: string
-  title: string
-  description?: string
-  start: Date | string
-  end: Date | string
-  allDay?: boolean
-  location?: string
-  color?: string
-}
+import { CalendarDate, DateFormatter, getLocalTimeZone, parseDate } from "@internationalized/date";
+import { format, isBefore } from "date-fns";
 
-type EventColor = 'blue' | 'violet' | 'rose' | 'emerald' | 'orange'
+import type { CalendarEvent } from "~/utils/calendarTypes";
+
+type EventColor = "blue" | "violet" | "rose" | "emerald" | "orange";
 
 const props = defineProps<{
-  event: CalendarEvent | null
-  isOpen: boolean
-  position?: { top: number; left: number }
-}>()
+  event: CalendarEvent | null;
+  isOpen: boolean;
+  position?: { top: number; left: number };
+}>();
 
 const emit = defineEmits<{
-  (e: 'close'): void
-  (e: 'save', event: CalendarEvent): void
-  (e: 'delete', eventId: string): void
-}>()
+  (e: "close"): void;
+  (e: "save", event: CalendarEvent): void;
+  (e: "delete", eventId: string): void;
+}>();
 
 // Constants
-const StartHour = 0
-const EndHour = 23
-const DefaultStartHour = 9
-const DefaultEndHour = 10
+const StartHour = 0;
+const EndHour = 23;
+const DefaultStartHour = 9;
+const DefaultEndHour = 10;
+const df = new DateFormatter("en-US", {
+  dateStyle: "medium",
+});
 
 // Form state
-const title = ref('')
-const description = ref('')
-const startDate = ref(new Date())
-const endDate = ref(new Date())
-const startTime = ref(DefaultStartHour + ':00')
-const endTime = ref(DefaultEndHour + ':00')
-const allDay = ref(false)
-const location = ref('')
-const color = ref<EventColor>('blue')
-const error = ref<string | null>(null)
-const startDateOpen = ref(false)
-const endDateOpen = ref(false)
+const title = ref("");
+const description = ref("");
+const startDate = ref<DateValue>(new CalendarDate(2022, 2, 6));
+const endDate = ref<DateValue>(new CalendarDate(2022, 2, 6));
+const startTime = ref(`${DefaultStartHour}:00`);
+const endTime = ref(`${DefaultEndHour}:00`);
+const allDay = ref(false);
+const location = ref("");
+const color = ref<EventColor>("blue");
+const error = ref<string | null>(null);
 
 // Color options
 const colorOptions = [
-  {
-    value: 'blue',
-    label: 'Blue',
-    bgClass: 'bg-blue-400 data-[state=checked]:bg-blue-400',
-    borderClass: 'border-blue-400 data-[state=checked]:border-blue-400'
-  },
-  {
-    value: 'violet',
-    label: 'Violet',
-    bgClass: 'bg-violet-400 data-[state=checked]:bg-violet-400',
-    borderClass: 'border-violet-400 data-[state=checked]:border-violet-400'
-  },
-  {
-    value: 'rose',
-    label: 'Rose',
-    bgClass: 'bg-rose-400 data-[state=checked]:bg-rose-400',
-    borderClass: 'border-rose-400 data-[state=checked]:border-rose-400'
-  },
-  {
-    value: 'emerald',
-    label: 'Emerald',
-    bgClass: 'bg-emerald-400 data-[state=checked]:bg-emerald-400',
-    borderClass: 'border-emerald-400 data-[state=checked]:border-emerald-400'
-  },
-  {
-    value: 'orange',
-    label: 'Orange',
-    bgClass: 'bg-orange-400 data-[state=checked]:bg-orange-400',
-    borderClass: 'border-orange-400 data-[state=checked]:border-orange-400'
-  }
-]
+  { value: "blue", label: "Blue" },
+  { value: "violet", label: "Violet" },
+  { value: "rose", label: "Rose" },
+  { value: "emerald", label: "Emerald" },
+  { value: "orange", label: "Orange" },
+];
 
 // Time options
 const timeOptions = computed(() => {
-  const options = []
+  const options = [];
   for (let hour = StartHour; hour <= EndHour; hour++) {
     for (let minute = 0; minute < 60; minute += 15) {
-      const formattedHour = hour.toString().padStart(2, '0')
-      const formattedMinute = minute.toString().padStart(2, '0')
-      const value = formattedHour + ':' + formattedMinute
-      const date = new Date(2000, 0, 1, hour, minute)
-      const label = format(date, 'h:mm a')
-      options.push({ value, label })
+      const formattedHour = hour.toString().padStart(2, "0");
+      const formattedMinute = minute.toString().padStart(2, "0");
+      const value = `${formattedHour}:${formattedMinute}`;
+      const date = new Date(2000, 0, 1, hour, minute);
+      const label = format(date, "h:mm a");
+      options.push({ value, label });
     }
   }
-  return options
-})
+  return options;
+});
 
 // Watch for event changes
 watch(() => props.event, (newEvent) => {
   if (newEvent) {
-    title.value = newEvent.title || ''
-    description.value = newEvent.description || ''
-    startDate.value = new Date(newEvent.start)
-    endDate.value = new Date(newEvent.end)
-    startTime.value = formatTimeForInput(new Date(newEvent.start))
-    endTime.value = formatTimeForInput(new Date(newEvent.end))
-    allDay.value = newEvent.allDay || false
-    location.value = newEvent.location || ''
-    color.value = (newEvent.color as EventColor) || 'blue'
-    error.value = null
-  } else {
-    resetForm()
+    title.value = newEvent.title || "";
+    description.value = newEvent.description || "";
+    const start = new Date(newEvent.start);
+    const end = new Date(newEvent.end);
+    startDate.value = parseDate(start.toISOString().split("T")[0]!);
+    endDate.value = parseDate(end.toISOString().split("T")[0]!);
+    startTime.value = formatTimeForInput(start);
+    endTime.value = formatTimeForInput(end);
+    allDay.value = newEvent.allDay || false;
+    location.value = newEvent.location || "";
+    color.value = (newEvent.color as EventColor) || "blue";
+    error.value = null;
   }
-}, { immediate: true })
+  else {
+    resetForm();
+  }
+}, { immediate: true });
 
 function resetForm() {
-  title.value = ''
-  description.value = ''
-  startDate.value = new Date()
-  endDate.value = new Date()
-  startTime.value = DefaultStartHour + ':00'
-  endTime.value = DefaultEndHour + ':00'
-  allDay.value = false
-  location.value = ''
-  color.value = 'blue'
-  error.value = null
+  title.value = "";
+  description.value = "";
+  const now = new Date();
+  startDate.value = parseDate(now.toISOString().split("T")[0]!);
+  endDate.value = parseDate(now.toISOString().split("T")[0]!);
+  startTime.value = `${DefaultStartHour}:00`;
+  endTime.value = `${DefaultEndHour}:00`;
+  allDay.value = false;
+  location.value = "";
+  color.value = "blue";
+  error.value = null;
 }
 
 function formatTimeForInput(date: Date) {
-  const hours = date.getHours().toString().padStart(2, '0')
-  const minutes = Math.floor(date.getMinutes() / 15) * 15
-  return hours + ':' + minutes.toString().padStart(2, '0')
+  const hours = date.getHours().toString().padStart(2, "0");
+  const minutes = Math.floor(date.getMinutes() / 15) * 15;
+  return `${hours}:${minutes.toString().padStart(2, "0")}`;
 }
 
 function handleSave() {
-  const start = new Date(startDate.value)
-  const end = new Date(endDate.value)
+  if (!startDate.value || !endDate.value) {
+    error.value = "Invalid date selection";
+    return;
+  }
+
+  const start = startDate.value.toDate(getLocalTimeZone());
+  const end = endDate.value.toDate(getLocalTimeZone());
 
   if (!allDay.value) {
-    const [startHours = 0, startMinutes = 0] = startTime.value.split(':').map(Number)
-    const [endHours = 0, endMinutes = 0] = endTime.value.split(':').map(Number)
+    const [startHours = 0, startMinutes = 0] = startTime.value.split(":").map(Number);
+    const [endHours = 0, endMinutes = 0] = endTime.value.split(":").map(Number);
 
     if (
-      startHours < StartHour ||
-      startHours > EndHour ||
-      endHours < StartHour ||
-      endHours > EndHour
+      startHours < StartHour
+      || startHours > EndHour
+      || endHours < StartHour
+      || endHours > EndHour
     ) {
-      error.value = 'Selected time must be between ' + StartHour + ':00 and ' + EndHour + ':00'
-      return
+      error.value = `Selected time must be between ${StartHour}:00 and ${EndHour}:00`;
+      return;
     }
 
-    start.setHours(startHours, startMinutes, 0)
-    end.setHours(endHours, endMinutes, 0)
-  } else {
-    start.setHours(0, 0, 0, 0)
-    end.setHours(23, 59, 59, 999)
+    start.setHours(startHours, startMinutes, 0);
+    end.setHours(endHours, endMinutes, 0);
+  }
+  else {
+    start.setHours(0, 0, 0, 0);
+    end.setHours(23, 59, 59, 999);
   }
 
   if (isBefore(end, start)) {
-    error.value = 'End date cannot be before start date'
-    return
+    error.value = "End date cannot be before start date";
+    return;
   }
 
-  const eventTitle = title.value.trim() ? title.value : '(no title)'
+  const eventTitle = title.value.trim() ? title.value : "(no title)";
 
-  emit('save', {
-    id: props.event?.id || '',
+  emit("save", {
+    id: props.event?.id || "",
     title: eventTitle,
     description: description.value,
-    start,
-    end,
+    start: new Date(start),
+    end: new Date(end),
     allDay: allDay.value,
     location: location.value,
-    color: color.value
-  })
+    color: color.value,
+  });
 }
 
 function handleDelete() {
   if (props.event?.id) {
-    emit('delete', props.event.id)
+    emit("delete", props.event.id);
   }
 }
 </script>
@@ -187,7 +167,7 @@ function handleDelete() {
 <template>
   <div
     v-if="isOpen"
-    class="fixed inset-0 z-50 flex items-center justify-center bg-black/50"
+    class="fixed inset-0 z-[100] flex items-center justify-center bg-black/50"
     @click="emit('close')"
   >
     <div
@@ -199,125 +179,106 @@ function handleDelete() {
           {{ event?.id ? 'Edit Event' : 'Create Event' }}
         </h3>
         <UButton
-          color="gray"
+          color="neutral"
           variant="ghost"
           icon="i-lucide-x"
           class="-my-1"
-          @click="emit('close')" 
+          @click="emit('close')"
         />
       </div>
 
-      <div class="p-4 space-y-4">
+      <div class="p-4 space-y-6">
         <div v-if="error" class="bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 rounded-md px-3 py-2 text-sm">
           {{ error }}
         </div>
 
-        <div class="space-y-1.5">
-          <label class="text-sm font-medium">Title</label>
+        <div class="space-y-2">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Title</label>
           <UInput
             v-model="title"
             placeholder="Event title"
+            class="w-full"
+            :ui="{ base: 'w-full' }"
           />
         </div>
 
-        <div class="space-y-1.5">
-          <label class="text-sm font-medium">Description</label>
+        <div class="space-y-2">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Description</label>
           <UTextarea
             v-model="description"
             placeholder="Event description"
             :rows="3"
+            class="w-full"
+            :ui="{ base: 'w-full' }"
           />
         </div>
 
         <div class="flex gap-4">
-          <div class="flex-1 space-y-1.5">
-            <label class="text-sm font-medium">Start Date</label>
-            <UPopover
-              :model-value="startDateOpen"
-              @update:model-value="startDateOpen = $event"
-            >
+          <div class="w-1/2 space-y-2">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Start Date</label>
+            <UPopover>
               <UButton
-                block
-                variant="outline"
-                :ui="{ base: 'w-full justify-between' }"
+                color="neutral"
+                variant="subtle"
+                icon="i-lucide-calendar"
+                class="w-full justify-between"
               >
-                {{ format(startDate, 'PPP') }}
-                <template #trailing>
-                  <UIcon name="i-lucide-calendar" class="text-gray-500" />
-                </template>
+                {{ startDate ? df.format(startDate.toDate(getLocalTimeZone())) : 'Select a date' }}
               </UButton>
 
               <template #content>
                 <UCalendar
-                  v-model="startDate"
-                  :disabled="{ before: new Date() }"
-                  @update:model-value="(date) => {
-                    if (date) {
-                      startDate = date
-                      if (isBefore(endDate, date)) {
-                        endDate = date
-                      }
-                      error = null
-                      startDateOpen = false
-                    }
-                  }"
+                  v-model="startDate as any"
+                  class="p-2"
                 />
               </template>
             </UPopover>
           </div>
 
-          <div v-if="!allDay" class="min-w-28 space-y-1.5">
-            <label class="text-sm font-medium">Start Time</label>
+          <div v-if="!allDay" class="w-1/2 space-y-2">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Start Time</label>
             <USelect
               v-model="startTime"
-              :options="timeOptions"
+              :items="timeOptions"
               option-attribute="label"
               value-attribute="value"
+              class="w-full"
+              :ui="{ base: 'w-full' }"
             />
           </div>
         </div>
 
         <div class="flex gap-4">
-          <div class="flex-1 space-y-1.5">
-            <label class="text-sm font-medium">End Date</label>
-            <UPopover
-              :model-value="endDateOpen"
-              @update:model-value="endDateOpen = $event"
-            >
+          <div class="w-1/2 space-y-2">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">End Date</label>
+            <UPopover>
               <UButton
-                block
-                variant="outline"
-                :ui="{ base: 'w-full justify-between' }"
+                color="neutral"
+                variant="subtle"
+                icon="i-lucide-calendar"
+                class="w-full justify-between"
               >
-                {{ format(endDate, 'PPP') }}
-                <template #trailing>
-                  <UIcon name="i-lucide-calendar" class="text-gray-500" />
-                </template>
+                {{ endDate ? df.format(endDate.toDate(getLocalTimeZone())) : 'Select a date' }}
               </UButton>
 
               <template #content>
                 <UCalendar
-                  v-model="endDate"
-                  :disabled="{ before: startDate }"
-                  @update:model-value="(date) => {
-                    if (date) {
-                      endDate = date
-                      error = null
-                      endDateOpen = false
-                    }
-                  }"
+                  v-model="endDate as any"
+                  class="p-2"
                 />
               </template>
             </UPopover>
           </div>
 
-          <div v-if="!allDay" class="min-w-28 space-y-1.5">
-            <label class="text-sm font-medium">End Time</label>
+          <div v-if="!allDay" class="w-1/2 space-y-2">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">End Time</label>
             <USelect
               v-model="endTime"
-              :options="timeOptions"
+              :items="timeOptions"
               option-attribute="label"
               value-attribute="value"
+              class="w-full"
+              :ui="{ base: 'w-full' }"
             />
           </div>
         </div>
@@ -329,37 +290,43 @@ function handleDelete() {
           />
         </div>
 
-        <div class="space-y-1.5">
-          <label class="text-sm font-medium">Location</label>
+        <div class="space-y-2">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Location</label>
           <UInput
             v-model="location"
             placeholder="Event location"
+            class="w-full"
+            :ui="{ base: 'w-full' }"
           />
         </div>
 
-        <div class="space-y-4">
-          <label class="text-sm font-medium">Color</label>
-          <URadioGroup
-            v-model="color"
-            :options="colorOptions"
-            option-attribute="label"
-            value-attribute="value"
-            class="flex gap-1.5"
-          >
-            <template #option="{ option }">
+        <div class="space-y-2">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Color</label>
+          <UButtonGroup orientation="horizontal" class="flex gap-1.5">
+            <UButton
+              v-for="option in colorOptions"
+              :key="option.value"
+              variant="ghost"
+              class="size-6 p-0 size-6 transition-all duration-200"
+              @click="color = option.value as EventColor"
+            >
               <div
-                class="size-6 rounded-full"
-                :class="[option.bgClass, option.borderClass]"
+                class="size-4 rounded-full"
+                :class="[
+                  `bg-${option.value}-400`,
+                  `border-${option.value}-400`,
+                  color === option.value ? 'ring-2 ring-gray-200' : '',
+                ]"
               />
-            </template>
-          </URadioGroup>
+            </UButton>
+          </UButtonGroup>
         </div>
       </div>
 
       <div class="flex justify-between p-4 border-t border-gray-200 dark:border-gray-700">
         <UButton
           v-if="event?.id"
-          color="red"
+          color="error"
           variant="ghost"
           icon="i-lucide-trash"
           @click="handleDelete"
@@ -368,7 +335,7 @@ function handleDelete() {
         </UButton>
         <div class="flex gap-2">
           <UButton
-            color="gray"
+            color="neutral"
             variant="ghost"
             @click="emit('close')"
           >

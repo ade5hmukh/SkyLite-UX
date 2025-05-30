@@ -229,7 +229,12 @@ function getDaysForWeek(date: Date) {
 
 function getDaysForAgenda(date: Date) {
   const days: Date[] = [];
-  for (let i = 0; i < 30; i++) {
+  // Add 15 days before the current date
+  for (let i = -15; i < 0; i++) {
+    days.push(addDays(date, i));
+  }
+  // Add the current date and 14 days after
+  for (let i = 0; i < 15; i++) {
     days.push(addDays(date, i));
   }
   return days;

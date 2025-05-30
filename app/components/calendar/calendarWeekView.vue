@@ -72,6 +72,43 @@ const currentTimePosition = computed(() => {
   return ((hours + minutes / 60) / 24) * 100;
 });
 
+function scrollToCurrentTime() {
+  if (!currentTimeVisible.value)
+    return;
+
+  const now = new Date();
+  const today = props.days.find(day => isSameDay(day, now));
+  if (!today)
+    return;
+
+  const hours = now.getHours();
+  const currentHourElement = document.querySelector(`[data-hour="${hours}"][data-day="${format(today, "yyyy-MM-dd")}"]`);
+
+  if (currentHourElement) {
+    const headerHeight = 80; // Approximate height of the header
+    const padding = 20; // Additional padding
+    const elementPosition = currentHourElement.getBoundingClientRect().top;
+    const offsetPosition = elementPosition + window.pageYOffset - headerHeight - padding;
+
+    window.scrollTo({
+      top: offsetPosition,
+      behavior: "smooth",
+    });
+  }
+}
+
+// Scroll to current time when component is mounted
+onMounted(() => {
+  scrollToCurrentTime();
+});
+
+// Watch for changes in days and scroll to current time
+watch(() => props.days, () => {
+  nextTick(() => {
+    scrollToCurrentTime();
+  });
+});
+
 function isToday(date: Date) {
   return isSameDay(date, new Date());
 }
@@ -97,17 +134,6 @@ function shouldShowEventTitle(day: Date, _dayIndex: number, event: CalendarEvent
 
 function handleEventClick(event: CalendarEvent, mouseEvent: MouseEvent) {
   emit("eventClick", event, mouseEvent);
-}
-
-function handleQuarterHourClick(day: Date, hour: number, quarter: number) {
-  const startTime = new Date(day);
-  startTime.setHours(hour);
-  startTime.setMinutes(quarter * 15);
-  emit("eventCreate", startTime);
-}
-
-function handleEventDrop(event: CalendarEvent) {
-  emit("eventUpdate", event);
 }
 </script>
 
@@ -206,13 +232,14 @@ function handleEventDrop(event: CalendarEvent) {
           @click.stop
         >
           <div class="h-full w-full">
-            <CalendarDraggableEvent
+            <CalendarEventItem
               :event="positionedEvent.event"
               view="week"
               :show-time="true"
-              :height="positionedEvent.height"
               @click="(e) => handleEventClick(positionedEvent.event, e)"
-            />
+            >
+              <div>{{ positionedEvent.event.title }}</div>
+            </CalendarEventItem>
           </div>
         </div>
 
@@ -231,19 +258,10 @@ function handleEventDrop(event: CalendarEvent) {
         <div
           v-for="hour in hours"
           :key="hour.toString()"
+          :data-hour="getHours(hour)"
+          :data-day="format(day, 'yyyy-MM-dd')"
           class="relative min-h-[var(--week-cells-height)] border-b border-gray-200 dark:border-gray-700 last:border-b-0"
-        >
-          <CalendarDroppableCell
-            v-for="quarter in [0, 1, 2, 3]"
-            :id="`week-cell-${day.toISOString()}-${getHours(hour) + quarter * 0.25}`"
-            :key="`${hour.toString()}-${quarter}`"
-            :date="day"
-            :time="getHours(hour) + quarter * 0.25"
-            :class="quarter === 0 ? 'top-0' : quarter === 1 ? 'top-[calc(var(--week-cells-height)/4)]' : quarter === 2 ? 'top-[calc(var(--week-cells-height)/4*2)]' : 'top-[calc(var(--week-cells-height)/4*3)]'"
-            @click="handleQuarterHourClick(day, getHours(hour), quarter)"
-            @drop="handleEventDrop"
-          />
-        </div>
+        />
       </div>
     </div>
   </div>
