@@ -9,14 +9,13 @@ const isDark = computed({
     colorMode.value = colorMode.value === "dark" ? "light" : "dark";
   },
 });
-function isActivePath(path) {
+function isActivePath(path: string) {
   return route.path === path;
 };
 </script>
 
 <template>
-  <NuxtPage />
-  <div class="dock dock-xl bg-base-200">
+  <div class="sticky bottom-0 left-0 w-full h-[50px] bg-default flex items-center justify-evenly px-4 z-100">
     <UButton
       :class="isActivePath('/calendar') ? 'text-primary' : 'text-default'"
       to="/calendar"

@@ -3,3 +3,9 @@
 // TODO: Choose default page based on user preference
 await navigateTo("/calendar");
 </script>
+
+<template>
+  <div>
+    <p>Redirecting to calendar...</p>
+  </div>
+</template>
