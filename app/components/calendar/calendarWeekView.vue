@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { format, getHours, isBefore, isSameDay } from "date-fns";
+import { format, getHours, isBefore, isSameDay, startOfDay, addHours, differenceInMinutes } from "date-fns";
 
 import type { CalendarEvent } from "~/utils/calendarTypes";
 
@@ -39,23 +39,112 @@ const allDayEvents = computed(() => {
 // Process events for positioning in the week view
 const processedDayEvents = computed(() => {
   return props.days.map((day) => {
-    const dayEvents = getAllEventsForDay(props.events, day).filter(event => !event.allDay);
-    return sortEvents(dayEvents).map((event, index) => {
+    // Get events for this day that are not all-day events
+    const dayEvents = props.events.filter((event) => {
+      if (event.allDay) return false;
+
       const eventStart = new Date(event.start);
       const eventEnd = new Date(event.end);
-      const startHour = getHours(eventStart);
-      const endHour = getHours(eventEnd);
-      const duration = endHour - startHour;
 
-      return {
-        event,
-        top: startHour * 60, // Convert hours to minutes for positioning
-        height: duration * 60, // Convert duration to minutes
-        left: 0, // You might want to implement overlapping event logic
-        width: 1,
-        zIndex: index + 1,
-      };
+      // Check if event is on this day
+      return (
+        isSameDay(day, eventStart) ||
+        isSameDay(day, eventEnd) ||
+        (eventStart < day && eventEnd > day)
+      );
     });
+
+    // Sort events by start time and duration
+    const sortedEvents = [...dayEvents].sort((a, b) => {
+      const aStart = new Date(a.start);
+      const bStart = new Date(b.start);
+      const aEnd = new Date(a.end);
+      const bEnd = new Date(b.end);
+
+      // First sort by start time
+      if (aStart < bStart) return -1;
+      if (aStart > bStart) return 1;
+
+      // If start times are equal, sort by duration (longer events first)
+      const aDuration = differenceInMinutes(aEnd, aStart);
+      const bDuration = differenceInMinutes(bEnd, bStart);
+      return bDuration - aDuration;
+    });
+
+    // Calculate positions for each event
+    const positionedEvents = [];
+    const dayStart = startOfDay(day);
+
+    // Track columns for overlapping events
+    const columns = [];
+
+    sortedEvents.forEach((event) => {
+      const eventStart = new Date(event.start);
+      const eventEnd = new Date(event.end);
+
+      // Adjust start and end times if they're outside this day
+      const adjustedStart = isSameDay(day, eventStart)
+        ? eventStart
+        : dayStart;
+      const adjustedEnd = isSameDay(day, eventEnd)
+        ? eventEnd
+        : addHours(dayStart, 24);
+
+      // Calculate top position and height
+      const startHour = getHours(adjustedStart) + adjustedStart.getMinutes() / 60;
+      const endHour = getHours(adjustedEnd) + adjustedEnd.getMinutes() / 60;
+
+      // Calculate top and height in minutes
+      const top = startHour * 60;
+      const height = (endHour - startHour) * 60;
+
+      // Find a column for this event
+      let columnIndex = 0;
+      let placed = false;
+
+      while (!placed) {
+        const col = columns[columnIndex] || [];
+        if (col.length === 0) {
+          columns[columnIndex] = col;
+          placed = true;
+        } else {
+          const overlaps = col.some((c) => {
+            const colStart = new Date(c.event.start);
+            const colEnd = new Date(c.event.end);
+            return (
+              (adjustedStart >= colStart && adjustedStart < colEnd) ||
+              (adjustedEnd > colStart && adjustedEnd <= colEnd) ||
+              (adjustedStart <= colStart && adjustedEnd >= colEnd)
+            );
+          });
+          if (!overlaps) {
+            placed = true;
+          } else {
+            columnIndex++;
+          }
+        }
+      }
+
+      // Ensure column is initialized before pushing
+      const currentColumn = columns[columnIndex] || [];
+      columns[columnIndex] = currentColumn;
+      currentColumn.push({ event, end: adjustedEnd });
+
+      // Calculate width and left position based on number of columns
+      const width = columnIndex === 0 ? 1 : 0.9;
+      const left = columnIndex === 0 ? 0 : columnIndex * 0.1;
+
+      positionedEvents.push({
+        event,
+        top,
+        height,
+        left,
+        width,
+        zIndex: 10 + columnIndex, // Higher columns get higher z-index
+      });
+    });
+
+    return positionedEvents;
   });
 });
 

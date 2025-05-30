@@ -63,7 +63,12 @@ const events = ref<CalendarEvent[]>([
 ]);
 
 function handleEventAdd(event: CalendarEvent) {
-  events.value.push(event);
+  // Generate a unique ID for new events
+  const newEvent = {
+    ...event,
+    id: crypto.randomUUID(),
+  };
+  events.value.push(newEvent);
 }
 
 function handleEventUpdate(event: CalendarEvent) {

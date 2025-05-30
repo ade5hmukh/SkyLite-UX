@@ -142,7 +142,7 @@ function handleEventCreate(startTime: Date) {
   }
 
   const newEvent: CalendarEvent = {
-    id: "",
+    id: "",  // Empty ID for new events
     title: "",
     start: startTime,
     end: new Date(startTime.getTime() + 60 * 60 * 1000), // Add 1 hour
@@ -153,10 +153,17 @@ function handleEventCreate(startTime: Date) {
 }
 
 function handleEventSave(event: CalendarEvent) {
-  if (event.id) {
-    _emit('eventUpdate', event);
-  } else {
+  // For new events, we should always emit eventAdd
+  if (!event.id) {
     _emit('eventAdd', event);
+  } else {
+    // For existing events, check if it exists in the current events
+    const existingEvent = props.events?.find(e => e.id === event.id);
+    if (existingEvent) {
+      _emit('eventUpdate', event);
+    } else {
+      _emit('eventAdd', event);
+    }
   }
   isEventDialogOpen.value = false;
 }

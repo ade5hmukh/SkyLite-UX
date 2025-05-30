@@ -5,8 +5,9 @@ import { CalendarDate, DateFormatter, getLocalTimeZone, parseDate } from "@inter
 import { format, isBefore } from "date-fns";
 
 import type { CalendarEvent } from "~/utils/calendarTypes";
+import { getEventColorClasses } from "~/utils/calendarUtils";
 
-type EventColor = "blue" | "violet" | "rose" | "emerald" | "orange";
+type EventColor = "sky" | "violet" | "rose" | "emerald" | "orange";
 
 const props = defineProps<{
   event: CalendarEvent | null;
@@ -38,12 +39,12 @@ const startTime = ref(`${DefaultStartHour}:00`);
 const endTime = ref(`${DefaultEndHour}:00`);
 const allDay = ref(false);
 const location = ref("");
-const color = ref<EventColor>("blue");
+const color = ref<EventColor>("sky");
 const error = ref<string | null>(null);
 
 // Color options
 const colorOptions = [
-  { value: "blue", label: "Blue" },
+  { value: "sky", label: "Blue" },
   { value: "violet", label: "Violet" },
   { value: "rose", label: "Rose" },
   { value: "emerald", label: "Emerald" },
@@ -313,8 +314,7 @@ function handleDelete() {
               <div
                 class="size-4 rounded-full"
                 :class="[
-                  `bg-${option.value}-400`,
-                  `border-${option.value}-400`,
+                  getEventColorClasses(option.value),
                   color === option.value ? 'ring-2 ring-gray-200' : '',
                 ]"
               />

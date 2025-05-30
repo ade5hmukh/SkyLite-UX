@@ -70,7 +70,11 @@ function handleTouchStart(e: TouchEvent) {
 <template>
   <button
     class="focus-visible:border-ring focus-visible:ring-ring/50 flex w-full flex-col gap-1 rounded p-2 text-left transition outline-none focus-visible:ring-[3px] data-past-event:line-through data-past-event:opacity-90"
-    :class="[getEventColorClasses(event.color), className]"
+    :class="[
+      getEventColorClasses(event.color),
+      className,
+      (view === 'week' || view === 'day') && 'h-full'
+    ]"
     :data-past-event="isPast(new Date(event.end)) || undefined"
     @click="handleClick"
     @mousedown="handleMouseDown"
