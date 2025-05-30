@@ -25,6 +25,34 @@ function isToday(date: Date) {
 function handleEventClick(event: CalendarEvent, e: MouseEvent) {
   emit("eventClick", event, e);
 }
+
+function scrollToCurrentDay() {
+  const today = new Date();
+  const todayElement = document.querySelector(`[data-date="${format(today, 'yyyy-MM-dd')}"]`);
+  if (todayElement) {
+    const headerHeight = 80; // Approximate height of the header
+    const padding = 20; // Additional padding
+    const elementPosition = todayElement.getBoundingClientRect().top;
+    const offsetPosition = elementPosition + window.pageYOffset - headerHeight - padding;
+
+    window.scrollTo({
+      top: offsetPosition,
+      behavior: 'smooth'
+    });
+  }
+}
+
+// Scroll to current day when component is mounted
+onMounted(() => {
+  scrollToCurrentDay();
+});
+
+// Watch for changes in days and scroll to current day
+watch(() => props.days, () => {
+  nextTick(() => {
+    scrollToCurrentDay();
+  });
+});
 </script>
 
 <template>
@@ -42,6 +70,7 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
       <div
         v-for="day in daysWithEvents"
         :key="day.toString()"
+        :data-date="format(day, 'yyyy-MM-dd')"
         class="border-gray-200 dark:border-gray-700 relative my-12 border-t border-r"
       >
         <span

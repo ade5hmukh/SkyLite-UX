@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import { format, isSameDay } from "date-fns";
+import { nextTick, onMounted, watch } from "vue";
 
 import type { CalendarEvent } from "~/utils/calendarTypes";
 
-import { getEventsForDay, sortEvents } from "~/utils/calendarUtils";
+import { getAllEventsForDay, sortEvents } from "~/utils/calendarUtils";
 
 const props = defineProps<{
   weeks: Date[][];
@@ -32,6 +33,34 @@ const allEvents = computed(() => {
   return props.events;
 });
 
+function scrollToCurrentDay() {
+  const today = new Date();
+  const todayElement = document.querySelector(`[data-date="${format(today, "yyyy-MM-dd")}"]`);
+  if (todayElement) {
+    const headerHeight = 80; // Approximate height of the header
+    const padding = 20; // Additional padding
+    const elementPosition = todayElement.getBoundingClientRect().top;
+    const offsetPosition = elementPosition + window.pageYOffset - headerHeight - padding;
+
+    window.scrollTo({
+      top: offsetPosition,
+      behavior: "smooth",
+    });
+  }
+}
+
+// Scroll to current day when component is mounted
+onMounted(() => {
+  scrollToCurrentDay();
+});
+
+// Watch for changes in weeks and scroll to current day
+watch(() => props.weeks, () => {
+  nextTick(() => {
+    scrollToCurrentDay();
+  });
+});
+
 function isToday(date: Date) {
   return isSameDay(date, new Date());
 }
@@ -44,16 +73,8 @@ function isLastDay(day: Date, event: CalendarEvent) {
   return isSameDay(day, new Date(event.end));
 }
 
-function onEventCreate(date: Date) {
-  emit("eventCreate", date);
-}
-
 function handleEventClick(event: CalendarEvent, e: MouseEvent) {
   emit("eventClick", event, e);
-}
-
-function handleEventDrop(event: CalendarEvent) {
-  emit("eventUpdate", event);
 }
 </script>
 
@@ -79,51 +100,46 @@ function handleEventDrop(event: CalendarEvent) {
         <div
           v-for="day in week"
           :key="day.toString()"
+          :data-date="format(day, 'yyyy-MM-dd')"
           class="group flex h-full flex-col border border-gray-200 dark:border-gray-700 last:border-r-0"
           :class="{
             'bg-gray-100/25 dark:bg-gray-800/25 text-gray-600 dark:text-gray-400': !isCurrentMonth,
           }"
         >
-          <div class="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-sm"
+          <div
+            class="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-sm"
             :class="{
               'bg-primary text-white': isToday(day),
-              'text-gray-600 dark:text-gray-400': !isToday(day)
+              'text-gray-600 dark:text-gray-400': !isToday(day),
             }"
           >
             {{ format(day, 'd') }}
           </div>
           <div
             :ref="cellRef"
-            class="min-h-[calc((var(--event-height)+var(--event-gap))*2)] sm:min-h-[calc((var(--event-height)+var(--event-gap))*3)] lg:min-h-[calc((var(--event-height)+var(--event-gap))*4)]"
+            class="h-[calc((var(--event-height)+var(--event-gap))*5)] overflow-y-auto px-2 py-1 space-y-1 relative z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
           >
-            <template v-for="event in sortEvents(getEventsForDay(events, day))" :key="event.id">
-              <template v-if="!isFirstDay(day, event)">
-                <CalendarEventItem
-                  :key="`spanning-${event.id}-${day.toISOString().slice(0, 10)}`"
-                  :event="event"
-                  view="month"
-                  :is-first-day="isFirstDay(day, event)"
-                  :is-last-day="isLastDay(day, event)"
-                  @click="(e: MouseEvent) => handleEventClick(event, e)"
-                >
-                  <div class="invisible">
-                    <span v-if="!event.allDay">
-                      {{ format(new Date(event.start), 'h:mm') }}
-                    </span>
-                    {{ event.title }}
-                  </div>
-                </CalendarEventItem>
-              </template>
-              <template v-else>
-                <CalendarEventItem
-                  :key="event.id"
-                  :event="event"
-                  view="month"
-                  :is-first-day="isFirstDay(day, event)"
-                  :is-last-day="isLastDay(day, event)"
-                  @click="(e: MouseEvent) => handleEventClick(event, e)"
-                />
-              </template>
+            <template v-for="event in sortEvents(getAllEventsForDay(events, day))" :key="`${event.id}-${day.toISOString().slice(0, 10)}`">
+              <CalendarEventItem
+                :event="event"
+                view="month"
+                :is-first-day="isFirstDay(day, event)"
+                :is-last-day="isLastDay(day, event)"
+                :class="{
+                  'rounded-l rounded-r-none -mr-2 !w-[calc(100%+0.5rem)]': isFirstDay(day, event) && !isLastDay(day, event),
+                  'rounded-r rounded-l-none -ml-2 !w-[calc(100%+0.5rem)]': !isFirstDay(day, event) && isLastDay(day, event),
+                  'rounded-none -ml-2 -mr-2 !w-[calc(100%+1rem)]': !isFirstDay(day, event) && !isLastDay(day, event),
+                  'rounded': isFirstDay(day, event) && isLastDay(day, event),
+                }"
+                @click="(e) => handleEventClick(event, e)"
+              >
+                <div v-if="isFirstDay(day, event)" class="invisible">
+                  <span v-if="!event.allDay">
+                    {{ format(new Date(event.start), 'h:mm') }}
+                  </span>
+                  {{ event.title }}
+                </div>
+              </CalendarEventItem>
             </template>
 
             <Popover v-if="hasMore" modal>
@@ -164,18 +180,6 @@ function handleEventDrop(event: CalendarEvent) {
               </PopoverContent>
             </Popover>
           </div>
-          <CalendarDroppableCell
-            :id="cellId"
-            :date="day"
-            :time="defaultStartHour ?? 0"
-            class="absolute inset-0"
-            @click="() => {
-              const startTime = new Date(day);
-              startTime.setHours(defaultStartHour ?? 0, 0, 0);
-              onEventCreate(startTime);
-            }"
-            @drop="handleEventDrop"
-          />
         </div>
       </div>
     </div>
