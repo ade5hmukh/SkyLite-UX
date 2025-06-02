@@ -312,7 +312,7 @@ function getDaysForAgenda(date: Date) {
 
     <!-- Calendar views -->
     <div class="flex flex-1 flex-col min-h-0">
-      <CalendarMonthView
+      <GlobalMonthView
         v-if="view === 'month'"
         :weeks="getWeeksForMonth(currentDate)"
         :events="events || []"
@@ -321,7 +321,7 @@ function getDaysForAgenda(date: Date) {
         @event-click="handleEventSelect"
         @event-create="handleEventCreate"
       />
-      <CalendarWeekView
+      <GlobalWeekView
         v-if="view === 'week'"
         :days="getDaysForWeek(currentDate)"
         :events="events || []"
@@ -330,7 +330,7 @@ function getDaysForAgenda(date: Date) {
         @event-click="handleEventSelect"
         @event-create="handleEventCreate"
       />
-      <CalendarDayView
+      <GlobalDayView
         v-if="view === 'day'"
         :current-date="currentDate"
         :events="events || []"
@@ -338,7 +338,7 @@ function getDaysForAgenda(date: Date) {
         @event-click="handleEventSelect"
         @event-create="handleEventCreate"
       />
-      <CalendarAgendaView
+      <GlobalAgendaView
         v-if="view === 'agenda'"
         :days="getDaysForAgenda(currentDate)"
         :events="events || []"
