@@ -49,3 +49,9 @@ Fork the repo and create your branch from `dev`.
 # npm
 npm run dev
 ```
+
+## License
+Distributed under the MIT License. See `LICENSE` for more information.
+
+## Special Thanks
+The calendar UI was rewritten from [OriginUI](https://github.com/origin-space/ui-experiments) React code with express permission. Thank you Pasquale and Davide!
