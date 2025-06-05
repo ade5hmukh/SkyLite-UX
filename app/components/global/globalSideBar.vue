@@ -24,15 +24,15 @@ function isActivePath(path: string) {
       size="xl"
     />
     <UButton
-      :class="isActivePath('/todolists') ? 'text-primary' : 'text-default'"
-      to="/todolists"
+      :class="isActivePath('/toDoLists') ? 'text-primary' : 'text-default'"
+      to="/toDoLists"
       variant="ghost"
       icon="i-lucide-list-todo"
       size="xl"
     />
     <UButton
-      :class="isActivePath('/shoppinglists') ? 'text-primary' : 'text-default'"
-      to="/shoppinglists"
+      :class="isActivePath('/shoppingLists') ? 'text-primary' : 'text-default'"
+      to="/shoppingLists"
       variant="ghost"
       icon="i-lucide-shopping-cart"
       size="xl"

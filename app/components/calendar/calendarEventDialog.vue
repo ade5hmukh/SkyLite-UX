@@ -229,7 +229,8 @@ function handleDelete() {
 
               <template #content>
                 <UCalendar
-                  v-model="startDate as any"
+                  :model-value="startDate"
+                  @update:model-value="(value: DateValue) => startDate = value"
                   class="p-2"
                 />
               </template>
@@ -264,7 +265,8 @@ function handleDelete() {
 
               <template #content>
                 <UCalendar
-                  v-model="endDate as any"
+                  :model-value="endDate"
+                  @update:model-value="(value: DateValue) => endDate = value"
                   class="p-2"
                 />
               </template>
