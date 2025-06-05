@@ -441,7 +441,7 @@ const getIntegrationIcon = (type: string) => {
                 </div>
               </div>
               <div class="flex items-center gap-2">
-                <UToggle
+                <USwitch
                   :model-value="integration.enabled"
                   @update:model-value="handleToggleIntegration(integration.id, $event)"
                 />
@@ -470,14 +470,14 @@ const getIntegrationIcon = (type: string) => {
               <p class="font-medium text-gray-900 dark:text-white">Dark Mode</p>
               <p class="text-sm text-gray-600 dark:text-gray-400">Toggle between light and dark themes</p>
             </div>
-            <UToggle />
+            <USwitch />
           </div>
           <div class="flex items-center justify-between">
             <div>
               <p class="font-medium text-gray-900 dark:text-white">Notifications</p>
               <p class="text-sm text-gray-600 dark:text-gray-400">Enable push notifications</p>
             </div>
-            <UToggle />
+            <USwitch />
           </div>
         </div>
       </div>

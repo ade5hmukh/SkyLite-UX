@@ -3,6 +3,8 @@ import type { CreateShoppingListInput, CreateShoppingListItemInput } from '~/typ
 import ShoppingListDialog from '~/components/shopping/ShoppingListDialog.vue'
 import ShoppingListItemDialog from '~/components/shopping/ShoppingListItemDialog.vue'
 import TandoorEntryDialog from '~/components/shopping/TandoorEntryDialog.vue'
+import MealieEntryDialog from '~/components/shopping/MealieEntryDialog.vue'
+import MealieListDialog from '~/components/shopping/MealieListDialog.vue'
 
 const { 
   shoppingLists, 
@@ -30,14 +32,34 @@ const {
   isTandoorAvailable 
 } = useTandoorShoppingLists()
 
+const {
+  mealieLists,
+  selectedList,
+  loading: mealieLoading,
+  initialize: initializeMealie,
+  fetchMealieLists,
+  fetchMealieList,
+  createMealieList,
+  updateMealieList,
+  deleteMealieList,
+  createMealieItems,
+  deleteMealieItems,
+  updateMealieItem,
+  isMealieAvailable
+} = useMealieShoppingLists()
+
 // Modal state
 const listDialog = ref(false)
 const itemDialog = ref(false)
 const tandoorEntryDialog = ref(false)
+const mealieEntryDialog = ref(false)
+const mealieListDialog = ref(false)
 const selectedListId = ref<string>('')
 const editingList = ref<any>(null)
 const editingItem = ref<any>(null)
 const editingTandoorEntry = ref<any>(null)
+const editingMealieEntry = ref<any>(null)
+const editingMealieList = ref<any>(null)
 
 // Inline editing state
 const editingListNames = ref(new Set<string>())
@@ -63,39 +85,75 @@ const currentIntegration = computed(() => {
   return enabledIntegrationsByType.value.find(i => i.id === selectedIntegrationId.value)
 })
 
+// Watch for integration changes
+watch([activeTab, selectedIntegrationId], async ([newTab, newIntegrationId]) => {
+  if (newTab === 'native') {
+    // Clear any integration-specific state
+    tandoorEntries.value = []
+    mealieLists.value = []
+    selectedList.value = null
+  } else if (newIntegrationId) {
+    const integration = enabledIntegrationsByType.value.find(i => i.id === newIntegrationId)
+    console.log('DEBUG: Integration:', integration)
+    if (integration?.service === 'tandoor') {
+      await fetchTandoorEntries(newIntegrationId)
+    } else if (integration?.service === 'mealie') {
+      // First fetch all lists
+      await fetchMealieLists(newIntegrationId)
+      // Then fetch items for each list and update the list data
+      for (const list of mealieLists.value) {
+        if (!list?.id) continue
+        try {
+          const listWithItems = await fetchMealieList(list.id, newIntegrationId)
+          // Update the list in mealieLists with the items
+          const index = mealieLists.value.findIndex(l => l?.id === list.id)
+          if (index !== -1 && listWithItems) {
+            mealieLists.value[index] = listWithItems
+          }
+        } catch (error) {
+          console.error(`Failed to fetch items for list ${list.id}:`, error)
+        }
+      }
+    }
+  }
+})
+
 // Load shopping lists and integrations on mount
 onMounted(async () => {
   try {
     // Fetch integrations first
     await fetchIntegrations()
     
-    // Initialize Tandoor if available
+    // Initialize integrations if available
     await initializeTandoor()
+    await initializeMealie()
     
     // Then fetch shopping lists
     await fetchShoppingLists()
     
-    // Finally fetch Tandoor entries if available and selected
+    // Finally fetch integration entries if available and selected
     if (isTandoorAvailable.value && currentIntegration.value?.service === 'tandoor') {
       await fetchTandoorEntries(selectedIntegrationId.value)
+    } else if (isMealieAvailable.value && currentIntegration.value?.service === 'mealie') {
+      // First fetch all lists
+      await fetchMealieLists(selectedIntegrationId.value)
+      // Then fetch items for each list and update the list data
+      for (const list of mealieLists.value) {
+        if (!list?.id) continue
+        try {
+          const listWithItems = await fetchMealieList(list.id, selectedIntegrationId.value)
+          // Update the list in mealieLists with the items
+          const index = mealieLists.value.findIndex(l => l?.id === list.id)
+          if (index !== -1 && listWithItems) {
+            mealieLists.value[index] = listWithItems
+          }
+        } catch (error) {
+          console.error(`Failed to fetch items for list ${list.id}:`, error)
+        }
+      }
     }
   } catch (error) {
     console.error('Failed to initialize shopping lists:', error)
-  }
-})
-
-// Watch for integration changes
-watch([activeTab, selectedIntegrationId], async ([newTab, newIntegrationId]) => {
-  if (newTab === 'native') {
-    // Clear any integration-specific state
-    tandoorEntries.value = []
-  } else if (newIntegrationId) {
-    const integration = enabledIntegrationsByType.value.find(i => i.id === newIntegrationId)
-    console.log('DEBUG: Integration:', integration)
-    if (integration?.service === 'tandoor') {
-      await fetchTandoorEntries(newIntegrationId)
-    }
-    // Add other service types here as they are implemented
   }
 })
 
@@ -296,6 +354,103 @@ const getIntegrationIcon = (service: string) => {
       return 'i-lucide-utensils'
     default:
       return 'i-lucide-plug'
+  }
+}
+
+const handleMealieListSave = async (listData: { name: string }) => {
+  try {
+    if (editingMealieList.value?.id) {
+      await updateMealieList(editingMealieList.value.id, listData, selectedIntegrationId.value)
+    } else {
+      await createMealieList(listData, selectedIntegrationId.value)
+    }
+    
+    mealieListDialog.value = false
+    editingMealieList.value = null
+  } catch (error) {
+    console.error('Failed to save Mealie list:', error)
+    alert('Failed to save list. Please try again.')
+  }
+}
+
+const handleMealieEntrySave = async (entryData: { 
+  food: MealieFood | null
+  quantity: number
+  unit: MealieUnit | null
+  note: string
+  isFood: boolean
+  labelId: string | null
+  label: MealieLabel | null
+  foodId: string | null
+  unitId: string | null
+  disableAmount: boolean
+  display: string
+  shoppingListId: string
+  checked: boolean
+  position: number
+  extras: Record<string, any>
+  recipeReferences: any[]
+}) => {
+  try {
+    if (!selectedList.value) {
+      throw new Error('No list selected')
+    }
+
+    const data = {
+      ...entryData,
+      shoppingListId: selectedList.value.id,
+      position: selectedList.value.listItems?.length || 0
+    }
+
+    if (editingMealieEntry.value?.id) {
+      // TODO: Implement update
+      // await updateMealieEntry(editingMealieEntry.value.id, data, selectedIntegrationId.value)
+    } else {
+      await createMealieItems([data], selectedIntegrationId.value)
+    }
+    
+    mealieEntryDialog.value = false
+    editingMealieEntry.value = null
+  } catch (error) {
+    console.error('Failed to save Mealie entry:', error)
+    alert('Failed to save item. Please try again.')
+  }
+}
+
+const handleDeleteMealieList = async (id: string) => {
+  if (confirm('Are you sure you want to delete this list?')) {
+    try {
+      await deleteMealieList(id, selectedIntegrationId.value)
+    } catch (error) {
+      console.error('Failed to delete Mealie list:', error)
+      alert('Failed to delete list. Please try again.')
+    }
+  }
+}
+
+const handleDeleteMealieItem = async (id: string) => {
+  if (confirm('Are you sure you want to delete this item?')) {
+    try {
+      await deleteMealieItems([id], selectedIntegrationId.value)
+    } catch (error) {
+      console.error('Failed to delete Mealie item:', error)
+      alert('Failed to delete item. Please try again.')
+    }
+  }
+}
+
+const handleMealieItemCheck = async (item: MealieShoppingListItem) => {
+  try {
+    // Create a copy of the item with the updated checked status
+    const updatedItem = {
+      ...item,
+      checked: !item.checked
+    }
+    await updateMealieItem([updatedItem], selectedIntegrationId.value)
+  } catch (error) {
+    console.error('Failed to update item:', error)
+    // Revert the checkbox state on error
+    item.checked = !item.checked
   }
 }
 </script>
@@ -614,12 +769,235 @@ const getIntegrationIcon = (service: string) => {
         </div>
       </div>
 
-      <!-- Mealie Lists (placeholder for future implementation) -->
+      <!-- Mealie Lists -->
       <div v-else-if="currentIntegration?.service === 'mealie'" class="flex-1 overflow-y-auto p-4">
-        <div class="flex items-center justify-center h-full">
+        <div v-if="mealieLoading" class="flex items-center justify-center h-full">
+          <div class="text-center">
+            <UIcon name="i-lucide-loader-2" class="h-8 w-8 animate-spin text-primary-500" />
+            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Loading Mealie lists...</p>
+          </div>
+        </div>
+        <div v-else-if="mealieLists.length === 0" class="flex items-center justify-center h-full">
           <div class="text-center">
             <UIcon name="i-lucide-utensils" class="h-8 w-8 text-gray-400" />
-            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">Mealie integration coming soon</p>
+            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">No Mealie shopping lists found</p>
+            <UButton
+              class="mt-4"
+              color="primary"
+              @click="editingMealieList = null; mealieListDialog = true"
+            >
+              Create List
+            </UButton>
+          </div>
+        </div>
+        <div v-else class="h-[calc(100vh-12rem)]">
+          <div class="h-full overflow-x-auto pb-4">
+            <div class="flex gap-6 min-w-max h-full">
+              <div
+                v-for="list in mealieLists"
+                :key="list.id"
+                class="flex-shrink-0 w-96 h-full flex flex-col bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"
+              >
+                <!-- List Header -->
+                <div class="flex-shrink-0 p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-t-lg">
+                  <div class="flex items-center justify-between mb-3">
+                    <div class="flex items-center gap-2 flex-1 min-w-0">
+                      <h2 class="text-lg font-semibold text-gray-900 dark:text-white truncate">
+                        {{ list.name }}
+                      </h2>
+                      <UButton
+                        icon="i-lucide-pencil"
+                        size="xs"
+                        variant="ghost"
+                        color="neutral"
+                        @click="editingMealieList = list; mealieListDialog = true"
+                        :title="`Edit ${list.name}`"
+                      />
+                    </div>
+                    <div class="flex gap-1">
+                      <UButton
+                        icon="i-lucide-plus"
+                        size="sm"
+                        color="neutral"
+                        variant="ghost"
+                        @click="selectedList = list; mealieEntryDialog = true"
+                      />
+                      <UButton
+                        icon="i-lucide-trash"
+                        size="sm"
+                        color="neutral"
+                        variant="ghost"
+                        @click="handleDeleteMealieList(list.id)"
+                      />
+                    </div>
+                  </div>
+                  
+                  <!-- Progress Section -->
+                  <div v-if="list.listItems && list.listItems.length > 0" class="space-y-2">
+                    <div class="flex justify-between text-sm">
+                      <span class="text-gray-600 dark:text-gray-400">
+                        {{ list.listItems.filter(item => item.checked).length }} of {{ list.listItems.length }} items
+                      </span>
+                      <span class="text-gray-600 dark:text-gray-400 font-medium">
+                        {{ Math.round((list.listItems.filter(item => item.checked).length / list.listItems.length) * 100) }}%
+                      </span>
+                    </div>
+                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                      <div 
+                        class="h-2 rounded-full transition-all duration-300"
+                        :class="getProgressColor(Math.round((list.listItems.filter(item => item.checked).length / list.listItems.length) * 100))"
+                        :style="{ width: `${Math.round((list.listItems.filter(item => item.checked).length / list.listItems.length) * 100)}%` }"
+                      />
+                    </div>
+                  </div>
+                  <div v-else class="text-sm text-gray-500 dark:text-gray-400">
+                    No items yet
+                  </div>
+                </div>
+
+                <!-- Items List -->
+                <div class="flex-1 flex flex-col min-h-0">
+                  <!-- Incomplete Items Section (2/3 height) -->
+                  <div class="flex-[2] overflow-y-auto p-4">
+                    <div v-if="!list?.listItems || list.listItems.length === 0" class="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
+                      <UIcon name="i-lucide-shopping-bag" class="h-12 w-12 mb-3 opacity-30" />
+                      <p class="text-sm font-medium mb-1">No items yet</p>
+                      <p class="text-xs mb-4">Add your first item to get started</p>
+                      <UButton size="sm" variant="outline" @click="selectedList = list; mealieEntryDialog = true">
+                        Add Item
+                      </UButton>
+                    </div>
+                    <div v-else class="space-y-2">
+                      <div
+                        v-for="item in list.listItems.filter(i => !i.checked)"
+                        :key="item?.id"
+                        class="group flex items-start gap-3 p-3 rounded-lg transition-all hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
+                        @click="editingMealieEntry = item; mealieEntryDialog = true"
+                      >
+                        <UCheckbox
+                          :model-value="item?.checked"
+                          @update:model-value="handleMealieItemCheck(item)"
+                          @click.stop
+                          class="mt-0.5"
+                        />
+                        <div class="flex-1 min-w-0">
+                          <div class="flex items-center gap-2">
+                            <span 
+                              class="text-sm font-medium text-gray-900 dark:text-white truncate"
+                            >
+                              {{ item?.food?.name || item?.display || 'Unnamed Item' }}
+                            </span>
+                            <span 
+                              v-if="item?.quantity > 1 || item?.unit"
+                              class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full"
+                            >
+                              {{ item?.quantity }}{{ item?.unit ? ` ${item.unit.name}` : '' }}
+                            </span>
+                            <UBadge
+                              v-if="item?.label"
+                              :style="{ backgroundColor: item.label.color }"
+                              class="text-white"
+                            >
+                              {{ item.label.name }}
+                            </UBadge>
+                          </div>
+                          <p 
+                            v-if="item?.note" 
+                            class="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2"
+                          >
+                            {{ item.note }}
+                          </p>
+                        </div>
+                        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" @click.stop>
+                          <UButton
+                            icon="i-lucide-pencil"
+                            size="xs"
+                            variant="ghost"
+                            color="neutral"
+                            @click="editingMealieEntry = item; mealieEntryDialog = true"
+                            :title="`Edit ${item?.food?.name || item?.display || 'Unnamed Item'}`"
+                          />
+                          <UButton
+                            icon="i-lucide-trash-2"
+                            size="xs"
+                            variant="ghost"
+                            color="neutral"
+                            @click="handleDeleteMealieItem(item?.id)"
+                            :title="`Delete ${item?.food?.name || item?.display || 'Unnamed Item'}`"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  <!-- Completed Items Section (1/3 height) -->
+                  <div v-if="list?.listItems?.some(item => item.checked)" class="flex-1 overflow-y-auto p-4 border-t border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50">
+                    <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400 mb-3">Completed Items</h3>
+                    <div class="space-y-2">
+                      <div
+                        v-for="item in list.listItems.filter(i => i.checked)"
+                        :key="item?.id"
+                        class="group flex items-start gap-3 p-3 rounded-lg transition-all hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer opacity-60"
+                        @click="editingMealieEntry = item; mealieEntryDialog = true"
+                      >
+                        <UCheckbox
+                          :model-value="item?.checked"
+                          @update:model-value="handleMealieItemCheck(item)"
+                          @click.stop
+                          class="mt-0.5"
+                        />
+                        <div class="flex-1 min-w-0">
+                          <div class="flex items-center gap-2">
+                            <span 
+                              class="text-sm font-medium text-gray-900 dark:text-white truncate line-through"
+                            >
+                              {{ item?.food?.name || item?.display || 'Unnamed Item' }}
+                            </span>
+                            <span 
+                              v-if="item?.quantity > 1 || item?.unit"
+                              class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full line-through"
+                            >
+                              {{ item?.quantity }}{{ item?.unit ? ` ${item.unit.name}` : '' }}
+                            </span>
+                            <UBadge
+                              v-if="item?.label"
+                              :style="{ backgroundColor: item.label.color }"
+                              class="text-white"
+                            >
+                              {{ item.label.name }}
+                            </UBadge>
+                          </div>
+                          <p 
+                            v-if="item?.note" 
+                            class="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2 line-through"
+                          >
+                            {{ item.note }}
+                          </p>
+                        </div>
+                        <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" @click.stop>
+                          <UButton
+                            icon="i-lucide-pencil"
+                            size="xs"
+                            variant="ghost"
+                            color="neutral"
+                            @click="editingMealieEntry = item; mealieEntryDialog = true"
+                            :title="`Edit ${item?.food?.name || item?.display || 'Unnamed Item'}`"
+                          />
+                          <UButton
+                            icon="i-lucide-trash-2"
+                            size="xs"
+                            variant="ghost"
+                            color="neutral"
+                            @click="handleDeleteMealieItem(item?.id)"
+                            :title="`Delete ${item?.food?.name || item?.display || 'Unnamed Item'}`"
+                          />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -644,7 +1022,16 @@ const getIntegrationIcon = (service: string) => {
       <UIcon name="i-lucide-plus" class="h-6 w-6" />
     </UButton>
 
-    <!-- Shopping List Dialog Modal -->
+    <UButton
+      v-if="activeTab === 'mealie' && selectedList"
+      class="fixed bottom-6 right-6 h-12 w-12 rounded-full shadow-lg"
+      color="primary"
+      @click="selectedList?.id && selectedIntegrationId && (mealieEntryDialog = true)"
+    >
+      <UIcon name="i-lucide-plus" class="h-6 w-6" />
+    </UButton>
+
+    <!-- Dialogs -->
     <ShoppingListDialog
       :is-open="listDialog"
       :list="editingList"
@@ -652,7 +1039,6 @@ const getIntegrationIcon = (service: string) => {
       @save="handleListSave"
     />
 
-    <!-- Shopping List Item Dialog Modal -->
     <ShoppingListItemDialog
       :is-open="itemDialog"
       :item="editingItem"
@@ -660,12 +1046,27 @@ const getIntegrationIcon = (service: string) => {
       @save="handleItemSave"
     />
 
-    <!-- Tandoor Entry Dialog Modal -->
     <TandoorEntryDialog
       :is-open="tandoorEntryDialog"
       :entry="editingTandoorEntry"
       @close="tandoorEntryDialog = false; editingTandoorEntry = null"
       @save="handleTandoorEntrySave"
+    />
+
+    <MealieEntryDialog
+      :is-open="mealieEntryDialog"
+      :entry="editingMealieEntry"
+      :list-id="selectedList?.id"
+      :selected-integration-id="selectedIntegrationId"
+      @close="mealieEntryDialog = false; editingMealieEntry = null"
+      @save="handleMealieEntrySave"
+    />
+
+    <MealieListDialog
+      :is-open="mealieListDialog"
+      :list="editingMealieList"
+      @close="mealieListDialog = false; editingMealieList = null"
+      @save="handleMealieListSave"
     />
   </div>
 </template>
