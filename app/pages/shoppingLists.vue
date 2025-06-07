@@ -1,13 +1,3 @@
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
-=======
->>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
-=======
->>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 <script setup lang="ts">
 import type { CreateShoppingListInput, CreateShoppingListItemInput } from '~/types/database'
 import ShoppingListDialog from '~/components/shopping/ShoppingListDialog.vue'
@@ -310,17 +300,6 @@ const getIntegrationIcon = (service: string) => {
 }
 </script>
 
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 7d9eaf8 (Initial Commit - Tandoor Shopping Lists Integration)
-=======
->>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
-=======
->>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
-=======
->>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 <template>
   <div class="flex h-[calc(100vh-2rem)] w-full flex-col rounded-lg">
     <!-- Header -->
@@ -370,16 +349,6 @@ const getIntegrationIcon = (service: string) => {
         </div>
       </div>
     </div>
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
-=======
->>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
-=======
->>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 
     <!-- Shopping Lists Content -->
     <div class="flex-1 overflow-hidden">
@@ -698,16 +667,5 @@ const getIntegrationIcon = (service: string) => {
       @close="tandoorEntryDialog = false; editingTandoorEntry = null"
       @save="handleTandoorEntrySave"
     />
-<<<<<<< HEAD
-<<<<<<< HEAD
-<<<<<<< HEAD
-=======
->>>>>>> 7d9eaf8 (Initial Commit - Tandoor Shopping Lists Integration)
-=======
->>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
-=======
->>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
-=======
->>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
   </div>
 </template>
