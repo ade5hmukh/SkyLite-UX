@@ -1,5 +1,8 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 =======
 >>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 <script setup lang="ts">
@@ -305,8 +308,11 @@ const getIntegrationIcon = (service: string) => {
 </script>
 
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 7d9eaf8 (Initial Commit - Tandoor Shopping Lists Integration)
+=======
+>>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 =======
 >>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 <template>
@@ -360,6 +366,9 @@ const getIntegrationIcon = (service: string) => {
     </div>
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 =======
 >>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 
@@ -681,8 +690,11 @@ const getIntegrationIcon = (service: string) => {
       @save="handleTandoorEntrySave"
     />
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 7d9eaf8 (Initial Commit - Tandoor Shopping Lists Integration)
+=======
+>>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 =======
 >>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
   </div>
