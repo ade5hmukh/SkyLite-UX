@@ -198,14 +198,271 @@ const getIntegrationIcon = (type: string) => {
         target="_blank"
       />
 
-      <UButton
-        label="GitHub"
-        color="neutral"
-        variant="outline"
-        icon="i-simple-icons-github"
-        to="https://github.com/nuxt/ui"
-        target="_blank"
-      />
+        <!-- New User Form -->
+        <div v-if="showNewUserForm" class="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+          <h3 class="text-md font-medium text-gray-900 dark:text-white mb-4">Create New User</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Name *
+              </label>
+              <UInput
+                v-model="newUser.name"
+                placeholder="Enter user name"
+                :required="true"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Email (optional)
+              </label>
+              <UInput
+                v-model="newUser.email"
+                placeholder="Enter email address"
+                type="email"
+              />
+            </div>
+          </div>
+          <div class="flex justify-end gap-2 mt-4">
+            <UButton
+              variant="ghost"
+              @click="showNewUserForm = false"
+            >
+              Cancel
+            </UButton>
+            <UButton
+              @click="handleCreateUser"
+              :disabled="!newUser.name.trim()"
+            >
+              Create User
+            </UButton>
+          </div>
+        </div>
+
+        <!-- Users List -->
+        <div v-if="loading" class="text-center py-8">
+          <UIcon name="i-lucide-loader-2" class="animate-spin h-8 w-8 mx-auto" />
+          <p class="text-gray-500 dark:text-gray-400 mt-2">Loading users...</p>
+        </div>
+        
+        <div v-else-if="error" class="text-center py-8 text-red-600 dark:text-red-400">
+          {{ error }}
+        </div>
+        
+        <div v-else-if="users.length === 0" class="text-center py-8">
+          <UIcon name="i-lucide-users" class="h-16 w-16 mx-auto text-gray-400 mb-4" />
+          <p class="text-gray-500 dark:text-gray-400 text-lg">No users found</p>
+          <p class="text-gray-400 dark:text-gray-500 mb-6">Create your first user to get started</p>
+        </div>
+        
+        <div v-else>
+          <h3 class="text-md font-medium text-gray-900 dark:text-white mb-4">
+            Existing Users ({{ users.length }})
+          </h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            <div
+              v-for="user in users"
+              :key="user.id"
+              class="flex items-center gap-3 p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700"
+            >
+              <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
+                {{ user.name.charAt(0).toUpperCase() }}
+              </div>
+              <div class="flex-1 min-w-0">
+                <p class="font-medium text-gray-900 dark:text-white truncate">{{ user.name }}</p>
+                <p v-if="user.email" class="text-sm text-gray-500 dark:text-gray-400 truncate">{{ user.email }}</p>
+                <p v-else class="text-sm text-gray-500 dark:text-gray-400">No email</p>
+              </div>
+              <UButton
+                variant="ghost"
+                color="red"
+                size="sm"
+                icon="i-lucide-trash-2"
+                @click="handleDeleteUser(user.id, user.name)"
+                :title="`Delete ${user.name}`"
+              />
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Integrations -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              Integrations
+            </h2>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Connect external services to enhance your experience
+            </p>
+          </div>
+          <UButton
+            icon="i-lucide-plug"
+            @click="showNewIntegrationForm = !showNewIntegrationForm"
+          >
+            Add Integration
+          </UButton>
+        </div>
+
+        <!-- Integration Type Tabs -->
+        <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
+          <nav class="-mb-px flex space-x-8">
+            <button
+              v-for="type in integrationTypes"
+              :key="type.value"
+              @click="activeIntegrationTab = type.value"
+              :class="[
+                activeIntegrationTab === type.value
+                  ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300',
+                'whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm'
+              ]"
+            >
+              {{ type.label }}
+            </button>
+          </nav>
+        </div>
+
+        <!-- New Integration Form -->
+        <div v-if="showNewIntegrationForm" class="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
+          <h3 class="text-md font-medium text-gray-900 dark:text-white mb-4">Add New Integration</h3>
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Integration Name *
+              </label>
+              <UInput
+                v-model="newIntegration.name"
+                placeholder="e.g., My Calendar Integration"
+                :required="true"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Service *
+              </label>
+              <USelect
+                v-model="newIntegration.service"
+                :items="availableServices"
+                value-attribute="value"
+                option-attribute="label"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                API Key *
+              </label>
+              <UInput
+                v-model="newIntegration.apiKey"
+                placeholder="Enter API key"
+                type="password"
+                :required="true"
+              />
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+                Base URL *
+              </label>
+              <UInput
+                v-model="newIntegration.baseUrl"
+                placeholder="https://your-integration-instance.com"
+                :required="true"
+              />
+            </div>
+          </div>
+          <div class="flex justify-end gap-2 mt-4">
+            <UButton
+              variant="ghost"
+              @click="showNewIntegrationForm = false"
+            >
+              Cancel
+            </UButton>
+            <UButton
+              @click="handleCreateIntegration"
+              :disabled="!newIntegration.name.trim() || !newIntegration.service || !newIntegration.apiKey.trim() || !newIntegration.baseUrl.trim()"
+            >
+              Add Integration
+            </UButton>
+          </div>
+        </div>
+
+        <!-- Integrations List -->
+        <div v-if="integrationsLoading" class="text-center py-8">
+          <UIcon name="i-lucide-loader-2" class="animate-spin h-8 w-8 mx-auto" />
+          <p class="text-gray-500 dark:text-gray-400 mt-2">Loading integrations...</p>
+        </div>
+        
+        <div v-else-if="filteredIntegrations.length === 0" class="text-center py-8">
+          <UIcon name="i-lucide-plug" class="h-16 w-16 mx-auto text-gray-400 mb-4" />
+          <p class="text-gray-500 dark:text-gray-400 text-lg">No {{ integrationTypes.find(t => t.value === activeIntegrationTab)?.label }} integrations configured</p>
+          <p class="text-gray-400 dark:text-gray-500 mb-6">Connect external services to enhance your experience</p>
+        </div>
+        
+        <div v-else>
+          <h3 class="text-md font-medium text-gray-900 dark:text-white mb-4">
+            Active {{ integrationTypes.find(t => t.value === activeIntegrationTab)?.label }} Integrations ({{ filteredIntegrations.length }})
+          </h3>
+          <div class="space-y-4">
+            <div
+              v-for="integration in filteredIntegrations"
+              :key="integration.id"
+              class="flex items-center justify-between p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700"
+            >
+              <div class="flex items-center gap-3">
+                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-green-600 flex items-center justify-center text-white text-sm font-medium">
+                  <UIcon 
+                    :name="getIntegrationIcon(integration.service)" 
+                    class="h-5 w-5"
+                  />
+                </div>
+                <div class="flex-1 min-w-0">
+                  <p class="font-medium text-gray-900 dark:text-white">{{ integration.name }}</p>
+                  <p class="text-sm text-gray-500 dark:text-gray-400 capitalize">{{ integrationTypes.find(t => t.value === integration.type)?.services.find(s => s.value === integration.service)?.label }}</p>
+                  <p class="text-xs text-gray-400 dark:text-gray-500 truncate">{{ integration.baseUrl }}</p>
+                </div>
+              </div>
+              <div class="flex items-center gap-2">
+                <UToggle
+                  :model-value="integration.enabled"
+                  @update:model-value="handleToggleIntegration(integration.id, $event)"
+                />
+                <UButton
+                  variant="ghost"
+                  color="red"
+                  size="sm"
+                  icon="i-lucide-trash-2"
+                  @click="handleDeleteIntegration(integration.id, integration.name)"
+                  :title="`Delete ${integration.name}`"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- App Settings -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
+        <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+          Application Settings
+        </h2>
+        <div class="space-y-4">
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="font-medium text-gray-900 dark:text-white">Dark Mode</p>
+              <p class="text-sm text-gray-600 dark:text-gray-400">Toggle between light and dark themes</p>
+            </div>
+            <UToggle />
+          </div>
+          <div class="flex items-center justify-between">
+            <div>
+              <p class="font-medium text-gray-900 dark:text-white">Notifications</p>
+              <p class="text-sm text-gray-600 dark:text-gray-400">Enable push notifications</p>
+            </div>
+            <UToggle />
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
