@@ -1,6 +1,9 @@
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 =======
 >>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 =======
@@ -309,8 +312,11 @@ const getIntegrationIcon = (service: string) => {
 
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 7d9eaf8 (Initial Commit - Tandoor Shopping Lists Integration)
+=======
+>>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 =======
 >>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 =======
@@ -367,6 +373,9 @@ const getIntegrationIcon = (service: string) => {
 <<<<<<< HEAD
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 =======
 >>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 =======
@@ -691,8 +700,11 @@ const getIntegrationIcon = (service: string) => {
     />
 <<<<<<< HEAD
 <<<<<<< HEAD
+<<<<<<< HEAD
 =======
 >>>>>>> 7d9eaf8 (Initial Commit - Tandoor Shopping Lists Integration)
+=======
+>>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 =======
 >>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 =======
