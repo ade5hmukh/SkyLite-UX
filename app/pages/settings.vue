@@ -185,18 +185,36 @@ const getIntegrationIcon = (type: string) => {
 </script>
 
 <template>
-  <div class="flex flex-col items-center justify-center gap-4 h-screen">
-    <h1 class="font-bold text-2xl text-(--ui-primary)">
-      Settings
-    </h1>
+  <div class="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+    <div class="max-w-4xl mx-auto">
+      <!-- Header -->
+      <div class="mb-8">
+        <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
+          Settings
+        </h1>
+        <p class="text-gray-600 dark:text-gray-400">
+          Manage your application preferences and users
+        </p>
+      </div>
 
-    <div class="flex items-center gap-2">
-      <UButton
-        label="Documentation"
-        icon="i-lucide-square-play"
-        to="https://ui.nuxt.com/getting-started/installation/nuxt"
-        target="_blank"
-      />
+      <!-- User Management -->
+      <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+        <div class="flex items-center justify-between mb-6">
+          <div>
+            <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              User Management
+            </h2>
+            <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
+              Create and manage users for the application
+            </p>
+          </div>
+          <UButton
+            icon="i-lucide-user-plus"
+            @click="showNewUserForm = !showNewUserForm"
+          >
+            Add User
+          </UButton>
+        </div>
 
         <!-- New User Form -->
         <div v-if="showNewUserForm" class="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">

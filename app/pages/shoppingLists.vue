@@ -1,4 +1,7 @@
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 <script setup lang="ts">
 import type { CreateShoppingListInput, CreateShoppingListItemInput } from '~/types/database'
 import ShoppingListDialog from '~/components/shopping/ShoppingListDialog.vue'
@@ -301,32 +304,64 @@ const getIntegrationIcon = (service: string) => {
 }
 </script>
 
+<<<<<<< HEAD
 =======
 >>>>>>> 7d9eaf8 (Initial Commit - Tandoor Shopping Lists Integration)
+=======
+>>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 <template>
-  <div class="flex flex-col items-center justify-center gap-4 h-screen">
-    <h1 class="font-bold text-2xl text-(--ui-primary)">
-      Shopping Lists
-    </h1>
-
-    <div class="flex items-center gap-2">
-      <UButton
-        label="Documentation"
-        icon="i-lucide-square-play"
-        to="https://ui.nuxt.com/getting-started/installation/nuxt"
-        target="_blank"
-      />
-
-      <UButton
-        label="GitHub"
-        color="neutral"
-        variant="outline"
-        icon="i-simple-icons-github"
-        to="https://github.com/nuxt/ui"
-        target="_blank"
-      />
+  <div class="flex h-[calc(100vh-2rem)] w-full flex-col rounded-lg">
+    <!-- Header -->
+    <div class="py-5 sm:px-4 sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+      <div class="flex flex-col gap-1.5">
+        <h1 class="font-semibold text-xl text-gray-900 dark:text-white">
+          Shopping Lists
+        </h1>
+        <p class="text-sm text-gray-600 dark:text-gray-400">
+          Organize your shopping and never forget an item
+        </p>
+      </div>
+      
+      <!-- Tabs (only show if integrations are enabled) -->
+      <div v-if="hasEnabledIntegrations" class="mt-4">
+        <div class="border-b border-gray-200 dark:border-gray-700">
+          <nav class="-mb-px flex space-x-8">
+            <button
+              @click="activeTab = 'native'; selectedIntegrationId = null"
+              :class="[
+                activeTab === 'native'
+                  ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300',
+                'whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm'
+              ]"
+            >
+              Native Lists
+            </button>
+            <template v-for="integration in enabledIntegrationsByType" :key="integration.id">
+              <button
+                @click="activeTab = integration.service; selectedIntegrationId = integration.id"
+                :class="[
+                  activeTab === integration.service && selectedIntegrationId === integration.id
+                    ? 'border-primary-500 text-primary-600 dark:text-primary-400'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300',
+                  'whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2'
+                ]"
+              >
+                <UIcon 
+                  :name="getIntegrationIcon(integration.service)" 
+                  class="h-4 w-4" 
+                />
+                {{ integration.name }}
+              </button>
+            </template>
+          </nav>
+        </div>
+      </div>
     </div>
 <<<<<<< HEAD
+<<<<<<< HEAD
+=======
+>>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
 
     <!-- Shopping Lists Content -->
     <div class="flex-1 overflow-hidden">
@@ -645,7 +680,10 @@ const getIntegrationIcon = (service: string) => {
       @close="tandoorEntryDialog = false; editingTandoorEntry = null"
       @save="handleTandoorEntrySave"
     />
+<<<<<<< HEAD
 =======
 >>>>>>> 7d9eaf8 (Initial Commit - Tandoor Shopping Lists Integration)
+=======
+>>>>>>> bea1f9f (Initial Commit - Tandoor Shopping Lists Integration)
   </div>
 </template>
