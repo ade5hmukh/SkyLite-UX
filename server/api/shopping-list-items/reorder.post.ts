@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
     if (!itemId || !direction) {
       throw createError({
         statusCode: 400,
-        statusMessage: "Item ID and direction are required",
+        message: "Item ID and direction are required",
       });
     }
 
@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
     if (!currentItem) {
       throw createError({
         statusCode: 404,
-        statusMessage: "Shopping list item not found",
+        message: "Shopping list item not found",
       });
     }
 
@@ -74,7 +74,7 @@ export default defineEventHandler(async (event) => {
   catch (error) {
     throw createError({
       statusCode: 500,
-      statusMessage: `Failed to reorder shopping list item: ${error}`,
+      message: `Failed to reorder shopping list item: ${error}`,
     });
   }
 });

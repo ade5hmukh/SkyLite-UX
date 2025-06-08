@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
     if (!integrationId) {
       throw createError({
         statusCode: 400,
-        statusMessage: "Integration ID is required",
+        message: "Integration ID is required",
       });
     }
 
@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
   catch (error) {
     throw createError({
       statusCode: 500,
-      statusMessage: `Failed to delete integration: ${error}`,
+      message: `Failed to delete integration: ${error}`,
     });
   }
 });
