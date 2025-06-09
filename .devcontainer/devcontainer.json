@@ -15,8 +15,12 @@
         "Vue.volar",
         "dbaeumer.vscode-eslint",
         "jcbuisson.vue",
-        "GitHub.codespaces"
+        "GitHub.codespaces",
+        "Prisma.prisma"
       ]
     }
+  },
+  "environment": {
+    "DATABASE_URL": "postgresql://postgres:postgres@db:5432/postgres"
   }
 }
