@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
     if (!id) {
       throw createError({
         statusCode: 400,
-        message: "Todo ID is required",
+        statusMessage: "Todo ID is required",
       });
     }
 
@@ -47,7 +47,7 @@ export default defineEventHandler(async (event) => {
   catch (error) {
     throw createError({
       statusCode: 500,
-      message: `Failed to update todo: ${error}`,
+      statusMessage: `Failed to update todo: ${error}`,
     });
   }
 });

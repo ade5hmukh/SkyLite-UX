@@ -2,7 +2,7 @@
 {
   "dockerComposeFile": "docker-compose.yml",
   "service": "app",
-	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
+  "workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "appPort": 3000,
   "forwardPorts": [3000, 5432],
   "remoteUser": "node",

@@ -36,7 +36,7 @@ export default defineEventHandler(async (event) => {
   catch (error) {
     throw createError({
       statusCode: 500,
-      message: `Failed to fetch todo: ${error}`,
+      statusMessage: `Failed to fetch todo: ${error}`,
     });
   }
 });

@@ -24,7 +24,7 @@ export default defineEventHandler(async (_event) => {
   catch (error) {
     throw createError({
       statusCode: 500,
-      message: `Failed to fetch shopping list: ${error}`,
+      statusMessage: `Failed to fetch shopping list: ${error}`,
     });
   }
 });

@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
     if (!todoId || !direction) {
       throw createError({
         statusCode: 400,
-        message: "Todo ID and direction are required",
+        statusMessage: "Todo ID and direction are required",
       });
     }
 
@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
     if (!currentTodo) {
       throw createError({
         statusCode: 404,
-        message: "Todo not found",
+        statusMessage: "Todo not found",
       });
     }
 
@@ -92,7 +92,7 @@ export default defineEventHandler(async (event) => {
   catch (error) {
     throw createError({
       statusCode: 500,
-      message: `Failed to reorder todo: ${error}`,
+      statusMessage: `Failed to reorder todo: ${error}`,
     });
   }
 });

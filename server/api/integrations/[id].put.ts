@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
     if (!integrationId) {
       throw createError({
         statusCode: 400,
-        message: "Integration ID is required",
+        statusMessage: "Integration ID is required",
       });
     }
 
@@ -29,7 +29,7 @@ export default defineEventHandler(async (event) => {
   catch (error) {
     throw createError({
       statusCode: 500,
-      message: `Failed to update integration: ${error}`,
+      statusMessage: `Failed to update integration: ${error}`,
     });
   }
 });

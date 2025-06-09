@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
   if (!pathParts) {
     throw createError({
       statusCode: 400,
-      message: "Invalid path",
+      statusMessage: "Invalid path",
     });
   }
 
@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
   if (method === "POST" && !body) {
     throw createError({
       statusCode: 400,
-      message: "Request body is required for POST requests",
+      statusMessage: "Request body is required for POST requests",
     });
   }
 
@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
   if (!integrationId) {
     throw createError({
       statusCode: 400,
-      message: "integrationId query parameter is required",
+      statusMessage: "integrationId query parameter is required",
     });
   }
 
@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
   if (!integration || !integration.apiKey || !integration.baseUrl) {
     throw createError({
       statusCode: 404,
-      message: "Tandoor integration not found or not configured",
+      statusMessage: "Tandoor integration not found or not configured",
     });
   }
 
@@ -59,7 +59,7 @@ export default defineEventHandler(async (event) => {
   if (integration.type !== "shopping" || !integration.baseUrl.includes("tandoor")) {
     throw createError({
       statusCode: 400,
-      message: "Invalid integration type for Tandoor API",
+      statusMessage: "Invalid integration type for Tandoor API",
     });
   }
 
@@ -99,7 +99,7 @@ export default defineEventHandler(async (event) => {
       console.error("DEBUG: Tandoor API error response:", errorText);
       throw createError({
         statusCode: response.status,
-        message: `Tandoor API error: ${response.status} ${response.statusText} - ${errorText}`,
+        statusMessage: `Tandoor API error: ${response.status} ${response.statusText} - ${errorText}`,
       });
     }
 
@@ -109,7 +109,7 @@ export default defineEventHandler(async (event) => {
     console.error("Error proxying request to Tandoor:", error);
     throw createError({
       statusCode: error.statusCode || 500,
-      message: error.message || "Failed to proxy request to Tandoor",
+      statusMessage: error.message || "Failed to proxy request to Tandoor",
     });
   }
 });

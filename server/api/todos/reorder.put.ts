@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
   catch (error) {
     throw createError({
       statusCode: 500,
-      message: `Failed to reorder todo: ${error}`,
+      statusMessage: `Failed to reorder todo: ${error}`,
     });
   }
 });

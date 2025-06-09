@@ -102,7 +102,7 @@ watch(activeIntegrationTab, (newType) => {
 function handleUserSave(userData: CreateUserInput) {
   if (selectedUser.value?.id) {
     // TODO: Implement user update
-    console.log("Update user:", userData);
+    console.warn("Update user:", userData);
   }
   else {
     createUser(userData);
@@ -195,7 +195,7 @@ function getIntegrationIcon(type: string) {
           <div class="flex items-center justify-between mb-6">
             <div>
               <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
-                User Management
+                Users
               </h2>
             </div>
             <UButton
@@ -219,13 +219,17 @@ function getIntegrationIcon(type: string) {
           </div>
 
           <div v-else-if="users.length === 0" class="text-center py-8">
-            <UIcon name="i-lucide-users" class="h-16 w-16 mx-auto text-gray-400 mb-4" />
-            <p class="text-gray-500 dark:text-gray-400 text-lg">
-              No users found
-            </p>
-            <p class="text-gray-400 dark:text-gray-500 mb-6">
-              Create your first user to get started
-            </p>
+            <div class="flex items-center justify-center gap-2 text-gray-500 dark:text-gray-400">
+              <UIcon name="i-lucide-frown" class="h-10 w-10" />
+              <div class="text-center">
+                <p class="text-lg">
+                  No users found
+                </p>
+                <p class="text-gray-400 dark:text-gray-500">
+                  Create your first user to get started
+                </p>
+              </div>
+            </div>
           </div>
 
           <div v-else>

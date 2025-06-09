@@ -13,7 +13,7 @@ export default defineEventHandler(async (_event) => {
   catch (error) {
     throw createError({
       statusCode: 500,
-      message: `Failed to fetch integration: ${error}`,
+      statusMessage: `Failed to fetch integration: ${error}`,
     });
   }
 });
