@@ -1,7 +1,8 @@
 <script setup lang="ts">
-import type { CreateIntegrationInput, CreateUserInput, User, Integration } from "~/types/database";
-import SettingsUserDialog from "~/components/settings/settingsUserDialog.vue";
+import type { CreateIntegrationInput, CreateUserInput, Integration, User } from "~/types/database";
+
 import SettingsIntegrationDialog from "~/components/settings/settingsIntegrationDialog.vue";
+import SettingsUserDialog from "~/components/settings/settingsUserDialog.vue";
 
 const { users, loading, error, fetchUsers, createUser, deleteUser } = useUsers();
 const { integrations, loading: integrationsLoading, fetchIntegrations, createIntegration, updateIntegration, deleteIntegration } = useIntegrations();
@@ -19,21 +20,14 @@ const isDark = computed({
 // Initialize color mode from system preference if not set
 onMounted(() => {
   if (!colorMode.value) {
-    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
-    colorMode.preference = prefersDark ? 'dark' : 'light';
+    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
+    colorMode.preference = prefersDark ? "dark" : "light";
   }
 });
 
 // Form state
-const showNewUserForm = ref(false);
 const selectedUser = ref<User | null>(null);
 const isUserDialogOpen = ref(false);
-const newUser = reactive<CreateUserInput>({
-  name: "",
-  email: "",
-  avatar: null,
-  todoOrder: 0,
-});
 
 // Integration state
 const selectedIntegration = ref<Integration | null>(null);
@@ -94,12 +88,6 @@ const filteredIntegrations = computed(() => {
   return integrations.value.filter(integration => integration.type === activeIntegrationTab.value);
 });
 
-// Add computed property to get available services for current type
-const availableServices = computed(() => {
-  const type = integrationTypes.find(t => t.value === activeIntegrationTab.value);
-  return type ? type.services : [];
-});
-
 // Watch for tab changes to update the form
 watch(activeIntegrationTab, (newType) => {
   if (showNewIntegrationForm.value) {
@@ -115,7 +103,8 @@ function handleUserSave(userData: CreateUserInput) {
   if (selectedUser.value?.id) {
     // TODO: Implement user update
     console.log("Update user:", userData);
-  } else {
+  }
+  else {
     createUser(userData);
   }
   isUserDialogOpen.value = false;
@@ -140,7 +129,8 @@ function handleIntegrationSave(integrationData: CreateIntegrationInput) {
       createdAt: selectedIntegration.value.createdAt,
       updatedAt: new Date(),
     });
-  } else {
+  }
+  else {
     createIntegration({
       ...integrationData,
       createdAt: new Date(),
@@ -200,7 +190,6 @@ function getIntegrationIcon(type: string) {
   <div>
     <div class="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
       <div class="max-w-4xl mx-auto">
-
         <!-- User Management -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
           <div class="flex items-center justify-between mb-6">
@@ -340,16 +329,16 @@ function getIntegrationIcon(type: string) {
                 :class="[
                   integration.enabled
                     ? 'border-primary-200 dark:border-primary-800 bg-primary-50/50 dark:bg-primary-900/20'
-                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800',
                 ]"
               >
                 <div class="flex items-center gap-3">
-                  <div 
+                  <div
                     class="w-10 h-10 rounded-full flex items-center justify-center text-white"
                     :class="[
                       integration.enabled
                         ? 'bg-gradient-to-br from-blue-500 to-green-600'
-                        : 'bg-gradient-to-br from-gray-400 to-gray-600'
+                        : 'bg-gradient-to-br from-gray-400 to-gray-600',
                     ]"
                   >
                     <UIcon
@@ -372,11 +361,11 @@ function getIntegrationIcon(type: string) {
                 <div class="flex items-center gap-2">
                   <USwitch
                     v-model="integration.enabled"
-                    @update:model-value="handleToggleIntegration(integration.id, $event)"
                     color="primary"
                     unchecked-icon="i-lucide-x"
                     checked-icon="i-lucide-check"
                     size="xl"
+                    @update:model-value="handleToggleIntegration(integration.id, $event)"
                   />
                   <UButton
                     variant="ghost"

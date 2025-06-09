@@ -1,4 +1,5 @@
 import { computed, ref } from "vue";
+
 import type { Integration } from "~/types/database";
 
 export function useIntegrations() {
@@ -8,7 +9,7 @@ export function useIntegrations() {
   const initialized = ref(false);
 
   // Server-side data fetching
-  const { data: serverIntegrations } = useNuxtData<Integration[]>('integrations');
+  const { data: serverIntegrations } = useNuxtData<Integration[]>("integrations");
 
   const fetchIntegrations = async () => {
     if (loading.value)
