@@ -171,7 +171,7 @@ async function handleToggleIntegration(integrationId: string, enabled: boolean) 
   }
 }
 
-// Load users and integrations on mount
+// Load data on mount
 onMounted(async () => {
   await Promise.all([
     fetchUsers(),

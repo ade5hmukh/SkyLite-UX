@@ -6,21 +6,33 @@ export function useUsers() {
   const loading = ref(false);
   const error = ref<string | null>(null);
 
+  // Server-side data fetching
+  const { data: serverUsers } = useNuxtData<User[]>('users');
+
   const fetchUsers = async () => {
     loading.value = true;
     error.value = null;
     try {
       const data = await $fetch<User[]>("/api/users");
       users.value = data || [];
+      return users.value;
     }
     catch (err) {
       error.value = "Failed to fetch users";
       console.error("Error fetching users:", err);
+      return [];
     }
     finally {
       loading.value = false;
     }
   };
+
+  // Watch for server data changes
+  watch(serverUsers, (newUsers) => {
+    if (newUsers) {
+      users.value = newUsers;
+    }
+  });
 
   const createUser = async (userData: CreateUserInput) => {
     try {
@@ -28,7 +40,7 @@ export function useUsers() {
         method: "POST",
         body: userData,
       });
-      users.value.push(newUser);
+      await fetchUsers(); // Refresh data after creation
       return newUser;
     }
     catch (err) {
@@ -68,14 +80,12 @@ export function useUsers() {
         method: "DELETE" as const,
       });
 
-      // Remove user from the local state
-      users.value = users.value.filter(user => user.id !== userId);
-
       // Clear current user if it was the deleted user
       if (currentUser.value?.id === userId) {
         clearCurrentUser();
       }
 
+      await fetchUsers(); // Refresh data after deletion
       return true;
     }
     catch (err) {
@@ -138,6 +148,8 @@ export function useUsers() {
         method: "POST",
         body: { userIds: newOrder },
       });
+
+      await fetchUsers(); // Refresh data after reordering
     }
     catch (err) {
       // Revert on error

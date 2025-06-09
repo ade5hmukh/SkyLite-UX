@@ -1,5 +1,4 @@
 import { computed, ref } from "vue";
-
 import type { Integration } from "~/types/database";
 
 export function useIntegrations() {
@@ -7,6 +6,9 @@ export function useIntegrations() {
   const loading = ref(false);
   const error = ref<string | null>(null);
   const initialized = ref(false);
+
+  // Server-side data fetching
+  const { data: serverIntegrations } = useNuxtData<Integration[]>('integrations');
 
   const fetchIntegrations = async () => {
     if (loading.value)
@@ -32,6 +34,14 @@ export function useIntegrations() {
     }
   };
 
+  // Watch for server data changes
+  watch(serverIntegrations, (newIntegrations) => {
+    if (newIntegrations) {
+      integrations.value = newIntegrations;
+      initialized.value = true;
+    }
+  });
+
   const createIntegration = async (integration: Omit<Integration, "id">) => {
     loading.value = true;
     error.value = null;
@@ -47,7 +57,7 @@ export function useIntegrations() {
         throw new Error("Failed to create integration");
       }
       const newIntegration = await response.json();
-      integrations.value.push(newIntegration);
+      await fetchIntegrations(); // Refresh data after creation
       return newIntegration;
     }
     catch (err) {
@@ -75,10 +85,7 @@ export function useIntegrations() {
         throw new Error("Failed to update integration");
       }
       const updatedIntegration = await response.json();
-      const index = integrations.value.findIndex((i: Integration) => i.id === id);
-      if (index !== -1) {
-        integrations.value[index] = updatedIntegration;
-      }
+      await fetchIntegrations(); // Refresh data after update
       return updatedIntegration;
     }
     catch (err) {
@@ -101,7 +108,7 @@ export function useIntegrations() {
       if (!response.ok) {
         throw new Error("Failed to delete integration");
       }
-      integrations.value = integrations.value.filter((i: Integration) => i.id !== id);
+      await fetchIntegrations(); // Refresh data after deletion
     }
     catch (err) {
       error.value = "Failed to delete integration";
