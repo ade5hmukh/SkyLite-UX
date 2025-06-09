@@ -1,12 +1,12 @@
 // See https://containers.dev/implementors/json_reference/ for configuration reference
 {
-  "name": "Untitled Node.js project",
-  "build": {
-    "dockerfile": "Dockerfile"
-  },
+  "dockerComposeFile": "docker-compose.yml",
+  "service": "app",
+	"workspaceFolder": "/workspaces/${localWorkspaceFolderBasename}",
   "appPort": 3000,
+  "forwardPorts": [3000, 5432],
   "remoteUser": "node",
-  "postCreateCommand": "npm install",
+  "postCreateCommand": "npm install && npx prisma generate",
   "customizations": {
     "vscode": {
       "extensions": [
@@ -15,8 +15,12 @@
         "Vue.volar",
         "dbaeumer.vscode-eslint",
         "jcbuisson.vue",
-        "GitHub.codespaces"
+        "GitHub.codespaces",
+        "Prisma.prisma"
       ]
     }
+  },
+  "environment": {
+    "DATABASE_URL": "postgresql://postgres:postgres@db:5432/postgres"
   }
 }

@@ -21,7 +21,7 @@ export default defineEventHandler(async (_event) => {
   catch (error) {
     throw createError({
       statusCode: 500,
-      statusMessage: `Failed to fetch user: ${error}`,
+      message: `Failed to fetch user: ${error}`,
     });
   }
 });
