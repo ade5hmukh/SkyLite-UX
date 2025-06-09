@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
     if (!Array.isArray(userIds)) {
       throw createError({
         statusCode: 400,
-        statusMessage: "userIds must be an array",
+        message: "userIds must be an array",
       });
     }
 
@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
   catch (error) {
     throw createError({
       statusCode: 500,
-      statusMessage: `Failed to reorder users: ${error}`,
+      message: `Failed to reorder users: ${error}`,
     });
   }
 });

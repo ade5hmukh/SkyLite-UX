@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
   if (!pathParts) {
     throw createError({
       statusCode: 400,
-      statusMessage: "Invalid path",
+      message: "Invalid path",
     });
   }
 
@@ -19,7 +19,7 @@ export default defineEventHandler(async (event) => {
   if (method === "POST" && !body) {
     throw createError({
       statusCode: 400,
-      statusMessage: "Request body is required for POST requests",
+      message: "Request body is required for POST requests",
     });
   }
 
@@ -35,7 +35,7 @@ export default defineEventHandler(async (event) => {
   if (!integrationId) {
     throw createError({
       statusCode: 400,
-      statusMessage: "integrationId query parameter is required",
+      message: "integrationId query parameter is required",
     });
   }
 
@@ -51,7 +51,7 @@ export default defineEventHandler(async (event) => {
   if (!integration || !integration.apiKey || !integration.baseUrl) {
     throw createError({
       statusCode: 404,
-      statusMessage: "Mealie integration not found or not configured",
+      message: "Mealie integration not found or not configured",
     });
   }
 
@@ -59,7 +59,7 @@ export default defineEventHandler(async (event) => {
   if (integration.type !== "shopping") {
     throw createError({
       statusCode: 400,
-      statusMessage: "Invalid integration type for Mealie API",
+      message: "Invalid integration type for Mealie API",
     });
   }
 
@@ -97,7 +97,7 @@ export default defineEventHandler(async (event) => {
     if (!response.ok) {
       throw createError({
         statusCode: response.status,
-        statusMessage: `Mealie API error: ${response.statusText}`,
+        message: `Mealie API error: ${response.statusText}`,
       });
     }
 
@@ -108,7 +108,7 @@ export default defineEventHandler(async (event) => {
     console.error("Error proxying to Mealie:", error);
     throw createError({
       statusCode: error.statusCode || 500,
-      statusMessage: error.message || "Failed to proxy request to Mealie",
+      message: error.message || "Failed to proxy request to Mealie",
     });
   }
 });

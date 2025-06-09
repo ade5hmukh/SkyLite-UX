@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
     if (!userId) {
       throw createError({
         statusCode: 400,
-        statusMessage: "User ID is required",
+        message: "User ID is required",
       });
     }
 
@@ -26,7 +26,7 @@ export default defineEventHandler(async (event) => {
     if (!existingUser) {
       throw createError({
         statusCode: 404,
-        statusMessage: "User not found",
+        message: "User not found",
       });
     }
 
@@ -75,7 +75,7 @@ export default defineEventHandler(async (event) => {
   catch (error) {
     throw createError({
       statusCode: 500,
-      statusMessage: `Failed to delete user: ${error}`,
+      message: `Failed to delete user: ${error}`,
     });
   }
 });

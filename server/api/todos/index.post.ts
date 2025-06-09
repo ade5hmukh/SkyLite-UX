@@ -48,7 +48,7 @@ export default defineEventHandler(async (event) => {
   catch (error) {
     throw createError({
       statusCode: 500,
-      statusMessage: `Failed to create todo: ${error}`,
+      message: `Failed to create todo: ${error}`,
     });
   }
 });

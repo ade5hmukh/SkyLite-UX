@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
   catch (error) {
     throw createError({
       statusCode: 500,
-      statusMessage: `Failed to reorder shopping list: ${error}`,
+      message: `Failed to reorder shopping list: ${error}`,
     });
   }
 });
