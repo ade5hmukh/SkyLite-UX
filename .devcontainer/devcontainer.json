@@ -6,7 +6,7 @@
   "appPort": 3000,
   "forwardPorts": [3000, 5432],
   "remoteUser": "node",
-  "postCreateCommand": "npm install && npx prisma generate",
+  "postCreateCommand": "npm install && npx prisma migrate dev --name init",
   "customizations": {
     "vscode": {
       "extensions": [
