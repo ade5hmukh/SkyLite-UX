@@ -1,11 +1,33 @@
 <script setup lang="ts">
-import type { CreateIntegrationInput, CreateUserInput } from "~/types/database";
+import type { CreateIntegrationInput, CreateUserInput, User, Integration } from "~/types/database";
+import SettingsUserDialog from "~/components/settings/settingsUserDialog.vue";
+import SettingsIntegrationDialog from "~/components/settings/settingsIntegrationDialog.vue";
 
 const { users, loading, error, fetchUsers, createUser, deleteUser } = useUsers();
 const { integrations, loading: integrationsLoading, fetchIntegrations, createIntegration, updateIntegration, deleteIntegration } = useIntegrations();
 
+const colorMode = useColorMode();
+const isDark = computed({
+  get() {
+    return colorMode.value === "dark";
+  },
+  set() {
+    colorMode.value = colorMode.value === "dark" ? "light" : "dark";
+  },
+});
+
+// Initialize color mode from system preference if not set
+onMounted(() => {
+  if (!colorMode.value) {
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    colorMode.preference = prefersDark ? 'dark' : 'light';
+  }
+});
+
 // Form state
 const showNewUserForm = ref(false);
+const selectedUser = ref<User | null>(null);
+const isUserDialogOpen = ref(false);
 const newUser = reactive<CreateUserInput>({
   name: "",
   email: "",
@@ -13,48 +35,9 @@ const newUser = reactive<CreateUserInput>({
   todoOrder: 0,
 });
 
-const showDeleteUserModal = ref(false);
-const userToDelete = ref<{ id: string; name: string } | null>(null);
-
-async function handleCreateUser() {
-  if (!newUser.name.trim())
-    return;
-
-  try {
-    await createUser({
-      name: newUser.name.trim(),
-      email: newUser.email?.trim() || "", // Send empty string if no email
-      avatar: null,
-      todoOrder: 0,
-    });
-
-    // Reset form
-    Object.assign(newUser, { name: "", email: "" });
-    showNewUserForm.value = false;
-  }
-  catch (error) {
-    console.error("Failed to create user:", error);
-  }
-}
-
-async function handleDeleteUser(userId: string, userName: string) {
-  userToDelete.value = { id: userId, name: userName };
-  showDeleteUserModal.value = true;
-}
-
-async function confirmDeleteUser() {
-  if (!userToDelete.value)
-    return;
-
-  try {
-    await deleteUser(userToDelete.value.id);
-    showDeleteUserModal.value = false;
-    userToDelete.value = null;
-  }
-  catch (error) {
-    console.error("Failed to delete user:", error);
-  }
-}
+// Integration state
+const selectedIntegration = ref<Integration | null>(null);
+const isIntegrationDialogOpen = ref(false);
 
 // Integration form state
 const showNewIntegrationForm = ref(false);
@@ -128,59 +111,55 @@ watch(activeIntegrationTab, (newType) => {
   }
 });
 
-async function handleCreateIntegration() {
-  if (!newIntegration.name.trim() || !newIntegration.service || !newIntegration.apiKey?.trim() || !newIntegration.baseUrl?.trim())
-    return;
+function handleUserSave(userData: CreateUserInput) {
+  if (selectedUser.value?.id) {
+    // TODO: Implement user update
+    console.log("Update user:", userData);
+  } else {
+    createUser(userData);
+  }
+  isUserDialogOpen.value = false;
+  selectedUser.value = null;
+}
 
-  try {
-    await createIntegration({
-      name: newIntegration.name.trim(),
-      type: activeIntegrationTab.value,
-      service: newIntegration.service,
-      apiKey: newIntegration.apiKey?.trim() || "",
-      baseUrl: newIntegration.baseUrl?.trim() || "",
-      enabled: newIntegration.enabled,
-      settings: {},
+function handleUserDelete(userId: string) {
+  deleteUser(userId);
+  isUserDialogOpen.value = false;
+  selectedUser.value = null;
+}
+
+function openUserDialog(user: User | null = null) {
+  selectedUser.value = user;
+  isUserDialogOpen.value = true;
+}
+
+function handleIntegrationSave(integrationData: CreateIntegrationInput) {
+  if (selectedIntegration.value?.id) {
+    updateIntegration(selectedIntegration.value.id, {
+      ...integrationData,
+      createdAt: selectedIntegration.value.createdAt,
+      updatedAt: new Date(),
+    });
+  } else {
+    createIntegration({
+      ...integrationData,
       createdAt: new Date(),
       updatedAt: new Date(),
     });
-
-    // Reset form
-    Object.assign(newIntegration, {
-      name: "",
-      type: activeIntegrationTab.value,
-      service: availableServices.value[0]?.value || "",
-      apiKey: "",
-      baseUrl: "",
-      enabled: true,
-    });
-    showNewIntegrationForm.value = false;
   }
-  catch (error) {
-    console.error("Failed to create integration:", error);
-  }
+  isIntegrationDialogOpen.value = false;
+  selectedIntegration.value = null;
 }
 
-const showDeleteIntegrationModal = ref(false);
-const integrationToDelete = ref<{ id: string; name: string } | null>(null);
-
-async function handleDeleteIntegration(integrationId: string, integrationName: string) {
-  integrationToDelete.value = { id: integrationId, name: integrationName };
-  showDeleteIntegrationModal.value = true;
+function handleIntegrationDelete(integrationId: string) {
+  deleteIntegration(integrationId);
+  isIntegrationDialogOpen.value = false;
+  selectedIntegration.value = null;
 }
 
-async function confirmDeleteIntegration() {
-  if (!integrationToDelete.value)
-    return;
-
-  try {
-    await deleteIntegration(integrationToDelete.value.id);
-    showDeleteIntegrationModal.value = false;
-    integrationToDelete.value = null;
-  }
-  catch (error) {
-    console.error("Failed to delete integration:", error);
-  }
+function openIntegrationDialog(integration: Integration | null = null) {
+  selectedIntegration.value = integration;
+  isIntegrationDialogOpen.value = true;
 }
 
 async function handleToggleIntegration(integrationId: string, enabled: boolean) {
@@ -221,15 +200,6 @@ function getIntegrationIcon(type: string) {
   <div>
     <div class="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
       <div class="max-w-4xl mx-auto">
-        <!-- Header -->
-        <div class="mb-8">
-          <h1 class="text-3xl font-bold text-gray-900 dark:text-white mb-2">
-            Settings
-          </h1>
-          <p class="text-gray-600 dark:text-gray-400">
-            Manage your application preferences and users
-          </p>
-        </div>
 
         <!-- User Management -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
@@ -238,59 +208,13 @@ function getIntegrationIcon(type: string) {
               <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
                 User Management
               </h2>
-              <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                Create and manage users for the application
-              </p>
             </div>
             <UButton
               icon="i-lucide-user-plus"
-              @click="showNewUserForm = !showNewUserForm"
+              @click="openUserDialog()"
             >
               Add User
             </UButton>
-          </div>
-
-          <!-- New User Form -->
-          <div v-if="showNewUserForm" class="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            <h3 class="text-md font-medium text-gray-900 dark:text-white mb-4">
-              Create New User
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Name *
-                </label>
-                <UInput
-                  v-model="newUser.name"
-                  placeholder="Enter user name"
-                  :required="true"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Email (optional)
-                </label>
-                <UInput
-                  v-model="newUser.email"
-                  placeholder="Enter email address"
-                  type="email"
-                />
-              </div>
-            </div>
-            <div class="flex justify-end gap-2 mt-4">
-              <UButton
-                variant="ghost"
-                @click="showNewUserForm = false"
-              >
-                Cancel
-              </UButton>
-              <UButton
-                :disabled="!newUser.name.trim()"
-                @click="handleCreateUser"
-              >
-                Create User
-              </UButton>
-            </div>
           </div>
 
           <!-- Users List -->
@@ -316,9 +240,6 @@ function getIntegrationIcon(type: string) {
           </div>
 
           <div v-else>
-            <h3 class="text-md font-medium text-gray-900 dark:text-white mb-4">
-              Existing Users ({{ users.length }})
-            </h3>
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               <div
                 v-for="user in users"
@@ -339,14 +260,15 @@ function getIntegrationIcon(type: string) {
                     No email
                   </p>
                 </div>
-                <UButton
-                  variant="ghost"
-                  color="error"
-                  size="sm"
-                  icon="i-lucide-trash-2"
-                  :title="`Delete ${user.name}`"
-                  @click="handleDeleteUser(user.id, user.name)"
-                />
+                <div class="flex items-center gap-2">
+                  <UButton
+                    variant="ghost"
+                    size="sm"
+                    icon="i-lucide-edit"
+                    :title="`Edit ${user.name}`"
+                    @click="openUserDialog(user)"
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -359,13 +281,10 @@ function getIntegrationIcon(type: string) {
               <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
                 Integrations
               </h2>
-              <p class="text-sm text-gray-600 dark:text-gray-400 mt-1">
-                Connect external services to enhance your experience
-              </p>
             </div>
             <UButton
               icon="i-lucide-plug"
-              @click="showNewIntegrationForm = !showNewIntegrationForm"
+              @click="openIntegrationDialog()"
             >
               Add Integration
             </UButton>
@@ -390,71 +309,6 @@ function getIntegrationIcon(type: string) {
             </nav>
           </div>
 
-          <!-- New Integration Form -->
-          <div v-if="showNewIntegrationForm" class="mb-6 p-4 bg-gray-50 dark:bg-gray-700 rounded-lg">
-            <h3 class="text-md font-medium text-gray-900 dark:text-white mb-4">
-              Add New Integration
-            </h3>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Integration Name *
-                </label>
-                <UInput
-                  v-model="newIntegration.name"
-                  placeholder="e.g., My Calendar Integration"
-                  :required="true"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Service *
-                </label>
-                <USelect
-                  v-model="newIntegration.service"
-                  :items="availableServices"
-                  value-attribute="value"
-                  option-attribute="label"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  API Key *
-                </label>
-                <UInput
-                  v-model="newIntegration.apiKey"
-                  placeholder="Enter API key"
-                  type="password"
-                  :required="true"
-                />
-              </div>
-              <div>
-                <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
-                  Base URL *
-                </label>
-                <UInput
-                  v-model="newIntegration.baseUrl"
-                  placeholder="https://your-integration-instance.com"
-                  :required="true"
-                />
-              </div>
-            </div>
-            <div class="flex justify-end gap-2 mt-4">
-              <UButton
-                variant="ghost"
-                @click="showNewIntegrationForm = false"
-              >
-                Cancel
-              </UButton>
-              <UButton
-                :disabled="!newIntegration.name.trim() || !newIntegration.service || !newIntegration.apiKey?.trim() || !newIntegration.baseUrl?.trim()"
-                @click="handleCreateIntegration"
-              >
-                Add Integration
-              </UButton>
-            </div>
-          </div>
-
           <!-- Integrations List -->
           <div v-if="integrationsLoading" class="text-center py-8">
             <UIcon name="i-lucide-loader-2" class="animate-spin h-8 w-8 mx-auto" />
@@ -464,27 +318,40 @@ function getIntegrationIcon(type: string) {
           </div>
 
           <div v-else-if="filteredIntegrations.length === 0" class="text-center py-8">
-            <UIcon name="i-lucide-plug" class="h-16 w-16 mx-auto text-gray-400 mb-4" />
-            <p class="text-gray-500 dark:text-gray-400 text-lg">
-              No {{ integrationTypes.find(t => t.value === activeIntegrationTab)?.label }} integrations configured
-            </p>
-            <p class="text-gray-400 dark:text-gray-500 mb-6">
-              Connect external services to enhance your experience
-            </p>
+            <div class="flex items-center justify-center gap-2 text-gray-500 dark:text-gray-400">
+              <UIcon name="i-lucide-frown" class="h-10 w-10" />
+              <div class="text-center">
+                <p class="text-lg">
+                  No {{ integrationTypes.find(t => t.value === activeIntegrationTab)?.label }} integrations configured
+                </p>
+                <p class="text-gray-400 dark:text-gray-500">
+                  Connect external services to enhance your experience
+                </p>
+              </div>
+            </div>
           </div>
 
           <div v-else>
-            <h3 class="text-md font-medium text-gray-900 dark:text-white mb-4">
-              Active {{ integrationTypes.find(t => t.value === activeIntegrationTab)?.label }} Integrations ({{ filteredIntegrations.length }})
-            </h3>
             <div class="space-y-4">
               <div
                 v-for="integration in filteredIntegrations"
                 :key="integration.id"
-                class="flex items-center justify-between p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700"
+                class="flex items-center justify-between p-4 rounded-lg border"
+                :class="[
+                  integration.enabled
+                    ? 'border-primary-200 dark:border-primary-800 bg-primary-50/50 dark:bg-primary-900/20'
+                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800'
+                ]"
               >
                 <div class="flex items-center gap-3">
-                  <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-green-600 flex items-center justify-center text-white text-sm font-medium">
+                  <div 
+                    class="w-10 h-10 rounded-full flex items-center justify-center text-white"
+                    :class="[
+                      integration.enabled
+                        ? 'bg-gradient-to-br from-blue-500 to-green-600'
+                        : 'bg-gradient-to-br from-gray-400 to-gray-600'
+                    ]"
+                  >
                     <UIcon
                       :name="getIntegrationIcon(integration.service)"
                       class="h-5 w-5"
@@ -503,17 +370,20 @@ function getIntegrationIcon(type: string) {
                   </div>
                 </div>
                 <div class="flex items-center gap-2">
-                  <UToggle
-                    :model-value="integration.enabled"
+                  <USwitch
+                    v-model="integration.enabled"
                     @update:model-value="handleToggleIntegration(integration.id, $event)"
+                    color="primary"
+                    unchecked-icon="i-lucide-x"
+                    checked-icon="i-lucide-check"
+                    size="xl"
                   />
                   <UButton
                     variant="ghost"
-                    color="error"
                     size="sm"
-                    icon="i-lucide-trash-2"
-                    :title="`Delete ${integration.name}`"
-                    @click="handleDeleteIntegration(integration.id, integration.name)"
+                    icon="i-lucide-edit"
+                    :title="`Edit ${integration.name}`"
+                    @click="openIntegrationDialog(integration)"
                   />
                 </div>
               </div>
@@ -536,7 +406,13 @@ function getIntegrationIcon(type: string) {
                   Toggle between light and dark themes
                 </p>
               </div>
-              <UToggle />
+              <USwitch
+                v-model="isDark"
+                color="primary"
+                checked-icon="i-lucide-moon"
+                unchecked-icon="i-lucide-sun"
+                size="xl"
+              />
             </div>
             <div class="flex items-center justify-between">
               <div>
@@ -544,52 +420,39 @@ function getIntegrationIcon(type: string) {
                   Notifications
                 </p>
                 <p class="text-sm text-gray-600 dark:text-gray-400">
-                  Enable push notifications
+                  Enable push notifications (Coming Soon™)
                 </p>
               </div>
-              <UToggle />
+              <USwitch
+                color="primary"
+                checked-icon="i-lucide-alarm-clock-check"
+                unchecked-icon="i-lucide-alarm-clock-off"
+                size="xl"
+              />
             </div>
           </div>
         </div>
       </div>
     </div>
 
-    <UModal v-model="showDeleteUserModal">
-      <div class="p-4">
-        <h3 class="text-lg font-medium mb-4">
-          Delete User
-        </h3>
-        <p class="mb-4">
-          Are you sure you want to delete user "{{ userToDelete?.name }}"? Their todos will be moved to the Unassigned column.
-        </p>
-        <div class="flex justify-end gap-2">
-          <UButton variant="ghost" @click="showDeleteUserModal = false">
-            Cancel
-          </UButton>
-          <UButton color="error" @click="confirmDeleteUser">
-            Delete
-          </UButton>
-        </div>
-      </div>
-    </UModal>
+    <!-- User Dialog -->
+    <SettingsUserDialog
+      :user="selectedUser"
+      :is-open="isUserDialogOpen"
+      @close="isUserDialogOpen = false"
+      @save="handleUserSave"
+      @delete="handleUserDelete"
+    />
 
-    <UModal v-model="showDeleteIntegrationModal">
-      <div class="p-4">
-        <h3 class="text-lg font-medium mb-4">
-          Delete Integration
-        </h3>
-        <p class="mb-4">
-          Are you sure you want to delete the "{{ integrationToDelete?.name }}" integration?
-        </p>
-        <div class="flex justify-end gap-2">
-          <UButton variant="ghost" @click="showDeleteIntegrationModal = false">
-            Cancel
-          </UButton>
-          <UButton color="error" @click="confirmDeleteIntegration">
-            Delete
-          </UButton>
-        </div>
-      </div>
-    </UModal>
+    <!-- Integration Dialog -->
+    <SettingsIntegrationDialog
+      :integration="selectedIntegration"
+      :is-open="isIntegrationDialogOpen"
+      :integration-types="integrationTypes"
+      :active-type="activeIntegrationTab"
+      @close="isIntegrationDialogOpen = false"
+      @save="handleIntegrationSave"
+      @delete="handleIntegrationDelete"
+    />
   </div>
 </template>
