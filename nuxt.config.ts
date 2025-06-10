@@ -16,6 +16,12 @@ export default defineNuxtConfig({
 
   vite: {
     plugins: [tailwindcss()],
+    optimizeDeps: {
+      include: [
+        "date-fns", 
+        "@internationalized/date",
+      ],
+    },
   },
 
   css: ["~/assets/css/main.css"],

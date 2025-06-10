@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
     if (!Array.isArray(userIds)) {
       throw createError({
         statusCode: 400,
-        message: 'userIds must be an array',
+        message: "userIds must be an array",
       });
     }
 
@@ -22,10 +22,11 @@ export default defineEventHandler(async (event) => {
     await prisma.$transaction(updates);
 
     return { success: true };
-  } catch (error) {
+  }
+  catch (error) {
     throw createError({
       statusCode: 500,
       message: `Failed to reorder users: ${error}`,
     });
   }
-}); 
+});

@@ -7,7 +7,7 @@ export default defineEventHandler(async (event) => {
     if (!id) {
       throw createError({
         statusCode: 400,
-        statusMessage: "Todo column ID is required",
+        message: "Todo column ID is required",
       });
     }
 
@@ -22,7 +22,7 @@ export default defineEventHandler(async (event) => {
     if (!existingColumn) {
       throw createError({
         statusCode: 404,
-        statusMessage: "Todo column not found",
+        message: "Todo column not found",
       });
     }
 
@@ -30,7 +30,7 @@ export default defineEventHandler(async (event) => {
     if (existingColumn.userId || existingColumn.isDefault) {
       throw createError({
         statusCode: 400,
-        statusMessage: "Cannot delete user columns or the default unassigned column",
+        message: "Cannot delete user columns or the default unassigned column",
       });
     }
 
@@ -72,7 +72,7 @@ export default defineEventHandler(async (event) => {
   catch (error) {
     throw createError({
       statusCode: 500,
-      statusMessage: `Failed to delete todo column: ${error}`,
+      message: `Failed to delete todo column: ${error}`,
     });
   }
 });

@@ -30,7 +30,7 @@ export default defineEventHandler(async (_event) => {
   catch (error) {
     throw createError({
       statusCode: 500,
-      statusMessage: `Failed to fetch todo column: ${error}`,
+      message: `Failed to fetch todo column: ${error}`,
     });
   }
 });

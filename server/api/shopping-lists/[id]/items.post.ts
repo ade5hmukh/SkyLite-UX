@@ -8,7 +8,7 @@ export default defineEventHandler(async (event) => {
     if (!listId) {
       throw createError({
         statusCode: 400,
-        statusMessage: "Shopping list ID is required",
+        message: "Shopping list ID is required",
       });
     }
 
@@ -38,7 +38,7 @@ export default defineEventHandler(async (event) => {
   catch (error) {
     throw createError({
       statusCode: 500,
-      statusMessage: `Failed to add item to shopping list: ${error}`,
+      message: `Failed to add item to shopping list: ${error}`,
     });
   }
 });
