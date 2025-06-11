@@ -3,12 +3,12 @@ type TodoColumn = {
   name: string;
   order: number;
   isDefault: boolean;
-  userId?: string;
-  user?: {
+  userId: string | null;
+  user: {
     id: string;
     name: string;
-    avatar?: string;
-  };
+    avatar: string | null;
+  } | null;
   todos?: any[];
   _count?: {
     todos: number;
@@ -22,12 +22,19 @@ export function useTodoColumns() {
   const loading = ref(false);
   const error = ref<string | null>(null);
 
+  // Server-side data fetching
+  const { data: serverTodoColumns } = useNuxtData<TodoColumn[]>("todo-columns");
+
   // Fetch all todo columns
   const fetchTodoColumns = async () => {
     loading.value = true;
     try {
-      const data = await $fetch("/api/todo-columns");
-      todoColumns.value = data;
+      const data = await $fetch<any[]>("/api/todo-columns");
+      todoColumns.value = data.map(item => ({
+        ...item,
+        createdAt: new Date(item.createdAt).toISOString(),
+        updatedAt: new Date(item.updatedAt).toISOString(),
+      }));
       error.value = null;
     }
     catch (err: any) {
@@ -38,6 +45,13 @@ export function useTodoColumns() {
       loading.value = false;
     }
   };
+
+  // Watch for server data changes
+  watch(serverTodoColumns, (newColumns) => {
+    if (newColumns) {
+      todoColumns.value = newColumns;
+    }
+  });
 
   // Create a new todo column
   const createTodoColumn = async (columnData: {
@@ -69,7 +83,7 @@ export function useTodoColumns() {
   // Update a todo column
   const updateTodoColumn = async (columnId: string, updates: { name?: string }) => {
     try {
-      const updatedColumn = await $fetch(`/api/todo-columns/${columnId}`, {
+      const updatedColumn = await $fetch<TodoColumn>(`/api/todo-columns/${columnId}`, {
         method: "PUT",
         body: updates,
       });
@@ -77,7 +91,7 @@ export function useTodoColumns() {
       // Update the column in the local state
       const columnIndex = todoColumns.value.findIndex(column => column.id === columnId);
       if (columnIndex !== -1) {
-        todoColumns.value[columnIndex] = { ...todoColumns.value[columnIndex], ...updatedColumn };
+        todoColumns.value[columnIndex] = updatedColumn;
       }
 
       error.value = null;

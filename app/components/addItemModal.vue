@@ -1,83 +1,83 @@
 <script setup lang="ts">
-
-interface TodoColumn {
-  id: string
-  name: string
+type TodoColumn = {
+  id: string;
+  name: string;
   user?: {
-    id: string
-    name: string
-    avatar?: string
-  }
-}
+    id: string;
+    name: string;
+    avatar?: string;
+  };
+};
 
 const props = defineProps<{
-  isOpen: boolean
-  todoColumns: TodoColumn[]
-}>()
+  isOpen: boolean;
+  todoColumns: TodoColumn[];
+}>();
 
 const emit = defineEmits<{
-  (e: 'close'): void
-  (e: 'todo-save', todo: any): void
-  (e: 'todo-delete', todoId: string): void
-  (e: 'column-save', column: { name: string }): void
-}>()
+  (e: "close"): void;
+  (e: "todoSave", todo: any): void;
+  (e: "todoDelete", todoId: string): void;
+  (e: "columnSave", column: { name: string }): void;
+}>();
 
-const activeTab = ref<'todo' | 'column'>('todo')
+const activeTab = ref<"todo" | "column">("todo");
 
 // Todo form state
-const todoTitle = ref('')
-const todoDescription = ref('')
-const todoPriority = ref<'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT'>('MEDIUM')
-const todoDueDate = ref('')
-const todoColumnId = ref<string | null>(null)
-const todoError = ref<string | null>(null)
+const todoTitle = ref("");
+const todoDescription = ref("");
+const todoPriority = ref<"LOW" | "MEDIUM" | "HIGH" | "URGENT">("MEDIUM");
+const todoDueDate = ref("");
+const todoColumnId = ref<string | undefined>(undefined);
+const todoError = ref<string | null>(null);
 
 // Column form state
-const columnName = ref('')
-const columnError = ref<string | null>(null)
+const columnName = ref("");
+const columnError = ref<string | null>(null);
 
 const priorityOptions = [
-  { label: 'Low', value: 'LOW' },
-  { label: 'Medium', value: 'MEDIUM' },
-  { label: 'High', value: 'HIGH' },
-  { label: 'Urgent', value: 'URGENT' }
-]
+  { label: "Low", value: "LOW" },
+  { label: "Medium", value: "MEDIUM" },
+  { label: "High", value: "HIGH" },
+  { label: "Urgent", value: "URGENT" },
+];
 
 // Watch for modal open/close
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
-    activeTab.value = 'todo'
-    resetTodoForm()
-    resetColumnForm()
-  } else {
-    resetTodoForm()
-    resetColumnForm()
+    activeTab.value = "todo";
+    resetTodoForm();
+    resetColumnForm();
   }
-})
+  else {
+    resetTodoForm();
+    resetColumnForm();
+  }
+});
 
 function resetTodoForm() {
-  todoTitle.value = ''
-  todoDescription.value = ''
-  todoPriority.value = 'MEDIUM'
-  todoDueDate.value = ''
-  todoColumnId.value = null
-  todoError.value = null
+  todoTitle.value = "";
+  todoDescription.value = "";
+  todoPriority.value = "MEDIUM";
+  todoDueDate.value = "";
+  todoColumnId.value = undefined;
+  todoError.value = null;
 }
 
 function resetColumnForm() {
-  columnName.value = ''
-  columnError.value = null
+  columnName.value = "";
+  columnError.value = null;
 }
 
 function handleTodoSave() {
   if (!todoTitle.value.trim()) {
-    todoError.value = 'Title is required'
-    return
+    todoError.value = "Title is required";
+    return;
   }
 
   if (!todoColumnId.value && props.todoColumns.length > 0) {
-    todoError.value = 'Please select a column'
-    return
+    todoError.value = "Please select a column";
+    return;
   }
 
   const todoData = {
@@ -85,23 +85,23 @@ function handleTodoSave() {
     description: todoDescription.value.trim() || null,
     priority: todoPriority.value,
     dueDate: todoDueDate.value ? new Date(todoDueDate.value) : null,
-    todoColumnId: todoColumnId.value || (props.todoColumns.length > 0 ? props.todoColumns[0].id : null)
-  }
+    todoColumnId: todoColumnId.value || (props.todoColumns.length > 0 ? props.todoColumns[0]?.id ?? undefined : undefined),
+  };
 
-  emit('todo-save', todoData)
-  resetTodoForm()
-  emit('close')
+  emit("todoSave", todoData);
+  resetTodoForm();
+  emit("close");
 }
 
 function handleColumnSave() {
   if (!columnName.value.trim()) {
-    columnError.value = 'Column name is required'
-    return
+    columnError.value = "Column name is required";
+    return;
   }
 
-  emit('column-save', { name: columnName.value.trim() })
-  resetColumnForm()
-  emit('close')
+  emit("columnSave", { name: columnName.value.trim() });
+  resetColumnForm();
+  emit("close");
 }
 </script>
 
@@ -133,13 +133,13 @@ function handleColumnSave() {
       <div class="border-b border-gray-200 dark:border-gray-700">
         <nav class="flex space-x-8 px-4" aria-label="Tabs">
           <button
-            @click="activeTab = 'todo'"
+            class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors"
             :class="[
-              'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors',
               activeTab === 'todo'
                 ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600',
             ]"
+            @click="activeTab = 'todo'"
           >
             <div class="flex items-center gap-2">
               <UIcon name="i-lucide-check-square" class="h-4 w-4" />
@@ -147,13 +147,13 @@ function handleColumnSave() {
             </div>
           </button>
           <button
-            @click="activeTab = 'column'"
+            class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors"
             :class="[
-              'whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm transition-colors',
               activeTab === 'column'
                 ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600'
+                : 'border-transparent text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300 hover:border-gray-300 dark:hover:border-gray-600',
             ]"
+            @click="activeTab = 'column'"
           >
             <div class="flex items-center gap-2">
               <UIcon name="i-lucide-columns" class="h-4 w-4" />
@@ -170,7 +170,7 @@ function handleColumnSave() {
           <p class="text-sm text-gray-600 dark:text-gray-400">
             Create a new todo task
           </p>
-          
+
           <div v-if="todoError" class="bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 rounded-md px-3 py-2 text-sm">
             {{ todoError }}
           </div>
@@ -220,9 +220,9 @@ function handleColumnSave() {
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Column</label>
             <USelect
               v-model="todoColumnId"
-              :items="todoColumns.map(column => ({ 
-                label: column.name, 
-                value: column.id 
+              :items="todoColumns.map(column => ({
+                label: column.name,
+                value: column.id,
               }))"
               option-attribute="label"
               value-attribute="value"
@@ -234,15 +234,15 @@ function handleColumnSave() {
             <UButton
               color="neutral"
               variant="ghost"
-              @click="emit('close')"
               class="flex-1"
+              @click="emit('close')"
             >
               Cancel
             </UButton>
             <UButton
               color="primary"
-              @click="handleTodoSave"
               class="flex-1"
+              @click="handleTodoSave"
             >
               Create Todo
             </UButton>
@@ -254,7 +254,7 @@ function handleColumnSave() {
           <p class="text-sm text-gray-600 dark:text-gray-400">
             Create a new todo column
           </p>
-          
+
           <div v-if="columnError" class="bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 rounded-md px-3 py-2 text-sm">
             {{ columnError }}
           </div>
@@ -275,15 +275,15 @@ function handleColumnSave() {
             <UButton
               color="neutral"
               variant="ghost"
-              @click="emit('close')"
               class="flex-1"
+              @click="emit('close')"
             >
               Cancel
             </UButton>
             <UButton
               color="primary"
-              @click="handleColumnSave"
               class="flex-1"
+              @click="handleColumnSave"
             >
               Create Column
             </UButton>
@@ -292,6 +292,4 @@ function handleColumnSave() {
       </div>
     </div>
   </div>
-
-
-</template> 
+</template>

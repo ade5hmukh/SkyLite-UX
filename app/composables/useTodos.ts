@@ -75,7 +75,9 @@ export function useTodos() {
 
   const deleteTodo = async (id: string) => {
     try {
-      await $fetch(`/api/todos/${id}`, { method: "DELETE" as const });
+      await $fetch(`/api/todos/${id}`, {
+        method: "DELETE" as const,
+      });
       todos.value = todos.value.filter(t => t.id !== id);
     }
     catch (err) {

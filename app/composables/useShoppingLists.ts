@@ -5,6 +5,9 @@ export function useShoppingLists() {
   const loading = ref(false);
   const error = ref<string | null>(null);
 
+  // Server-side data fetching
+  const { data: serverShoppingLists } = useNuxtData<ShoppingListWithItemsAndCount[]>("shopping-lists");
+
   const fetchShoppingLists = async () => {
     loading.value = true;
     error.value = null;
@@ -20,6 +23,13 @@ export function useShoppingLists() {
       loading.value = false;
     }
   };
+
+  // Watch for server data changes
+  watch(serverShoppingLists, (newLists) => {
+    if (newLists) {
+      shoppingLists.value = newLists;
+    }
+  });
 
   const createShoppingList = async (listData: CreateShoppingListInput) => {
     try {
@@ -107,7 +117,9 @@ export function useShoppingLists() {
 
   const deleteShoppingList = async (listId: string) => {
     try {
-      await $fetch(`/api/shopping-lists/${listId}`, { method: "DELETE" as const });
+      await $fetch(`/api/shopping-lists/${listId}`, {
+        method: "DELETE" as const,
+      });
       shoppingLists.value = shoppingLists.value.filter(l => l.id !== listId);
     }
     catch (err) {

@@ -1,44 +1,45 @@
 <script setup lang="ts">
-import type { CreateShoppingListInput } from '~/types/database'
+import type { CreateShoppingListInput } from "~/types/database";
 
 const props = defineProps<{
-  isOpen: boolean
-  list?: any | null
-}>()
+  isOpen: boolean;
+  list?: any | null;
+}>();
 
 const emit = defineEmits<{
-  (e: 'close'): void
-  (e: 'save', list: CreateShoppingListInput): void
-}>()
+  (e: "close"): void;
+  (e: "save", list: CreateShoppingListInput): void;
+}>();
 
 // Form state
-const name = ref('')
-const error = ref<string | null>(null)
+const name = ref("");
+const error = ref<string | null>(null);
 
 // Watch for modal open/close and list changes
 watch(() => [props.isOpen, props.list], ([isOpen, list]) => {
   if (isOpen) {
-    resetForm()
+    resetForm();
     if (list) {
-      name.value = list.name || ''
+      name.value = list.name || "";
     }
   }
-}, { immediate: true })
+}, { immediate: true });
 
 function resetForm() {
-  name.value = ''
-  error.value = null
+  name.value = "";
+  error.value = null;
 }
 
 function handleSave() {
   if (!name.value.trim()) {
-    error.value = 'List name is required'
-    return
+    error.value = "List name is required";
+    return;
   }
 
-  emit('save', {
-    name: name.value.trim()
-  })
+  emit("save", {
+    name: name.value.trim(),
+    order: 0,
+  });
 }
 </script>
 
@@ -103,4 +104,4 @@ function handleSave() {
       </div>
     </div>
   </div>
-</template> 
+</template>

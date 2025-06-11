@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { CreateShoppingListInput, CreateShoppingListItemInput } from "~/types/database";
 
-import ShoppingListDialog from "~/components/shopping/ShoppingListDialog.vue";
-import ShoppingListItemDialog from "~/components/shopping/ShoppingListItemDialog.vue";
+import ShoppingListDialog from "~/components/shopping/shoppingListDialog.vue";
+import ShoppingListItemDialog from "~/components/shopping/shoppingListItemDialog.vue";
 
 const {
   shoppingLists,

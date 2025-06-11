@@ -1,56 +1,58 @@
 <script setup lang="ts">
-import type { CreateShoppingListItemInput } from '~/types/database'
+import type { CreateShoppingListItemInput } from "~/types/database";
 
 const props = defineProps<{
-  isOpen: boolean
-  item?: any | null
-}>()
+  isOpen: boolean;
+  item?: any | null;
+}>();
 
 const emit = defineEmits<{
-  (e: 'close'): void
-  (e: 'save', item: CreateShoppingListItemInput): void
-}>()
+  (e: "close"): void;
+  (e: "save", item: CreateShoppingListItemInput): void;
+}>();
 
 // Form state
-const name = ref('')
-const quantity = ref(1)
-const unit = ref('')
-const notes = ref('')
-const error = ref<string | null>(null)
+const name = ref("");
+const quantity = ref(1);
+const unit = ref("");
+const notes = ref("");
+const error = ref<string | null>(null);
 
 // Watch for modal open/close and item changes
 watch(() => [props.isOpen, props.item], ([isOpen, item]) => {
   if (isOpen) {
-    resetForm()
+    resetForm();
     if (item) {
-      name.value = item.name || ''
-      quantity.value = item.quantity || 1
-      unit.value = item.unit || ''
-      notes.value = item.notes || ''
+      name.value = item.name || "";
+      quantity.value = item.quantity || 1;
+      unit.value = item.unit || "";
+      notes.value = item.notes || "";
     }
   }
-}, { immediate: true })
+}, { immediate: true });
 
 function resetForm() {
-  name.value = ''
-  quantity.value = 1
-  unit.value = ''
-  notes.value = ''
-  error.value = null
+  name.value = "";
+  quantity.value = 1;
+  unit.value = "";
+  notes.value = "";
+  error.value = null;
 }
 
 function handleSave() {
   if (!name.value.trim()) {
-    error.value = 'Item name is required'
-    return
+    error.value = "Item name is required";
+    return;
   }
 
-  emit('save', {
+  emit("save", {
     name: name.value.trim(),
     quantity: quantity.value,
-    unit: unit.value.trim() || undefined,
-    notes: notes.value.trim() || undefined
-  })
+    unit: unit.value.trim() || null,
+    notes: notes.value.trim() || null,
+    checked: false,
+    order: 0,
+  });
 }
 </script>
 
@@ -144,4 +146,4 @@ function handleSave() {
       </div>
     </div>
   </div>
-</template> 
+</template>

@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import type { Priority } from "~/types/database";
 
-import AddItemModal from "~/components/AddItemModal.vue";
-import TodoDialog from "~/components/todos/TodoDialog.vue";
+import AddItemModal from "~/components/addItemModal.vue";
+import TodoDialog from "~/components/todos/todoDialog.vue";
 
 const { todos, loading: todosLoading, error: todosError, fetchTodos, createTodo, updateTodo, toggleTodo, deleteTodo, reorderTodo } = useTodos();
 const { todoColumns, loading: columnsLoading, fetchTodoColumns, createTodoColumn, updateTodoColumn, deleteTodoColumn, reorderTodoColumns } = useTodoColumns();

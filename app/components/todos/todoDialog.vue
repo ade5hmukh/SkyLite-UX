@@ -19,7 +19,7 @@ const props = defineProps<{
 
 const emit = defineEmits<{
   (e: "close"): void;
-  (e: "save", todo: CreateTodoInput | UpdateTodoInput): void;
+  (e: "save", todo: CreateTodoInput | (UpdateTodoInput & { id: string })): void;
   (e: "delete", todoId: string): void;
 }>();
 
@@ -28,7 +28,7 @@ const title = ref("");
 const description = ref("");
 const priority = ref<Priority>("MEDIUM");
 const dueDate = ref<string>("");
-const todoColumnId = ref<string | null>(null);
+const todoColumnId = ref<string | undefined>(undefined);
 const error = ref<string | null>(null);
 
 const priorityOptions = [
@@ -45,7 +45,7 @@ watch(() => props.todo, (newTodo) => {
     description.value = newTodo.description || "";
     priority.value = newTodo.priority || "MEDIUM";
     dueDate.value = newTodo.dueDate ? new Date(newTodo.dueDate).toISOString().slice(0, 16) : "";
-    todoColumnId.value = newTodo.todoColumnId || null;
+    todoColumnId.value = newTodo.todoColumnId || undefined;
     error.value = null;
   }
   else {
@@ -58,7 +58,7 @@ function resetForm() {
   description.value = "";
   priority.value = "MEDIUM";
   dueDate.value = "";
-  todoColumnId.value = null;
+  todoColumnId.value = undefined;
   error.value = null;
 }
 
@@ -68,12 +68,14 @@ function handleSave() {
     return;
   }
 
-  const todoData = {
+  const todoData: CreateTodoInput = {
     title: title.value,
     description: description.value,
     priority: priority.value,
     dueDate: dueDate.value ? new Date(dueDate.value) : null,
-    todoColumnId: todoColumnId.value,
+    todoColumnId: todoColumnId.value || null,
+    completed: false,
+    order: 0,
   };
 
   if (props.todo?.id) {
@@ -183,7 +185,7 @@ function handleDelete() {
       <div class="flex justify-between p-4 border-t border-gray-200 dark:border-gray-700">
         <UButton
           v-if="todo?.id"
-          color="red"
+          color="error"
           variant="ghost"
           icon="i-lucide-trash"
           @click="handleDelete"
