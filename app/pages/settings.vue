@@ -190,6 +190,7 @@ function getIntegrationIcon(type: string) {
   <div>
     <div class="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
       <div class="max-w-4xl mx-auto">
+        <GlobalDateHeader />
         <!-- User Management -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
           <div class="flex items-center justify-between mb-6">

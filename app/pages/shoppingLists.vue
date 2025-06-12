@@ -1,6 +1,9 @@
 <script setup lang="ts">
 import type { CreateShoppingListInput, CreateShoppingListItemInput } from "~/types/database";
 
+import GlobalAlert from "~/components/global/globalAlert.vue";
+import GlobalConfirm from "~/components/global/globalConfirm.vue";
+import GlobalList from "~/components/global/globalList.vue";
 import ShoppingListDialog from "~/components/shopping/shoppingListDialog.vue";
 import ShoppingListItemDialog from "~/components/shopping/shoppingListItemDialog.vue";
 
@@ -15,6 +18,7 @@ const {
   fetchShoppingLists,
   reorderItem,
   reorderShoppingList,
+  deleteCompletedItems,
 } = useShoppingLists();
 
 const { fetchIntegrations, getEnabledIntegrations, getIntegrationsByType } = useIntegrations();
@@ -22,6 +26,11 @@ const { fetchIntegrations, getEnabledIntegrations, getIntegrationsByType } = use
 // Modal state
 const listDialog = ref(false);
 const itemDialog = ref(false);
+const confirmDialog = ref(false);
+const alertDialog = ref(false);
+const alertMessage = ref("");
+const alertType = ref<"error" | "warning" | "success" | "info">("error");
+const confirmAction = ref<(() => Promise<void>) | null>(null);
 const selectedListId = ref<string>("");
 const editingList = ref<any>(null);
 const editingItem = ref<any>(null);
@@ -62,48 +71,6 @@ onMounted(async () => {
   }
 });
 
-// Add type for list items
-type ShoppingListItem = {
-  readonly id: string;
-  readonly name: string;
-  readonly checked: boolean;
-  readonly quantity: number;
-  readonly unit: string | null;
-  readonly notes: string | null;
-  readonly order: number;
-  readonly shoppingListId: string;
-};
-
-// Add type for shopping list
-type ShoppingList = {
-  readonly id: string;
-  readonly name: string;
-  readonly items: readonly ShoppingListItem[];
-  readonly order: number;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-  sortedItems: readonly ShoppingListItem[];
-};
-
-function getProgressPercentage(list: ShoppingList) {
-  if (!list.items || list.items.length === 0)
-    return 0;
-  const checkedItems = list.items.filter(item => item.checked).length;
-  return Math.round((checkedItems / list.items.length) * 100);
-}
-
-function getProgressColor(percentage: number) {
-  if (percentage === 100)
-    return "bg-green-500";
-  if (percentage >= 75)
-    return "bg-blue-500";
-  if (percentage >= 50)
-    return "bg-yellow-500";
-  if (percentage >= 25)
-    return "bg-orange-500";
-  return "bg-red-500";
-}
-
 function openCreateList() {
   editingList.value = null;
   listDialog.value = true;
@@ -133,6 +100,22 @@ async function handleListSave(listData: CreateShoppingListInput) {
   }
   catch (error) {
     console.error("Failed to save shopping list:", error);
+    showAlert("Failed to save shopping list. Please try again.", "error");
+  }
+}
+
+async function handleListDelete() {
+  if (!editingList.value?.id)
+    return;
+
+  try {
+    await deleteShoppingList(editingList.value.id);
+    listDialog.value = false;
+    editingList.value = null;
+  }
+  catch (error) {
+    console.error("Failed to delete list:", error);
+    showAlert("Failed to delete shopping list. Please try again.", "error");
   }
 }
 
@@ -163,17 +146,32 @@ async function handleToggleItem(itemId: string, checked: boolean) {
 }
 
 async function handleDeleteList(listId: string) {
-  if (confirm("Are you sure you want to delete this shopping list?")) {
+  confirmAction.value = async () => {
     try {
       await deleteShoppingList(listId);
     }
     catch (error) {
       console.error("Failed to delete list:", error);
     }
+  };
+  confirmDialog.value = true;
+}
+
+async function handleConfirm() {
+  if (confirmAction.value) {
+    await confirmAction.value();
+    confirmAction.value = null;
+    confirmDialog.value = false;
   }
 }
 
 const reorderingItems = ref(new Set<string>());
+
+function showAlert(message: string, type: "error" | "warning" | "success" | "info" = "error") {
+  alertMessage.value = message;
+  alertType.value = type;
+  alertDialog.value = true;
+}
 
 async function handleReorderItem(itemId: string, direction: "up" | "down") {
   // Prevent multiple simultaneous reorders of the same item
@@ -187,23 +185,12 @@ async function handleReorderItem(itemId: string, direction: "up" | "down") {
   }
   catch (error) {
     console.error("Failed to reorder item:", error);
-    // Show error to user
-    alert("Failed to reorder item. Please try again.");
+    showAlert("Failed to reorder item. Please try again.");
   }
   finally {
     reorderingItems.value.delete(itemId);
   }
 }
-
-// Computed property to ensure proper reactivity for sorted shopping lists
-const sortedShoppingLists = computed(() => {
-  return [...shoppingLists.value]
-    .sort((a, b) => ((a as any).order || 0) - ((b as any).order || 0))
-    .map(list => ({
-      ...list,
-      sortedItems: list.items ? [...list.items].sort((a, b) => ((a as any).order || 0) - ((b as any).order || 0)) : [],
-    }));
-});
 
 const reorderingLists = ref(new Set<string>());
 
@@ -219,11 +206,20 @@ async function handleReorderList(listId: string, direction: "up" | "down") {
   }
   catch (error) {
     console.error("Failed to reorder shopping list:", error);
-    // Show error to user
-    alert("Failed to reorder shopping list. Please try again.");
+    showAlert("Failed to reorder shopping list. Please try again.");
   }
   finally {
     reorderingLists.value.delete(listId);
+  }
+}
+
+async function handleClearCompleted(listId: string) {
+  try {
+    await deleteCompletedItems(listId);
+  }
+  catch (error) {
+    console.error("Failed to clear completed items:", error);
+    showAlert("Failed to clear completed items. Please try again.", "error");
   }
 }
 
@@ -236,14 +232,7 @@ function getIntegrationIcon(_service: string) {
   <div class="flex h-[calc(100vh-2rem)] w-full flex-col rounded-lg">
     <!-- Header -->
     <div class="py-5 sm:px-4 sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-      <div class="flex flex-col gap-1.5">
-        <h1 class="font-semibold text-xl text-gray-900 dark:text-white">
-          Shopping Lists
-        </h1>
-        <p class="text-sm text-gray-600 dark:text-gray-400">
-          Organize your shopping and never forget an item
-        </p>
-      </div>
+      <GlobalDateHeader />
 
       <!-- Tabs (only show if integrations are enabled) -->
       <div v-if="hasEnabledIntegrations" class="mt-4">
@@ -285,209 +274,30 @@ function getIntegrationIcon(_service: string) {
     <!-- Shopping Lists Content -->
     <div class="flex-1 overflow-hidden">
       <!-- Native Lists -->
-      <div v-if="activeTab === 'native'" class="flex-1 overflow-y-auto p-4">
-        <div v-if="loading" class="flex items-center justify-center h-full">
-          <div class="text-center">
-            <UIcon name="i-lucide-loader-2" class="h-8 w-8 animate-spin text-primary-500" />
-            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              Loading shopping lists...
-            </p>
-          </div>
-        </div>
-        <div v-else-if="shoppingLists.length === 0" class="flex items-center justify-center h-full">
-          <div class="text-center">
-            <UIcon name="i-lucide-shopping-cart" class="h-8 w-8 text-gray-400" />
-            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
-              No shopping lists found
-            </p>
-            <UButton
-              class="mt-4"
-              color="primary"
-              @click="openCreateList"
-            >
-              Create List
-            </UButton>
-          </div>
-        </div>
-        <div v-else class="h-full">
-          <div class="h-full overflow-x-auto pb-4">
-            <div class="flex gap-6 min-w-max h-full">
-              <div
-                v-for="(list, listIndex) in sortedShoppingLists"
-                :key="list.id"
-                class="flex-shrink-0 w-80 h-full flex flex-col bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"
-              >
-                <!-- List Header -->
-                <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-t-lg">
-                  <div class="flex items-center justify-between mb-3">
-                    <div class="flex items-center gap-2 flex-1 min-w-0">
-                      <h2 class="text-lg font-semibold text-gray-900 dark:text-white truncate">
-                        {{ list.name }}
-                      </h2>
-                      <UButton
-                        icon="i-lucide-pencil"
-                        size="xs"
-                        variant="ghost"
-                        color="neutral"
-                        :title="`Edit ${list.name}`"
-                        @click="editingList = list; listDialog = true"
-                      />
-                    </div>
-                    <div class="flex gap-1">
-                      <!-- Column reorder buttons -->
-                      <div class="flex flex-col gap-1">
-                        <UButton
-                          icon="i-lucide-chevron-left"
-                          size="xs"
-                          variant="ghost"
-                          color="neutral"
-                          :disabled="listIndex === 0 || reorderingLists.has(list.id)"
-                          :loading="reorderingLists.has(list.id)"
-                          @click="handleReorderList(list.id, 'up')"
-                        />
-                        <UButton
-                          icon="i-lucide-chevron-right"
-                          size="xs"
-                          variant="ghost"
-                          color="neutral"
-                          :disabled="listIndex === sortedShoppingLists.length - 1 || reorderingLists.has(list.id)"
-                          :loading="reorderingLists.has(list.id)"
-                          @click="handleReorderList(list.id, 'down')"
-                        />
-                      </div>
-                      <UButton
-                        icon="i-lucide-plus"
-                        size="sm"
-                        color="neutral"
-                        variant="ghost"
-                        @click="openAddItem(list.id)"
-                      />
-                      <UButton
-                        icon="i-lucide-trash"
-                        size="sm"
-                        color="neutral"
-                        variant="ghost"
-                        @click="handleDeleteList(list.id)"
-                      />
-                    </div>
-                  </div>
-
-                  <!-- Progress Section -->
-                  <div v-if="list.items && list.items.length > 0" class="space-y-2">
-                    <div class="flex justify-between text-sm">
-                      <span class="text-gray-600 dark:text-gray-400">
-                        {{ list.items.filter(item => item.checked).length }} of {{ list.items.length }} items
-                      </span>
-                      <span class="text-gray-600 dark:text-gray-400 font-medium">
-                        {{ getProgressPercentage(list) }}%
-                      </span>
-                    </div>
-                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
-                      <div
-                        class="h-2 rounded-full transition-all duration-300"
-                        :class="getProgressColor(getProgressPercentage(list))"
-                        :style="{ width: `${getProgressPercentage(list)}%` }"
-                      />
-                    </div>
-                  </div>
-                  <div v-else class="text-sm text-gray-500 dark:text-gray-400">
-                    No items yet
-                  </div>
-                </div>
-
-                <!-- Items List -->
-                <div class="flex-1 p-4 overflow-y-auto">
-                  <div v-if="!list.items || list.items.length === 0" class="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
-                    <UIcon name="i-lucide-shopping-bag" class="h-12 w-12 mb-3 opacity-30" />
-                    <p class="text-sm font-medium mb-1">
-                      No items yet
-                    </p>
-                    <p class="text-xs mb-4">
-                      Add your first item to get started
-                    </p>
-                    <UButton
-                      size="sm"
-                      variant="outline"
-                      @click="openAddItem(list.id)"
-                    >
-                      Add Item
-                    </UButton>
-                  </div>
-                  <div v-else class="space-y-2">
-                    <div
-                      v-for="(item, index) in list.sortedItems"
-                      :key="item.id"
-                      class="group flex items-start gap-3 p-3 rounded-lg transition-all hover:bg-gray-50 dark:hover:bg-gray-700/50 cursor-pointer"
-                      :class="{ 'opacity-60 bg-gray-50 dark:bg-gray-800/50': item.checked }"
-                      @click="openEditItem(item)"
-                    >
-                      <UCheckbox
-                        :model-value="item.checked"
-                        class="mt-0.5"
-                        @update:model-value="handleToggleItem(item.id, Boolean($event))"
-                        @click.stop
-                      />
-                      <div class="flex-1 min-w-0">
-                        <div class="flex items-center gap-2">
-                          <span
-                            class="text-sm font-medium text-gray-900 dark:text-white truncate"
-                            :class="{ 'line-through': item.checked }"
-                          >
-                            {{ item.name }}
-                          </span>
-                          <span
-                            v-if="item.quantity > 1 || item.unit"
-                            class="text-xs text-gray-500 dark:text-gray-400 whitespace-nowrap px-2 py-0.5 bg-gray-100 dark:bg-gray-700 rounded-full"
-                            :class="{ 'line-through': item.checked }"
-                          >
-                            {{ item.quantity }}{{ item.unit ? ` ${item.unit}` : '' }}
-                          </span>
-                        </div>
-                        <p
-                          v-if="item.notes"
-                          class="text-xs text-gray-600 dark:text-gray-400 mt-1 line-clamp-2"
-                          :class="{ 'line-through': item.checked }"
-                        >
-                          {{ item.notes }}
-                        </p>
-                      </div>
-                      <div class="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity" @click.stop>
-                        <div class="flex flex-col gap-1">
-                          <UButton
-                            icon="i-lucide-chevron-up"
-                            size="xs"
-                            variant="ghost"
-                            color="neutral"
-                            :disabled="index === 0 || reorderingItems.has(item.id)"
-                            :loading="reorderingItems.has(item.id)"
-                            @click="handleReorderItem(item.id, 'up')"
-                          />
-                          <UButton
-                            icon="i-lucide-chevron-down"
-                            size="xs"
-                            variant="ghost"
-                            color="neutral"
-                            :disabled="index === list.sortedItems.length - 1 || reorderingItems.has(item.id)"
-                            :loading="reorderingItems.has(item.id)"
-                            @click="handleReorderItem(item.id, 'down')"
-                          />
-                        </div>
-                        <UButton
-                          icon="i-lucide-pencil"
-                          size="xs"
-                          variant="ghost"
-                          color="neutral"
-                          :title="`Edit ${item.name}`"
-                          @click="openEditItem(item)"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+      <div v-if="activeTab === 'native'" class="flex-1 overflow-y-auto">
+        <GlobalList
+          :lists="shoppingLists"
+          :loading="loading"
+          empty-state-icon="i-lucide-shopping-cart"
+          empty-state-title="No shopping lists found"
+          empty-state-description="Create your first shopping list to get started"
+          show-progress
+          show-quantity
+          show-notes
+          show-reorder
+          show-edit
+          show-add
+          show-completed
+          @create="openCreateList"
+          @edit="editingList = $event; listDialog = true"
+          @delete="handleDeleteList"
+          @add-item="openAddItem"
+          @edit-item="openEditItem"
+          @toggle-item="handleToggleItem"
+          @reorder-item="handleReorderItem"
+          @reorder-list="handleReorderList"
+          @clear-completed="handleClearCompleted"
+        />
       </div>
     </div>
 
@@ -507,6 +317,7 @@ function getIntegrationIcon(_service: string) {
       :list="editingList"
       @close="listDialog = false; editingList = null"
       @save="handleListSave"
+      @delete="handleListDelete"
     />
 
     <ShoppingListItemDialog
@@ -514,6 +325,23 @@ function getIntegrationIcon(_service: string) {
       :item="editingItem"
       @close="itemDialog = false; selectedListId = ''; editingItem = null"
       @save="handleItemSave"
+    />
+
+    <GlobalConfirm
+      :is-open="confirmDialog"
+      title="Delete Shopping List"
+      message="Are you sure you want to delete this shopping list? This action cannot be undone."
+      confirm-text="Delete"
+      variant="danger"
+      @close="confirmDialog = false; confirmAction = null"
+      @confirm="handleConfirm"
+    />
+
+    <GlobalAlert
+      :is-open="alertDialog"
+      :message="alertMessage"
+      :type="alertType"
+      @close="alertDialog = false"
     />
   </div>
 </template>

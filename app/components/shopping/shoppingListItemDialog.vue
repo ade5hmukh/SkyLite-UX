@@ -88,7 +88,7 @@ function handleSave() {
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Item Name</label>
           <UInput
             v-model="name"
-            placeholder="e.g., Milk, Bread, Apples"
+            placeholder="Milk, Bread, Apples, etc."
             class="w-full"
             :ui="{ base: 'w-full' }"
           />
@@ -110,7 +110,7 @@ function handleSave() {
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Unit</label>
             <UInput
               v-model="unit"
-              placeholder="e.g., lbs, oz, bottles"
+              placeholder="Can, Box, etc."
               class="w-full"
               :ui="{ base: 'w-full' }"
             />

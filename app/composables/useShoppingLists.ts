@@ -265,10 +265,14 @@ export function useShoppingLists() {
         ...shoppingLists.value.slice(listIndex + 1),
       ];
 
-      // Make API call
+      // Make API call with the new order
+      const newOrder = updatedItems
+        .sort((a, b) => ((a as any).order || 0) - ((b as any).order || 0))
+        .map(item => item.id);
+
       await $fetch("/api/shopping-list-items/reorder", {
-        method: "POST",
-        body: { itemId, direction },
+        method: "PUT",
+        body: { itemIds: newOrder },
       });
     }
     catch (err) {
@@ -276,6 +280,46 @@ export function useShoppingLists() {
       shoppingLists.value = originalShoppingLists;
       error.value = "Failed to reorder item";
       console.error("Error reordering item:", err);
+      throw err;
+    }
+  };
+
+  const deleteCompletedItems = async (listId: string) => {
+    try {
+      // Find the list
+      const list = shoppingLists.value.find(l => l.id === listId);
+      if (!list)
+        return;
+
+      // Get all completed item IDs
+      const completedItemIds = list.items
+        .filter(item => item.checked)
+        .map(item => item.id);
+
+      if (completedItemIds.length === 0)
+        return;
+
+      // Delete all completed items
+      await $fetch(`/api/shopping-lists/${listId}/items/clear-completed`, {
+        method: "POST",
+        body: { action: "delete" },
+      });
+
+      // Update local state by removing completed items
+      const updatedList = {
+        ...list,
+        items: list.items.filter(item => !item.checked),
+      };
+
+      // Update the list in the local state
+      const listIndex = shoppingLists.value.findIndex(l => l.id === listId);
+      if (listIndex !== -1) {
+        shoppingLists.value[listIndex] = updatedList;
+      }
+    }
+    catch (err) {
+      error.value = "Failed to clear completed items";
+      console.error("Error clearing completed items:", err);
       throw err;
     }
   };
@@ -293,5 +337,6 @@ export function useShoppingLists() {
     toggleItem,
     reorderShoppingList,
     reorderItem,
+    deleteCompletedItems,
   };
 }

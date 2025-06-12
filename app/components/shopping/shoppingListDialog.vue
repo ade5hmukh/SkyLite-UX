@@ -9,6 +9,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: "close"): void;
   (e: "save", list: CreateShoppingListInput): void;
+  (e: "delete"): void;
 }>();
 
 // Form state
@@ -40,6 +41,10 @@ function handleSave() {
     name: name.value.trim(),
     order: 0,
   });
+}
+
+function handleDelete() {
+  emit("delete");
 }
 </script>
 
@@ -75,32 +80,45 @@ function handleSave() {
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">List Name</label>
           <UInput
             v-model="name"
-            placeholder="e.g., Weekly Groceries, Hardware Store"
+            placeholder="Groceries, Hardware Store, etc."
             class="w-full"
             :ui="{ base: 'w-full' }"
             @keydown.enter="handleSave"
           />
         </div>
 
-        <div class="text-sm text-gray-600 dark:text-gray-400">
+        <div v-if="!list" class="text-sm text-gray-600 dark:text-gray-400">
           You can add items to the list after creating it.
         </div>
       </div>
 
-      <div class="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
-        <UButton
-          color="neutral"
-          variant="ghost"
-          @click="emit('close')"
-        >
-          Cancel
-        </UButton>
-        <UButton
-          color="primary"
-          @click="handleSave"
-        >
-          {{ list ? 'Update List' : 'Create List' }}
-        </UButton>
+      <div class="flex justify-between gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
+        <div class="flex gap-2">
+          <UButton
+            v-if="list"
+            color="error"
+            variant="ghost"
+            icon="i-lucide-trash"
+            @click="handleDelete"
+          >
+            Delete List
+          </UButton>
+        </div>
+        <div class="flex gap-2">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            @click="emit('close')"
+          >
+            Cancel
+          </UButton>
+          <UButton
+            color="primary"
+            @click="handleSave"
+          >
+            {{ list ? 'Update List' : 'Create List' }}
+          </UButton>
+        </div>
       </div>
     </div>
   </div>

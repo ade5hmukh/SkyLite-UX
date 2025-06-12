@@ -197,14 +197,7 @@ onMounted(async () => {
   <div class="flex h-[calc(100vh-2rem)] w-full flex-col rounded-lg">
     <!-- Header -->
     <div class="py-5 sm:px-4 sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-      <div class="flex flex-col gap-1.5">
-        <h1 class="font-semibold text-xl text-gray-900 dark:text-white">
-          To Do Lists
-        </h1>
-        <p class="text-sm text-gray-600 dark:text-gray-400">
-          Manage your tasks and stay organized
-        </p>
-      </div>
+      <GlobalDateHeader />
     </div>
 
     <!-- Todos Content -->
