@@ -9,6 +9,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: "close"): void;
   (e: "save", item: CreateShoppingListItemInput): void;
+  (e: "delete", itemId: string): void;
 }>();
 
 // Form state
@@ -52,7 +53,14 @@ function handleSave() {
     notes: notes.value.trim() || null,
     checked: false,
     order: 0,
+    label: null,
   });
+}
+
+function handleDelete() {
+  if (props.item?.id) {
+    emit("delete", props.item.id);
+  }
 }
 </script>
 
@@ -129,20 +137,31 @@ function handleSave() {
         </div>
       </div>
 
-      <div class="flex justify-end gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
+      <div class="flex justify-between p-4 border-t border-gray-200 dark:border-gray-700">
         <UButton
-          color="neutral"
+          v-if="item?.id"
+          color="error"
           variant="ghost"
-          @click="emit('close')"
+          icon="i-lucide-trash"
+          @click="handleDelete"
         >
-          Cancel
+          Delete
         </UButton>
-        <UButton
-          color="primary"
-          @click="handleSave"
-        >
-          {{ item ? 'Update Item' : 'Add Item' }}
-        </UButton>
+        <div class="flex gap-2" :class="{ 'ml-auto': !item?.id }">
+          <UButton
+            color="neutral"
+            variant="ghost"
+            @click="emit('close')"
+          >
+            Cancel
+          </UButton>
+          <UButton
+            color="primary"
+            @click="handleSave"
+          >
+            {{ item ? 'Update Item' : 'Add Item' }}
+          </UButton>
+        </div>
       </div>
     </div>
   </div>

@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { List, ListItem } from "../../types/list";
+import type { ShoppingList, TodoList, BaseListItem } from "../../types/database";
 
 const props = defineProps<{
-  lists: readonly List[];
+  lists: readonly (ShoppingList | TodoList)[];
   loading?: boolean;
   emptyStateIcon?: string;
   emptyStateTitle?: string;
@@ -18,9 +18,9 @@ const props = defineProps<{
 
 const _emit = defineEmits<{
   (e: "create"): void;
-  (e: "edit", list: List): void;
+  (e: "edit", list: ShoppingList | TodoList): void;
   (e: "addItem", listId: string): void;
-  (e: "editItem", item: ListItem): void;
+  (e: "editItem", item: BaseListItem): void;
   (e: "toggleItem", itemId: string, checked: boolean): void;
   (e: "reorderItem", itemId: string, direction: "up" | "down"): void;
   (e: "reorderList", listId: string, direction: "up" | "down"): void;
@@ -34,15 +34,15 @@ const sortedLists = computed(() => {
     .map(list => ({
       ...list,
       sortedItems: list.items ? [...list.items].sort((a, b) => (a.order || 0) - (b.order || 0)) : [],
-      completedItems: list.items ? list.items.filter((item: ListItem) => item.checked) : [],
-      activeItems: list.items ? list.items.filter((item: ListItem) => !item.checked) : [],
+      completedItems: list.items ? list.items.filter((item: BaseListItem) => item.checked) : [],
+      activeItems: list.items ? list.items.filter((item: BaseListItem) => !item.checked) : [],
     }));
 });
 
-function getProgressPercentage(list: List) {
+function getProgressPercentage(list: ShoppingList | TodoList) {
   if (!list.items || list.items.length === 0)
     return 0;
-  const checkedItems = list.items.filter((item: ListItem) => item.checked).length;
+  const checkedItems = list.items.filter((item: BaseListItem) => item.checked).length;
   return Math.round((checkedItems / list.items.length) * 100);
 }
 
@@ -164,7 +164,7 @@ function getProgressColor(percentage: number) {
                   <div v-if="showProgress && list.items && list.items.length > 0" class="space-y-2">
                     <div class="flex justify-between text-sm">
                       <span class="text-gray-600 dark:text-gray-400">
-                        {{ list.items.filter((item: ListItem) => item.checked).length }} of {{ list.items.length }} items
+                        {{ list.items.filter((item: BaseListItem) => item.checked).length }} of {{ list.items.length }} items
                       </span>
                       <span class="text-gray-600 dark:text-gray-400 font-medium">
                         {{ getProgressPercentage(list) }}%
@@ -178,8 +178,8 @@ function getProgressColor(percentage: number) {
                       />
                     </div>
                   </div>
-                  <div v-else-if="!list.items || list.items.length === 0" class="text-sm text-gray-500 dark:text-gray-400 py-2">
-                    No items yet
+                  <div v-else-if="!list.items || list.items.length === 0 && showProgress" class="text-sm text-gray-500 dark:text-gray-400 py-4.5">
+                    <!-- Padding when no items -->
                   </div>
                 </div>
 
@@ -188,9 +188,8 @@ function getProgressColor(percentage: number) {
                   <!-- Add Item Button -->
                   <div v-if="showAdd" class="flex justify-center mb-4">
                     <UButton
-                      size="sm"
-                      variant="outline"
-                      color="neutral"
+                      size="xl"
+                      color="primary"
                       class="w-full"
                       @click="_emit('addItem', list.id)"
                     >

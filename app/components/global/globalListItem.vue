@@ -1,15 +1,5 @@
 <script setup lang="ts">
-type ListItem = {
-  id: string;
-  name: string;
-  checked?: boolean;
-  quantity?: number;
-  unit?: string | null;
-  notes?: string | null;
-  order: number;
-  shoppingListId: string;
-  [key: string]: any; // Allow for additional properties
-};
+import type { BaseListItem, ShoppingListItem, TodoListItem, Priority } from "~/types/database";
 
 type ToggleEvent = {
   itemId: string;
@@ -21,8 +11,8 @@ type ReorderEvent = {
   direction: "up" | "down";
 };
 
-defineProps<{
-  item: ListItem;
+const props = defineProps<{
+  item: BaseListItem;
   index: number;
   totalItems: number;
   showQuantity?: boolean;
@@ -32,10 +22,28 @@ defineProps<{
 }>();
 
 const emit = defineEmits<{
-  (e: "edit", item: ListItem): void;
+  (e: "edit", item: BaseListItem): void;
   (e: "toggle", payload: ToggleEvent): void;
   (e: "reorder", payload: ReorderEvent): void;
 }>();
+
+const isShoppingItem = (item: BaseListItem): item is ShoppingListItem => {
+  return 'quantity' in item && 'unit' in item;
+};
+
+const isTodoItem = (item: BaseListItem): item is TodoListItem & { priority?: Priority; dueDate?: Date | null } => {
+  return 'shoppingListId' in item;
+};
+
+function getPriorityColor(priority: Priority) {
+  switch (priority) {
+    case "LOW": return "text-green-600 bg-green-50 dark:bg-green-950";
+    case "MEDIUM": return "text-yellow-600 bg-yellow-50 dark:bg-yellow-950";
+    case "HIGH": return "text-orange-600 bg-orange-50 dark:bg-orange-950";
+    case "URGENT": return "text-red-600 bg-red-50 dark:bg-red-950";
+    default: return "text-gray-600 bg-gray-50 dark:bg-gray-950";
+  }
+}
 </script>
 
 <template>
@@ -59,17 +67,35 @@ const emit = defineEmits<{
         >
           {{ item.name }}
         </span>
+      </div>
+      <div class="flex items-center gap-2 mt-1">
+        <!-- Todo Item Priority -->
         <span
-          v-if="showQuantity && (item.quantity && item.quantity > 1 || item.unit)"
-          class="text-xs text-gray-700 dark:text-gray-300 whitespace-nowrap px-2 py-0.5 bg-neutral-100 dark:bg-neutral-800 rounded-full"
-          :class="{ 'line-through': item.checked }"
+          v-if="isTodoItem(item) && item.priority"
+          class="text-xs px-2 py-0.5 rounded-full"
+          :class="getPriorityColor(item.priority)"
         >
-          {{ item.quantity }}{{ item.unit ? ` ${item.unit}` : '' }}
+          {{ item.priority }}
+        </span>
+        <!-- Todo Item Due Date -->
+        <span
+          v-if="isTodoItem(item) && item.dueDate"
+          class="text-xs text-gray-500 dark:text-gray-400"
+        >
+          {{ new Date(item.dueDate).toLocaleDateString() }}
+        </span>
+        <!-- Shopping Item Quantity -->
+        <span
+          v-if="isShoppingItem(item) && showQuantity && item.quantity"
+          class="text-xs text-gray-500 dark:text-gray-400"
+        >
+          {{ item.quantity }} {{ item.unit }}
         </span>
       </div>
+      <!-- Notes -->
       <p
         v-if="showNotes && item.notes"
-        class="text-xs text-gray-700 dark:text-gray-300 mt-1 line-clamp-2"
+        class="text-xs text-gray-700 dark:text-gray-300 line-clamp-2 mt-1"
         :class="{ 'line-through': item.checked }"
       >
         {{ item.notes }}

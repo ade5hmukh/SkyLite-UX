@@ -26,40 +26,20 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Prevent deletion of user columns (columns with userId) and default columns (unassigned)
-    if (existingColumn.userId || existingColumn.isDefault) {
+    // Prevent deletion of user columns
+    if (existingColumn.userId) {
       throw createError({
         statusCode: 400,
-        message: "Cannot delete user columns or the default unassigned column",
+        message: "Cannot delete user columns",
       });
     }
 
-    // Delete column and handle todos in a transaction
+    // Delete column and its todos in a transaction
     await prisma.$transaction(async (tx) => {
-      // If the column has todos, move them to the unassigned column
-      if (existingColumn.todos.length > 0) {
-        // Find or create the unassigned column
-        let unassignedColumn = await tx.todoColumn.findFirst({
-          where: { isDefault: true },
-        });
-
-        if (!unassignedColumn) {
-          // Create unassigned column if it doesn't exist
-          unassignedColumn = await tx.todoColumn.create({
-            data: {
-              name: "Unassigned",
-              isDefault: true,
-              order: 0,
-            },
-          });
-        }
-
-        // Move all todos from the column being deleted to the unassigned column
-        await tx.todo.updateMany({
-          where: { todoColumnId: id },
-          data: { todoColumnId: unassignedColumn.id },
-        });
-      }
+      // Delete all todos in the column
+      await tx.todo.deleteMany({
+        where: { todoColumnId: id },
+      });
 
       // Delete the column
       await tx.todoColumn.delete({

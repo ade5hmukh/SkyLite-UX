@@ -15,6 +15,7 @@ const {
   deleteShoppingList,
   addItemToList,
   updateShoppingListItem,
+  deleteShoppingListItem,
   fetchShoppingLists,
   reorderItem,
   reorderShoppingList,
@@ -133,6 +134,18 @@ async function handleItemSave(itemData: CreateShoppingListItemInput) {
   }
   catch (error) {
     console.error("Failed to save item:", error);
+  }
+}
+
+async function handleItemDelete(itemId: string) {
+  try {
+    await deleteShoppingListItem(itemId);
+    itemDialog.value = false;
+    editingItem.value = null;
+  }
+  catch (error) {
+    console.error("Failed to delete item:", error);
+    showAlert("Failed to delete item. Please try again.", "error");
   }
 }
 
@@ -281,7 +294,6 @@ function getIntegrationIcon(_service: string) {
           empty-state-icon="i-lucide-shopping-cart"
           empty-state-title="No shopping lists found"
           empty-state-description="Create your first shopping list to get started"
-          show-progress
           show-quantity
           show-notes
           show-reorder
@@ -325,6 +337,7 @@ function getIntegrationIcon(_service: string) {
       :item="editingItem"
       @close="itemDialog = false; selectedListId = ''; editingItem = null"
       @save="handleItemSave"
+      @delete="handleItemDelete"
     />
 
     <GlobalConfirm

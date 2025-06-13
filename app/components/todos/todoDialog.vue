@@ -1,20 +1,10 @@
 <script setup lang="ts">
-import type { CreateTodoInput, Priority, UpdateTodoInput } from "~/types/database";
-
-type TodoColumn = {
-  id: string;
-  name: string;
-  user?: {
-    id: string;
-    name: string;
-    avatar?: string;
-  };
-};
+import type { CreateTodoInput, Priority, UpdateTodoInput, TodoColumnBasic } from "~/types/database";
 
 const props = defineProps<{
   todo: any | null;
   isOpen: boolean;
-  todoColumns: TodoColumn[];
+  todoColumns: TodoColumnBasic[];
 }>();
 
 const emit = defineEmits<{

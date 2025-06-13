@@ -1,21 +1,4 @@
-type TodoColumn = {
-  id: string;
-  name: string;
-  order: number;
-  isDefault: boolean;
-  userId: string | null;
-  user: {
-    id: string;
-    name: string;
-    avatar: string | null;
-  } | null;
-  todos?: any[];
-  _count?: {
-    todos: number;
-  };
-  createdAt: string;
-  updatedAt: string;
-};
+import type { TodoColumn } from "~/types/database";
 
 export function useTodoColumns() {
   const todoColumns = ref<TodoColumn[]>([]);
@@ -107,9 +90,12 @@ export function useTodoColumns() {
   // Delete a todo column
   const deleteTodoColumn = async (columnId: string) => {
     try {
-      await $fetch(`/api/todo-columns/${columnId}`, {
-        method: "DELETE" as const,
+      const response = await fetch(`/api/todo-columns/${columnId}`, {
+        method: "DELETE",
       });
+      if (!response.ok) {
+        throw new Error("Failed to delete todo column");
+      }
 
       // Remove the column from the local state
       todoColumns.value = todoColumns.value.filter(column => column.id !== columnId);

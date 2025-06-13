@@ -80,7 +80,7 @@ export function useShoppingLists() {
       shoppingLists.value.forEach((list) => {
         const itemIndex = list.items.findIndex(item => item.id === itemId);
         if (itemIndex !== -1) {
-          list.items[itemIndex] = updatedItem;
+          list.items[itemIndex] = { ...updatedItem, shoppingListId: list.id };
         }
       });
 
@@ -103,7 +103,7 @@ export function useShoppingLists() {
       // Add the item to the local state
       const list = shoppingLists.value.find(l => l.id === listId);
       if (list) {
-        list.items.push(newItem);
+        list.items.push({ ...newItem, shoppingListId: listId });
       }
 
       return newItem;
@@ -117,9 +117,12 @@ export function useShoppingLists() {
 
   const deleteShoppingList = async (listId: string) => {
     try {
-      await $fetch(`/api/shopping-lists/${listId}`, {
-        method: "DELETE" as const,
+      const response = await fetch(`/api/shopping-lists/${listId}`, {
+        method: "DELETE",
       });
+      if (!response.ok) {
+        throw new Error("Failed to delete shopping list");
+      }
       shoppingLists.value = shoppingLists.value.filter(l => l.id !== listId);
     }
     catch (err) {
@@ -324,6 +327,27 @@ export function useShoppingLists() {
     }
   };
 
+  const deleteShoppingListItem = async (itemId: string) => {
+    try {
+      const response = await fetch(`/api/shopping-list-items/${itemId}`, {
+        method: "DELETE",
+      });
+      if (!response.ok) {
+        throw new Error("Failed to delete shopping list item");
+      }
+
+      // Update local state by removing the item
+      shoppingLists.value.forEach((list) => {
+        list.items = list.items.filter(item => item.id !== itemId);
+      });
+    }
+    catch (err) {
+      error.value = "Failed to delete shopping list item";
+      console.error("Error deleting shopping list item:", err);
+      throw err;
+    }
+  };
+
   return {
     shoppingLists: readonly(shoppingLists),
     loading: readonly(loading),
@@ -338,5 +362,6 @@ export function useShoppingLists() {
     reorderShoppingList,
     reorderItem,
     deleteCompletedItems,
+    deleteShoppingListItem,
   };
 }

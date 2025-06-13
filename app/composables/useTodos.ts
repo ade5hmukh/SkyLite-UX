@@ -75,9 +75,12 @@ export function useTodos() {
 
   const deleteTodo = async (id: string) => {
     try {
-      await $fetch(`/api/todos/${id}`, {
-        method: "DELETE" as const,
+      const response = await fetch(`/api/todos/${id}`, {
+        method: "DELETE",
       });
+      if (!response.ok) {
+        throw new Error("Failed to delete todo");
+      }
       todos.value = todos.value.filter(t => t.id !== id);
     }
     catch (err) {
@@ -154,6 +157,30 @@ export function useTodos() {
     }
   };
 
+  const clearCompleted = async (columnId: string) => {
+    try {
+      // Find all completed todos for this column
+      const completedTodos = todos.value.filter(t => t.todoColumnId === columnId && t.completed);
+      
+      if (completedTodos.length === 0)
+        return;
+
+      // Delete all completed todos
+      await $fetch(`/api/todo-columns/${columnId}/todos/clear-completed`, {
+        method: "POST",
+        body: { action: "delete" },
+      });
+
+      // Update local state by removing completed todos
+      todos.value = todos.value.filter(t => !(t.todoColumnId === columnId && t.completed));
+    }
+    catch (err) {
+      error.value = "Failed to clear completed todos";
+      console.error("Error clearing completed todos:", err);
+      throw err;
+    }
+  };
+
   return {
     todos: readonly(todos),
     loading: readonly(loading),
@@ -164,5 +191,6 @@ export function useTodos() {
     toggleTodo,
     deleteTodo,
     reorderTodo,
+    clearCompleted,
   };
 }
