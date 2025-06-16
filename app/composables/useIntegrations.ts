@@ -1,12 +1,14 @@
 import { computed, ref } from "vue";
-
 import type { Integration } from "~/types/database";
+import type { IntegrationService } from "~/types/integrations";
+import { createIntegrationService } from "~/types/integrations";
 
 export function useIntegrations() {
   const integrations = ref<Integration[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
   const initialized = ref(false);
+  const services = ref<Map<string, IntegrationService>>(new Map());
 
   // Server-side data fetching
   const { data: serverIntegrations } = useNuxtData<Integration[]>("integrations");
@@ -24,6 +26,18 @@ export function useIntegrations() {
       }
       const data = await response.json();
       integrations.value = data;
+      
+      // Initialize services for each integration
+      for (const integration of data) {
+        if (integration.enabled) {
+          const service = createIntegrationService(integration);
+          if (service) {
+            services.value.set(integration.id, service);
+            await service.initialize();
+          }
+        }
+      }
+      
       initialized.value = true;
     }
     catch (err) {
@@ -109,6 +123,7 @@ export function useIntegrations() {
       if (!response.ok) {
         throw new Error("Failed to delete integration");
       }
+      services.value.delete(id);
       await fetchIntegrations(); // Refresh data after deletion
     }
     catch (err) {
@@ -139,6 +154,10 @@ export function useIntegrations() {
     return integrations.value.find((integration: Integration) => integration.type === type && integration.enabled);
   };
 
+  const getService = (integrationId: string) => {
+    return services.value.get(integrationId);
+  };
+
   return {
     integrations,
     loading,
@@ -151,5 +170,6 @@ export function useIntegrations() {
     getEnabledIntegrations,
     getIntegrationByType,
     getIntegrationsByType,
+    getService,
   };
 }

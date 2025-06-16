@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CreateIntegrationInput, CreateUserInput, Integration, User } from "~/types/database";
+import { integrationRegistry } from "~/types/integrations";
 
 import SettingsIntegrationDialog from "~/components/settings/settingsIntegrationDialog.vue";
 import SettingsUserDialog from "~/components/settings/settingsUserDialog.vue";
@@ -33,70 +34,26 @@ const isUserDialogOpen = ref(false);
 const selectedIntegration = ref<Integration | null>(null);
 const isIntegrationDialogOpen = ref(false);
 
-// Integration form state
-const showNewIntegrationForm = ref(false);
-const newIntegration = reactive<CreateIntegrationInput>({
-  name: "",
-  type: "calendar",
-  service: "",
-  apiKey: "",
-  baseUrl: "",
-  enabled: true,
-  settings: {},
+// Add active tab state
+const activeIntegrationTab = ref("");
+
+// Computed property to get available integration types
+const availableIntegrationTypes = computed(() => {
+  const types = new Set<string>();
+  integrationRegistry.forEach((config) => types.add(config.type));
+  return Array.from(types);
 });
 
-const integrationTypes = [
-  {
-    label: "Calendar",
-    value: "calendar",
-    services: [
-      { label: "Google Calendar", value: "google" },
-      { label: "Outlook", value: "outlook" },
-    ],
-  },
-  {
-    label: "Todo",
-    value: "todo",
-    services: [
-      { label: "Todoist", value: "todoist" },
-      { label: "Microsoft To Do", value: "mstodo" },
-    ],
-  },
-  {
-    label: "Shopping List",
-    value: "shopping",
-    services: [
-      { label: "Tandoor", value: "tandoor" },
-      { label: "Mealie", value: "mealie" },
-    ],
-  },
-  {
-    label: "Meal Planner",
-    value: "meal",
-    services: [
-      { label: "Tandoor", value: "tandoor" },
-      { label: "Mealie", value: "mealie" },
-    ],
-  },
-];
-
-// Add active tab state
-const activeIntegrationTab = ref("calendar");
+// Set initial active tab
+onMounted(() => {
+  if (availableIntegrationTypes.value.length > 0) {
+    activeIntegrationTab.value = availableIntegrationTypes.value[0];
+  }
+});
 
 // Add computed property to filter integrations by type
 const filteredIntegrations = computed(() => {
   return integrations.value.filter(integration => integration.type === activeIntegrationTab.value);
-});
-
-// Watch for tab changes to update the form
-watch(activeIntegrationTab, (newType) => {
-  if (showNewIntegrationForm.value) {
-    newIntegration.type = newType;
-    const type = integrationTypes.find(t => t.value === newType);
-    if (type && type.services.length > 0) {
-      newIntegration.service = type.services[0]?.value || "";
-    }
-  }
 });
 
 function handleUserSave(userData: CreateUserInput) {
@@ -122,32 +79,49 @@ function openUserDialog(user: User | null = null) {
   isUserDialogOpen.value = true;
 }
 
-function handleIntegrationSave(integrationData: CreateIntegrationInput) {
-  if (selectedIntegration.value?.id) {
-    updateIntegration(selectedIntegration.value.id, {
-      ...integrationData,
-      createdAt: selectedIntegration.value.createdAt,
-      updatedAt: new Date(),
-    });
+async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
+  try {
+    if (selectedIntegration.value?.id) {
+      await updateIntegration(selectedIntegration.value.id, {
+        ...integrationData,
+        createdAt: selectedIntegration.value.createdAt,
+        updatedAt: new Date(),
+      });
+    }
+    else {
+      await createIntegration({
+        ...integrationData,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      });
+    }
+    // Refresh the integrations list
+    await fetchIntegrations();
+    isIntegrationDialogOpen.value = false;
+    selectedIntegration.value = null;
+  } catch (error) {
+    console.error('Failed to save integration:', error);
   }
-  else {
-    createIntegration({
-      ...integrationData,
-      createdAt: new Date(),
-      updatedAt: new Date(),
-    });
-  }
-  isIntegrationDialogOpen.value = false;
-  selectedIntegration.value = null;
 }
 
-function handleIntegrationDelete(integrationId: string) {
-  deleteIntegration(integrationId);
-  isIntegrationDialogOpen.value = false;
-  selectedIntegration.value = null;
+async function handleIntegrationDelete(integrationId: string) {
+  try {
+    await deleteIntegration(integrationId);
+    // Refresh the integrations list
+    await fetchIntegrations();
+    isIntegrationDialogOpen.value = false;
+    selectedIntegration.value = null;
+  } catch (error) {
+    console.error('Failed to delete integration:', error);
+  }
 }
 
 function openIntegrationDialog(integration: Integration | null = null) {
+  // Set active tab if not already set
+  if (!activeIntegrationTab.value && availableIntegrationTypes.value.length > 0) {
+    activeIntegrationTab.value = availableIntegrationTypes.value[0];
+  }
+  
   selectedIntegration.value = integration;
   isIntegrationDialogOpen.value = true;
 }
@@ -183,6 +157,10 @@ function getIntegrationIcon(type: string) {
     default:
       return "i-lucide-plug";
   }
+}
+
+function getIntegrationTypeLabel(type: string) {
+  return type.charAt(0).toUpperCase() + type.slice(1);
 }
 </script>
 
@@ -288,17 +266,17 @@ function getIntegrationIcon(type: string) {
           <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
             <nav class="-mb-px flex space-x-8">
               <button
-                v-for="type in integrationTypes"
-                :key="type.value"
+                v-for="type in availableIntegrationTypes"
+                :key="type"
                 class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm"
                 :class="[
-                  activeIntegrationTab === type.value
+                  activeIntegrationTab === type
                     ? 'border-primary-500 text-primary-600 dark:text-primary-400'
                     : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300',
                 ]"
-                @click="activeIntegrationTab = type.value"
+                @click="activeIntegrationTab = type"
               >
-                {{ type.label }}
+                {{ getIntegrationTypeLabel(type) }}
               </button>
             </nav>
           </div>
@@ -316,7 +294,7 @@ function getIntegrationIcon(type: string) {
               <UIcon name="i-lucide-frown" class="h-10 w-10" />
               <div class="text-center">
                 <p class="text-lg">
-                  No {{ integrationTypes.find(t => t.value === activeIntegrationTab)?.label }} integrations configured
+                  No {{ getIntegrationTypeLabel(activeIntegrationTab) }} integrations configured
                 </p>
                 <p class="text-gray-400 dark:text-gray-500">
                   Connect external services to enhance your experience
@@ -347,7 +325,7 @@ function getIntegrationIcon(type: string) {
                     ]"
                   >
                     <UIcon
-                      :name="getIntegrationIcon(integration.service)"
+                      :name="getIntegrationIcon(integration.type)"
                       class="h-5 w-5"
                     />
                   </div>
@@ -356,7 +334,7 @@ function getIntegrationIcon(type: string) {
                       {{ integration.name }}
                     </p>
                     <p class="text-sm text-gray-500 dark:text-gray-400 capitalize">
-                      {{ integrationTypes.find(t => t.value === integration.type)?.services.find(s => s.value === integration.service)?.label }}
+                      {{ integration.service }}
                     </p>
                     <p class="text-xs text-gray-400 dark:text-gray-500 truncate">
                       {{ integration.baseUrl }}
@@ -442,7 +420,6 @@ function getIntegrationIcon(type: string) {
     <SettingsIntegrationDialog
       :integration="selectedIntegration"
       :is-open="isIntegrationDialogOpen"
-      :integration-types="integrationTypes"
       :active-type="activeIntegrationTab"
       @close="isIntegrationDialogOpen = false"
       @save="handleIntegrationSave"

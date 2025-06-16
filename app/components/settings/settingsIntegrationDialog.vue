@@ -1,17 +1,11 @@
 <script setup lang="ts">
 import type { CreateIntegrationInput, Integration } from "~/types/database";
+import { integrationRegistry } from "~/types/integrations";
+import { createIntegrationService } from "~/types/integrations";
 
 const props = defineProps<{
   integration: Integration | null;
   isOpen: boolean;
-  integrationTypes: Array<{
-    label: string;
-    value: string;
-    services: Array<{
-      label: string;
-      value: string;
-    }>;
-  }>;
   activeType: string;
 }>();
 
@@ -23,24 +17,76 @@ const emit = defineEmits<{
 
 // Form state
 const name = ref("");
-const type = ref<string>(props.activeType);
+const type = ref<string>("");
 const service = ref("");
 const apiKey = ref("");
 const baseUrl = ref("");
 const enabled = ref(true);
 const error = ref<string | null>(null);
+const isTesting = ref(false);
 
-// Computed property to get available services for current type
-const availableServices = computed(() => {
-  const typeConfig = props.integrationTypes.find(t => t.value === type.value);
-  return typeConfig ? typeConfig.services : [];
+// Get the current integration config
+const currentIntegrationConfig = computed(() => {
+  if (!type.value || !service.value) return null;
+  return integrationRegistry.get(`${type.value}:${service.value}`);
 });
+
+// Load available types immediately when dialog opens
+const availableTypes = computed(() => {
+  const types = new Set<string>();
+  integrationRegistry.forEach((config) => {
+    types.add(config.type);
+  });
+  
+  return Array.from(types).map(type => ({
+    label: type.charAt(0).toUpperCase() + type.slice(1),
+    value: type
+  }));
+});
+
+// Load services based on selected type
+const availableServices = computed(() => {
+  if (!type.value) return [];
+  
+  const services = new Set<string>();
+  integrationRegistry.forEach((config) => {
+    if (config.type === type.value) {
+      services.add(config.service);
+    }
+  });
+  
+  return Array.from(services).map(service => ({
+    label: service.charAt(0).toUpperCase() + service.slice(1),
+    value: service
+  }));
+});
+
+// Watch for dialog open state
+watch(() => props.isOpen, (isOpen) => {
+  if (isOpen) {
+    // Set initial type if available
+    if (availableTypes.value.length > 0) {
+      type.value = availableTypes.value[0].value;
+    }
+  }
+});
+
+// Watch for type changes
+watch(type, (newType) => {
+  // Reset service when type changes
+  service.value = "";
+  
+  // Set first available service for the new type
+  if (availableServices.value.length > 0) {
+    service.value = availableServices.value[0].value;
+  }
+}, { immediate: true });
 
 // Watch for integration changes
 watch(() => props.integration, (newIntegration) => {
   if (newIntegration) {
     name.value = newIntegration.name || "";
-    type.value = newIntegration.type || props.activeType;
+    type.value = newIntegration.type || "";
     service.value = newIntegration.service || "";
     apiKey.value = newIntegration.apiKey || "";
     baseUrl.value = newIntegration.baseUrl || "";
@@ -52,32 +98,88 @@ watch(() => props.integration, (newIntegration) => {
   }
 }, { immediate: true });
 
-// Watch for type changes
-watch(type, (newType) => {
-  const typeConfig = props.integrationTypes.find(t => t.value === newType);
-  if (typeConfig && typeConfig.services.length > 0) {
-    service.value = typeConfig.services[0]?.value || "";
-  }
-});
-
 function resetForm() {
   name.value = "";
-  type.value = props.activeType;
-  service.value = availableServices.value[0]?.value || "";
+  type.value = availableTypes.value.length > 0 ? availableTypes.value[0].value : "";
+  service.value = "";
   apiKey.value = "";
   baseUrl.value = "";
   enabled.value = true;
   error.value = null;
 }
 
+async function testConnection() {
+  if (!apiKey.value?.trim() || !baseUrl.value?.trim()) {
+    error.value = "API Key and Base URL are required to test connection";
+    return;
+  }
+
+  isTesting.value = true;
+  error.value = null;
+
+  try {
+    const tempIntegration: Integration = {
+      id: "temp",
+      name: name.value || `${service.value.charAt(0).toUpperCase() + service.value.slice(1)}`,
+      type: type.value,
+      service: service.value,
+      apiKey: apiKey.value,
+      baseUrl: baseUrl.value,
+      enabled: true,
+      settings: {},
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    const integrationService = createIntegrationService(tempIntegration);
+    if (!integrationService) {
+      throw new Error("No integration service found for this type");
+    }
+
+    const isValid = await integrationService.testConnection?.();
+    if (!isValid) {
+      throw new Error("Connection test failed");
+    }
+
+    error.value = null;
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : "Connection test failed";
+  } finally {
+    isTesting.value = false;
+  }
+}
+
 function handleSave() {
-  if (!name.value.trim() || !type.value || !service.value || !apiKey.value?.trim() || !baseUrl.value?.trim()) {
-    error.value = "All fields are required";
+  if (!type.value || !service.value) {
+    error.value = "Integration type and service are required";
+    return;
+  }
+
+  const config = currentIntegrationConfig.value;
+  if (!config) {
+    error.value = "Invalid integration type or service";
+    return;
+  }
+
+  // Validate required fields
+  const missingFields = config.requiredFields.filter(field => {
+    switch (field) {
+      case "apiKey":
+        return !apiKey.value?.trim();
+      case "baseUrl":
+        return !baseUrl.value?.trim();
+      default:
+        return false;
+    }
+  });
+
+  if (missingFields.length > 0) {
+    error.value = `Missing required fields: ${missingFields.join(", ")}`;
     return;
   }
 
   emit("save", {
-    name: name.value.trim(),
+    name: name.value.trim() || `${type.value.charAt(0).toUpperCase() + type.value.slice(1)} ${service.value.charAt(0).toUpperCase() + service.value.slice(1)}`,
     type: type.value,
     service: service.value,
     apiKey: apiKey.value.trim(),
@@ -122,66 +224,78 @@ function handleDelete() {
           {{ error }}
         </div>
 
-        <div class="space-y-2">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Integration Type *</label>
-          <USelect
-            v-model="type"
-            :items="integrationTypes"
-            value-attribute="value"
-            option-attribute="label"
-            class="w-full"
-            :ui="{ base: 'w-full' }"
-          />
-        </div>
+        <template v-if="!integration?.id">
+          <div class="space-y-2">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Integration Type *</label>
+            <USelect
+              v-model="type"
+              :items="availableTypes"
+              class="w-full"
+            />
+          </div>
+
+          <div class="space-y-2">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Service *</label>
+            <USelect
+              v-model="service"
+              :items="availableServices"
+              class="w-full"
+            />
+          </div>
+        </template>
 
         <div class="space-y-2">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Integration Name *</label>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Integration Name</label>
           <UInput
             v-model="name"
-            placeholder="e.g., My Calendar Integration"
+            placeholder="Jane's Calendar"
             class="w-full"
             :ui="{ base: 'w-full' }"
           />
+          <p class="text-sm text-gray-500 dark:text-gray-400">
+            Optional. If not provided, a name will be generated.
+          </p>
         </div>
 
-        <div class="space-y-2">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Service *</label>
-          <USelect
-            v-model="service"
-            :items="availableServices"
-            value-attribute="value"
-            option-attribute="label"
-            class="w-full"
-            :ui="{ base: 'w-full' }"
-          />
-        </div>
+        <template v-if="currentIntegrationConfig">
+          <div v-if="currentIntegrationConfig.requiredFields.includes('apiKey')" class="space-y-2">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">API Key *</label>
+            <UInput
+              v-model="apiKey"
+              placeholder="Enter API key"
+              class="w-full"
+              :ui="{ base: 'w-full' }"
+            />
+          </div>
 
-        <div class="space-y-2">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">API Key *</label>
-          <UInput
-            v-model="apiKey"
-            placeholder="Enter API key"
-            type="password"
-            class="w-full"
-            :ui="{ base: 'w-full' }"
-          />
-        </div>
+          <div v-if="currentIntegrationConfig.requiredFields.includes('baseUrl')" class="space-y-2">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Base URL *</label>
+            <UInput
+              v-model="baseUrl"
+              placeholder="https://your-integration-instance.com"
+              class="w-full"
+              :ui="{ base: 'w-full' }"
+            />
+          </div>
+        </template>
 
-        <div class="space-y-2">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Base URL *</label>
-          <UInput
-            v-model="baseUrl"
-            placeholder="https://your-integration-instance.com"
-            class="w-full"
-            :ui="{ base: 'w-full' }"
-          />
-        </div>
-
-        <div class="flex items-center gap-2">
-          <UCheckbox
-            v-model="enabled"
-            label="Enable integration"
-          />
+        <div class="flex items-center justify-between">
+          <div class="flex items-center gap-2">
+            <UCheckbox
+              v-model="enabled"
+              label="Enable integration"
+            />
+          </div>
+          <UButton
+            v-if="currentIntegrationConfig?.requiredFields.includes('apiKey') && currentIntegrationConfig?.requiredFields.includes('baseUrl')"
+            color="primary"
+            variant="ghost"
+            :loading="isTesting"
+            :disabled="!apiKey?.trim() || !baseUrl?.trim()"
+            @click="testConnection"
+          >
+            Test Connection
+          </UButton>
         </div>
       </div>
 
@@ -195,7 +309,7 @@ function handleDelete() {
         >
           Delete
         </UButton>
-        <div class="flex gap-2">
+        <div class="flex gap-2" :class="{ 'ml-auto': !integration?.id }">
           <UButton
             color="neutral"
             variant="ghost"
@@ -205,7 +319,7 @@ function handleDelete() {
           </UButton>
           <UButton
             color="primary"
-            :disabled="!name.trim() || !type || !service || !apiKey?.trim() || !baseUrl?.trim()"
+            :disabled="!type || !service || (currentIntegrationConfig?.requiredFields.includes('apiKey') && !apiKey?.trim()) || (currentIntegrationConfig?.requiredFields.includes('baseUrl') && !baseUrl?.trim())"
             @click="handleSave"
           >
             Save
