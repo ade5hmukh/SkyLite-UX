@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { notNullish } from "@vueuse/core";
 import type { BaseListItem, ShoppingListItem, TodoListItem, Priority } from "~/types/database";
 
 type ToggleEvent = {
@@ -18,7 +19,7 @@ const props = defineProps<{
   showQuantity?: boolean;
   showNotes?: boolean;
   showReorder?: boolean;
-  showEdit?: boolean;
+  showEdit?: boolean | ((item: BaseListItem) => boolean);
 }>();
 
 const emit = defineEmits<{
@@ -89,7 +90,7 @@ function getPriorityColor(priority: Priority) {
           v-if="isShoppingItem(item) && showQuantity && item.quantity"
           class="text-xs text-gray-500 dark:text-gray-400"
         >
-          {{ item.quantity }} {{ item.unit }}
+          {{ item.quantity > 1 ? item.quantity : "" }} {{ item.unit === null || item.unit === "" ? "" : item.unit }}
         </span>
       </div>
       <!-- Notes -->
@@ -121,7 +122,7 @@ function getPriorityColor(priority: Priority) {
         />
       </div>
       <UButton
-        v-if="showEdit"
+        v-if="typeof showEdit === 'function' ? showEdit(item) : showEdit"
         icon="i-lucide-pencil"
         size="xs"
         variant="ghost"

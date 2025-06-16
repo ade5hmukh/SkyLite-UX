@@ -134,6 +134,7 @@ export type TodoList = {
   order: number;
   createdAt: Date;
   updatedAt: Date;
+  isDefault: boolean;
   items: readonly TodoListItem[];
   _count?: {
     items: number;

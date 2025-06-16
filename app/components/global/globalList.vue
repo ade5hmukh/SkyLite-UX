@@ -11,7 +11,7 @@ const props = defineProps<{
   showQuantity?: boolean;
   showNotes?: boolean;
   showReorder?: boolean;
-  showEdit?: boolean;
+  showEdit?: boolean | ((list: ShoppingList | TodoList) => boolean);
   showAdd?: boolean;
   showCompleted?: boolean;
 }>();
@@ -57,6 +57,13 @@ function getProgressColor(percentage: number) {
     return "bg-orange-500";
   return "bg-red-500";
 }
+
+const showItemEdit = computed(() => {
+  if (typeof props.showEdit === 'function') {
+    return (item: BaseListItem) => true; // Always show edit for items
+  }
+  return props.showEdit;
+});
 </script>
 
 <template>
@@ -149,7 +156,7 @@ function getProgressColor(percentage: number) {
                         </template>
                       </div>
                       <UButton
-                        v-if="showEdit"
+                        v-if="typeof showEdit === 'function' ? showEdit(list) : showEdit"
                         icon="i-lucide-pencil"
                         size="xs"
                         variant="ghost"
@@ -219,7 +226,7 @@ function getProgressColor(percentage: number) {
                         :show-quantity="showQuantity"
                         :show-notes="showNotes"
                         :show-reorder="showReorder"
-                        :show-edit="showEdit"
+                        :show-edit="showItemEdit"
                         @edit="_emit('editItem', $event)"
                         @toggle="(payload) => _emit('toggleItem', payload.itemId, payload.checked)"
                         @reorder="(payload) => _emit('reorderItem', payload.itemId, payload.direction)"
@@ -251,7 +258,7 @@ function getProgressColor(percentage: number) {
                         :show-quantity="showQuantity"
                         :show-notes="showNotes"
                         :show-reorder="showReorder"
-                        :show-edit="showEdit"
+                        :show-edit="showItemEdit"
                         @edit="_emit('editItem', $event)"
                         @toggle="(payload) => _emit('toggleItem', payload.itemId, payload.checked)"
                         @reorder="(payload) => _emit('reorderItem', payload.itemId, payload.direction)"

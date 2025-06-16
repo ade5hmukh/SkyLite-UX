@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { Priority, TodoList } from "~/types/database";
+import type { Priority, TodoList, TodoColumn } from "~/types/database";
 
 import TodoItemDialog from "~/components/todos/todoItemDialog.vue";
 import TodoColumnDialog from "~/components/todos/todoColumnDialog.vue";
@@ -16,7 +16,7 @@ const mutableTodoColumns = computed(() => todoColumns.value.map(col => ({
     : {
         id: col.user.id,
         name: col.user.name,
-        avatar: col.user.avatar === null ? undefined : col.user.avatar
+        avatar: col.user.avatar
       }
 })));
 
@@ -34,6 +34,7 @@ const todoLists = computed<TodoList[]>(() => {
     order: column.order,
     createdAt: new Date(column.createdAt),
     updatedAt: new Date(column.updatedAt),
+    isDefault: column.isDefault,
     items: todos.value
       .filter((todo) => todo.todoColumnId === column.id)
       .map((todo) => ({
@@ -238,7 +239,7 @@ onMounted(async () => {
         empty-state-title="No todo lists found"
         empty-state-description="Create your first todo column to get started"
         show-reorder
-        show-edit
+        :show-edit="(column: TodoList) => !column.isDefault"
         show-add
         show-completed
         show-progress
