@@ -32,28 +32,11 @@ export default defineEventHandler(async (event) => {
 
     // Delete user and associated todo column in a transaction
     await prisma.$transaction(async (tx) => {
-      // If the user has a todo column with todos, we need to handle them
+      // If the user has a todo column with todos, delete them
       if (existingUser.todoColumn && existingUser.todoColumn.todos.length > 0) {
-        // Find or create an "Unassigned" column to move the todos to
-        let unassignedColumn = await tx.todoColumn.findFirst({
-          where: { isDefault: true },
-        });
-
-        if (!unassignedColumn) {
-          // Create an unassigned column if it doesn't exist
-          unassignedColumn = await tx.todoColumn.create({
-            data: {
-              name: "Unassigned",
-              isDefault: true,
-              order: 0,
-            },
-          });
-        }
-
-        // Move all todos from the user's column to the unassigned column
-        await tx.todo.updateMany({
+        // Delete all todos in the user's column
+        await tx.todo.deleteMany({
           where: { todoColumnId: existingUser.todoColumn.id },
-          data: { todoColumnId: unassignedColumn.id },
         });
       }
 

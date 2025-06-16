@@ -27,6 +27,7 @@ export default defineEventHandler(async (event) => {
         data: {
           name: user.name,
           userId: user.id,
+          isDefault: true,
           order: ((maxOrder._max?.order) || 0) + 1,
         },
       });

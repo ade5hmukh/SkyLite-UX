@@ -31,6 +31,46 @@ export type TodoWithUser = Prisma.TodoGetPayload<{
   };
 }>;
 
+// Todo Column types
+export type TodoColumn = Omit<Prisma.TodoColumnGetPayload<{
+  include: {
+    user: {
+      select: {
+        id: true;
+        name: true;
+        avatar: true;
+      };
+    };
+    todos: true;
+    _count: {
+      select: {
+        todos: true;
+      };
+    };
+  };
+}>, "todos" | "createdAt" | "updatedAt"> & {
+  todos?: Prisma.TodoGetPayload<Record<string, never>>[];
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type TodoColumnBasic = Pick<TodoColumn, "id" | "name"> & {
+  user?: {
+    id: string;
+    name: string;
+    avatar: string | null;
+  };
+};
+
+// Base types for lists
+export interface BaseListItem {
+  id: string;
+  name: string;
+  checked: boolean;
+  order: number;
+  notes: string | null;
+}
+
 // Shopping List types
 export type ShoppingList = {
   id: string;
@@ -38,18 +78,16 @@ export type ShoppingList = {
   order: number;
   createdAt: Date;
   updatedAt: Date;
-  items: ShoppingListItem[];
+  items: readonly ShoppingListItem[];
+  _count?: {
+    items: number;
+  };
 };
 
-export type ShoppingListItem = {
-  id: string;
-  name: string;
+export type ShoppingListItem = BaseListItem & {
   quantity: number;
   unit: string | null;
-  checked: boolean;
-  notes: string | null;
-  order: number;
-  shoppingListId: string;
+  label: string | null;
 };
 
 export type ShoppingListWithItems = Prisma.ShoppingListGetPayload<{
@@ -88,6 +126,24 @@ export type CreateShoppingListItemInput = Omit<ShoppingListItem, "id" | "shoppin
 // Update types
 export type UpdateTodoInput = Partial<Omit<Todo, "id" | "createdAt" | "updatedAt">>;
 export type UpdateShoppingListItemInput = Partial<CreateShoppingListItemInput>;
+
+// Todo List types
+export type TodoList = {
+  id: string;
+  name: string;
+  order: number;
+  createdAt: Date;
+  updatedAt: Date;
+  isDefault: boolean;
+  items: readonly TodoListItem[];
+  _count?: {
+    items: number;
+  };
+};
+
+export type TodoListItem = BaseListItem & {
+  shoppingListId: string;
+};
 
 // Re-export Priority enum
 export type { Priority };

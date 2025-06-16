@@ -5,6 +5,13 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event);
     const { itemIds } = body;
 
+    if (!itemIds || !Array.isArray(itemIds)) {
+      throw createError({
+        statusCode: 400,
+        message: "Item IDs array is required",
+      });
+    }
+
     // Update the order for each item
     const updatePromises = itemIds.map((id: string, index: number) =>
       prisma.shoppingListItem.update({
@@ -20,7 +27,7 @@ export default defineEventHandler(async (event) => {
   catch (error) {
     throw createError({
       statusCode: 500,
-      statusMessage: `Failed to reorder shopping list item: ${error}`,
+      message: `Failed to reorder shopping list item: ${error}`,
     });
   }
 });
