@@ -19,6 +19,12 @@ services:
       PUID: 1000
       PGID: 1000
       TZ: America/Anchorage
+    networks:
+      skylite-ux_devcontainer_default:
 
 volumes:
   mealie-data:
+  
+networks:
+  skylite-ux_devcontainer_default:
+    external: true
