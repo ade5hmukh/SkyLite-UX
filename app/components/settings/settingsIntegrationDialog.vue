@@ -7,6 +7,7 @@ const props = defineProps<{
   integration: Integration | null;
   isOpen: boolean;
   activeType: string;
+  existingIntegrations: Integration[];
 }>();
 
 const emit = defineEmits<{
@@ -66,7 +67,10 @@ watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
     // Set initial type if available
     if (availableTypes.value.length > 0) {
-      type.value = availableTypes.value[0].value;
+      const firstType = availableTypes.value[0];
+      if (firstType) {
+        type.value = firstType.value;
+      }
     }
   }
 });
@@ -78,7 +82,10 @@ watch(type, (newType) => {
   
   // Set first available service for the new type
   if (availableServices.value.length > 0) {
-    service.value = availableServices.value[0].value;
+    const firstService = availableServices.value[0];
+    if (firstService) {
+      service.value = firstService.value;
+    }
   }
 }, { immediate: true });
 
@@ -100,12 +107,32 @@ watch(() => props.integration, (newIntegration) => {
 
 function resetForm() {
   name.value = "";
-  type.value = availableTypes.value.length > 0 ? availableTypes.value[0].value : "";
+  const firstType = availableTypes.value[0];
+  type.value = firstType ? firstType.value : "";
   service.value = "";
   apiKey.value = "";
   baseUrl.value = "";
   enabled.value = true;
   error.value = null;
+}
+
+// Function to generate unique integration name
+function generateUniqueName(serviceName: string, existingIntegrations: Integration[]): string {
+  const baseName = serviceName.charAt(0).toUpperCase() + serviceName.slice(1);
+  
+  // Check if base name exists
+  const existingNames = existingIntegrations.map(integration => integration.name);
+  if (!existingNames.includes(baseName)) {
+    return baseName;
+  }
+  
+  // Find the next available number
+  let counter = 2;
+  while (existingNames.includes(`${baseName}${counter}`)) {
+    counter++;
+  }
+  
+  return `${baseName}${counter}`;
 }
 
 async function testConnection() {
@@ -125,6 +152,7 @@ async function testConnection() {
       service: service.value,
       apiKey: apiKey.value,
       baseUrl: baseUrl.value,
+      icon: null,
       enabled: true,
       settings: {},
       createdAt: new Date(),
@@ -178,12 +206,15 @@ function handleSave() {
     return;
   }
 
+  const integrationName = name.value.trim() || generateUniqueName(service.value, props.existingIntegrations);
+
   emit("save", {
-    name: name.value.trim() || `${type.value.charAt(0).toUpperCase() + type.value.slice(1)} ${service.value.charAt(0).toUpperCase() + service.value.slice(1)}`,
+    name: integrationName,
     type: type.value,
     service: service.value,
     apiKey: apiKey.value.trim(),
     baseUrl: baseUrl.value.trim(),
+    icon: null,
     enabled: enabled.value,
     settings: {},
   });

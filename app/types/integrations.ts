@@ -23,6 +23,7 @@ export interface IntegrationConfig {
   requiredFields: string[];
   optionalFields?: string[];
   capabilities?: string[];
+  icon: string;
 }
 
 // Registry to store all available integration configurations

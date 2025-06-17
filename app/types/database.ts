@@ -108,6 +108,7 @@ export type Integration = {
   service: string;
   apiKey: string | null;
   baseUrl: string | null;
+  icon: string | null;
   enabled: boolean;
   settings: JsonObject | null;
   createdAt: Date;

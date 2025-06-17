@@ -35,7 +35,7 @@ const selectedIntegration = ref<Integration | null>(null);
 const isIntegrationDialogOpen = ref(false);
 
 // Add active tab state
-const activeIntegrationTab = ref("");
+const activeIntegrationTab = ref<string>("");
 
 // Computed property to get available integration types
 const availableIntegrationTypes = computed(() => {
@@ -47,7 +47,7 @@ const availableIntegrationTypes = computed(() => {
 // Set initial active tab
 onMounted(() => {
   if (availableIntegrationTypes.value.length > 0) {
-    activeIntegrationTab.value = availableIntegrationTypes.value[0];
+    activeIntegrationTab.value = availableIntegrationTypes.value[0] || "";
   }
 });
 
@@ -119,7 +119,7 @@ async function handleIntegrationDelete(integrationId: string) {
 function openIntegrationDialog(integration: Integration | null = null) {
   // Set active tab if not already set
   if (!activeIntegrationTab.value && availableIntegrationTypes.value.length > 0) {
-    activeIntegrationTab.value = availableIntegrationTypes.value[0];
+    activeIntegrationTab.value = availableIntegrationTypes.value[0] || "";
   }
   
   selectedIntegration.value = integration;
@@ -161,6 +161,16 @@ function getIntegrationIcon(type: string) {
 
 function getIntegrationTypeLabel(type: string) {
   return type.charAt(0).toUpperCase() + type.slice(1);
+}
+
+// Function to get integration icon from registry or fallback
+function getIntegrationIconUrl(integration: Integration) {
+  if (integration.icon) {
+    return integration.icon;
+  }
+  
+  const config = integrationRegistry.get(`${integration.type}:${integration.service}`);
+  return config?.icon || null;
 }
 </script>
 
@@ -320,11 +330,19 @@ function getIntegrationTypeLabel(type: string) {
                     class="w-10 h-10 rounded-full flex items-center justify-center text-white"
                     :class="[
                       integration.enabled
-                        ? 'bg-gradient-to-br from-blue-500 to-green-600'
-                        : 'bg-gradient-to-br from-gray-400 to-gray-600',
+                        ? 'bg-gray-700'
+                        : 'bg-gray-400',
                     ]"
                   >
+                    <img
+                      v-if="getIntegrationIconUrl(integration)"
+                      :src="getIntegrationIconUrl(integration) || undefined"
+                      :alt="integration.service + ' icon'"
+                      class="h-5 w-5"
+                      style="object-fit: contain"
+                    />
                     <UIcon
+                      v-else
                       :name="getIntegrationIcon(integration.type)"
                       class="h-5 w-5"
                     />
@@ -421,6 +439,7 @@ function getIntegrationTypeLabel(type: string) {
       :integration="selectedIntegration"
       :is-open="isIntegrationDialogOpen"
       :active-type="activeIntegrationTab"
+      :existing-integrations="integrations"
       @close="isIntegrationDialogOpen = false"
       @save="handleIntegrationSave"
       @delete="handleIntegrationDelete"

@@ -50,6 +50,19 @@ const enabledIntegrationsByType = computed(() => {
   return getIntegrationsByType("shopping");
 });
 
+// Transform shopping lists to match the expected ShoppingList type
+const transformedShoppingLists = computed(() => {
+  return shoppingLists.value.map(list => ({
+    id: list.id,
+    name: list.name,
+    order: list.order || 0,
+    createdAt: new Date(list.createdAt),
+    updatedAt: new Date(list.updatedAt),
+    items: list.items,
+    _count: list._count
+  })) as any; // Type assertion to bypass strict typing
+});
+
 // Watch for integration changes
 watch([activeTab, selectedIntegrationId], async ([newTab, _newIntegrationId]) => {
   if (newTab === "native") {
@@ -289,7 +302,7 @@ function getIntegrationIcon(_service: string) {
       <!-- Native Lists -->
       <div v-if="activeTab === 'native'" class="flex-1 overflow-y-auto">
         <GlobalList
-          :lists="shoppingLists"
+          :lists="transformedShoppingLists"
           :loading="loading"
           empty-state-icon="i-lucide-shopping-cart"
           empty-state-title="No shopping lists found"
