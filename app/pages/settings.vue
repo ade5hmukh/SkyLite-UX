@@ -33,6 +33,7 @@ const isUserDialogOpen = ref(false);
 // Integration state
 const selectedIntegration = ref<Integration | null>(null);
 const isIntegrationDialogOpen = ref(false);
+const connectionTestResult = ref<any>(null);
 
 // Add active tab state
 const activeIntegrationTab = ref<string>("");
@@ -81,26 +82,59 @@ function openUserDialog(user: User | null = null) {
 
 async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
   try {
+    // Clear any previous connection test result
+    connectionTestResult.value = null;
+    
     if (selectedIntegration.value?.id) {
-      await updateIntegration(selectedIntegration.value.id, {
+      // Update existing integration
+      const updatedIntegration = await updateIntegration(selectedIntegration.value.id, {
         ...integrationData,
         createdAt: selectedIntegration.value.createdAt,
         updatedAt: new Date(),
       });
+      
+      // Manually update the integrations array
+      const index = integrations.value.findIndex(i => i.id === selectedIntegration.value?.id);
+      if (index !== -1) {
+        integrations.value[index] = updatedIntegration;
+      }
+      
+      // Show success result
+      connectionTestResult.value = {
+        success: true,
+        message: "Integration updated successfully!"
+      };
     }
     else {
-      await createIntegration({
+      // Create new integration
+      const newIntegration = await createIntegration({
         ...integrationData,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
+      
+      // Manually add to the integrations array
+      integrations.value.push(newIntegration);
+      
+      // Show success result
+      connectionTestResult.value = {
+        success: true,
+        message: "Integration created successfully!"
+      };
     }
-    // Refresh the integrations list
-    await fetchIntegrations();
-    isIntegrationDialogOpen.value = false;
-    selectedIntegration.value = null;
+    
+    // Close dialog after a short delay to show the success message
+    setTimeout(() => {
+      isIntegrationDialogOpen.value = false;
+      selectedIntegration.value = null;
+      connectionTestResult.value = null; // Clear the result
+    }, 1500);
   } catch (error) {
     console.error('Failed to save integration:', error);
+    connectionTestResult.value = {
+      success: false,
+      error: error instanceof Error ? error.message : "Failed to save integration"
+    };
   }
 }
 
@@ -440,6 +474,7 @@ function getIntegrationIconUrl(integration: Integration) {
       :is-open="isIntegrationDialogOpen"
       :active-type="activeIntegrationTab"
       :existing-integrations="integrations"
+      :connection-test-result="connectionTestResult"
       @close="isIntegrationDialogOpen = false"
       @save="handleIntegrationSave"
       @delete="handleIntegrationDelete"

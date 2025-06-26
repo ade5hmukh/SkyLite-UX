@@ -1,19 +1,20 @@
 <script setup lang="ts">
 import type { CreateIntegrationInput, Integration } from "~/types/database";
 import { integrationRegistry } from "~/types/integrations";
-import { createIntegrationService } from "~/types/integrations";
 
 const props = defineProps<{
   integration: Integration | null;
   isOpen: boolean;
   activeType: string;
   existingIntegrations: Integration[];
+  connectionTestResult: any;
 }>();
 
 const emit = defineEmits<{
   (e: "close"): void;
   (e: "save", integration: CreateIntegrationInput): void;
   (e: "delete", integrationId: string): void;
+  (e: "test-connection", integration: any): void;
 }>();
 
 // Form state
@@ -24,7 +25,12 @@ const apiKey = ref("");
 const baseUrl = ref("");
 const enabled = ref(true);
 const error = ref<string | null>(null);
-const isTesting = ref(false);
+const isSaving = ref(false);
+
+// Computed property to show loading state during connection test
+const isTestingConnection = computed(() => {
+  return isSaving.value && !props.connectionTestResult;
+});
 
 // Get the current integration config
 const currentIntegrationConfig = computed(() => {
@@ -135,49 +141,13 @@ function generateUniqueName(serviceName: string, existingIntegrations: Integrati
   return `${baseName}${counter}`;
 }
 
+// Remove testConnectionFromComposable and use a local stub for testConnection
 async function testConnection() {
-  if (!apiKey.value?.trim() || !baseUrl.value?.trim()) {
-    error.value = "API Key and Base URL are required to test connection";
-    return;
-  }
-
-  isTesting.value = true;
-  error.value = null;
-
-  try {
-    const tempIntegration: Integration = {
-      id: "temp",
-      name: name.value || `${service.value.charAt(0).toUpperCase() + service.value.slice(1)}`,
-      type: type.value,
-      service: service.value,
-      apiKey: apiKey.value,
-      baseUrl: baseUrl.value,
-      icon: null,
-      enabled: true,
-      settings: {},
-      createdAt: new Date(),
-      updatedAt: new Date()
-    };
-
-    const integrationService = createIntegrationService(tempIntegration);
-    if (!integrationService) {
-      throw new Error("No integration service found for this type");
-    }
-
-    const isValid = await integrationService.testConnection?.();
-    if (!isValid) {
-      throw new Error("Connection test failed");
-    }
-
-    error.value = null;
-  } catch (err) {
-    error.value = err instanceof Error ? err.message : "Connection test failed";
-  } finally {
-    isTesting.value = false;
-  }
+  // Optionally, you can emit an event or show a message that test connection is not available in the dialog
+  error.value = 'Test connection is only available from the parent context.';
 }
 
-function handleSave() {
+async function handleSave() {
   if (!type.value || !service.value) {
     error.value = "Integration type and service are required";
     return;
@@ -190,7 +160,7 @@ function handleSave() {
   }
 
   // Validate required fields
-  const missingFields = config.requiredFields.filter(field => {
+  const missingFields = config.requiredFields.filter(field => { 
     switch (field) {
       case "apiKey":
         return !apiKey.value?.trim();
@@ -206,18 +176,31 @@ function handleSave() {
     return;
   }
 
-  const integrationName = name.value.trim() || generateUniqueName(service.value, props.existingIntegrations);
+  isSaving.value = true;
+  error.value = null;
 
-  emit("save", {
-    name: integrationName,
-    type: type.value,
-    service: service.value,
-    apiKey: apiKey.value.trim(),
-    baseUrl: baseUrl.value.trim(),
-    icon: null,
-    enabled: enabled.value,
-    settings: {},
-  });
+  try {
+    const integrationName = name.value.trim() || generateUniqueName(service.value, props.existingIntegrations);
+    
+    const integrationData = {
+      name: integrationName,
+      type: type.value,
+      service: service.value,
+      apiKey: apiKey.value.trim(),
+      baseUrl: baseUrl.value.trim(),
+      icon: null,
+      enabled: enabled.value,
+      settings: {},
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
+
+    emit("save", integrationData);
+  } catch (err) {
+    error.value = err instanceof Error ? err.message : "Failed to save integration";
+  } finally {
+    isSaving.value = false;
+  }
 }
 
 function handleDelete() {
@@ -253,6 +236,22 @@ function handleDelete() {
       <div class="p-4 space-y-6">
         <div v-if="error" class="bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 rounded-md px-3 py-2 text-sm">
           {{ error }}
+        </div>
+
+        <div v-if="isTestingConnection" class="bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 rounded-md px-3 py-2 text-sm flex items-center gap-2">
+          <UIcon name="i-lucide-loader-2" class="animate-spin h-4 w-4" />
+          Testing connection...
+        </div>
+
+        <div v-if="props.connectionTestResult">
+          <div v-if="props.connectionTestResult.success" class="bg-green-50 dark:bg-green-950 text-green-600 dark:text-green-400 rounded-md px-3 py-2 text-sm flex items-center gap-2">
+            <UIcon name="i-lucide-check-circle" class="h-4 w-4" />
+            Connection test successful! Integration saved.
+          </div>
+          <div v-else class="bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 rounded-md px-3 py-2 text-sm flex items-center gap-2">
+            <UIcon name="i-lucide-x-circle" class="h-4 w-4" />
+            Connection test failed. Check your API key and base URL.
+          </div>
         </div>
 
         <template v-if="!integration?.id">
@@ -317,16 +316,6 @@ function handleDelete() {
               label="Enable integration"
             />
           </div>
-          <UButton
-            v-if="currentIntegrationConfig?.requiredFields.includes('apiKey') && currentIntegrationConfig?.requiredFields.includes('baseUrl')"
-            color="primary"
-            variant="ghost"
-            :loading="isTesting"
-            :disabled="!apiKey?.trim() || !baseUrl?.trim()"
-            @click="testConnection"
-          >
-            Test Connection
-          </UButton>
         </div>
       </div>
 
@@ -350,10 +339,11 @@ function handleDelete() {
           </UButton>
           <UButton
             color="primary"
-            :disabled="!type || !service || (currentIntegrationConfig?.requiredFields.includes('apiKey') && !apiKey?.trim()) || (currentIntegrationConfig?.requiredFields.includes('baseUrl') && !baseUrl?.trim())"
+            :loading="isSaving"
+            :disabled="isSaving"
             @click="handleSave"
           >
-            Save
+            {{ isSaving ? 'Saving...' : 'Save' }}
           </UButton>
         </div>
       </div>

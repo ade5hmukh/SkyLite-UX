@@ -8,19 +8,31 @@ import ShoppingListDialog from "~/components/shopping/shoppingListDialog.vue";
 import ShoppingListItemDialog from "~/components/shopping/shoppingListItemDialog.vue";
 
 const {
-  shoppingLists,
-  loading,
+  shoppingLists: nativeShoppingLists,
+  loading: nativeLoading,
   createShoppingList,
   updateShoppingList,
   deleteShoppingList,
   addItemToList,
   updateShoppingListItem,
   deleteShoppingListItem,
-  fetchShoppingLists,
+  fetchShoppingLists: fetchNativeLists,
   reorderItem,
   reorderShoppingList,
   deleteCompletedItems,
 } = useShoppingLists();
+
+const { 
+  shoppingLists: integrationLists,
+  shoppingIntegrations,
+  loading: integrationLoading,
+  fetchShoppingLists: fetchIntegrationLists,
+  addItemToList: addItemToIntegrationList,
+  updateShoppingListItem: updateIntegrationItem,
+  toggleItem: toggleIntegrationItem,
+  clearCompletedItems: clearIntegrationCompletedItems,
+  syncShoppingLists,
+} = useShoppingIntegrations();
 
 const { fetchIntegrations, getEnabledIntegrations, getIntegrationsByType } = useIntegrations();
 
@@ -50,9 +62,29 @@ const enabledIntegrationsByType = computed(() => {
   return getIntegrationsByType("shopping");
 });
 
+// Get the current lists based on active tab
+const currentLists = computed(() => {
+  if (activeTab.value === "native") {
+    return nativeShoppingLists.value;
+  } else {
+    // For integration lists, we already have the selected integration ID
+    // Return all integration lists since they're already filtered by integration
+    return integrationLists.value || [];
+  }
+});
+
+// Get the current loading state
+const currentLoading = computed(() => {
+  if (activeTab.value === "native") {
+    return nativeLoading.value;
+  } else {
+    return integrationLoading.value;
+  }
+});
+
 // Transform shopping lists to match the expected ShoppingList type
 const transformedShoppingLists = computed(() => {
-  return shoppingLists.value.map(list => ({
+  return (currentLists.value as any[]).map(list => ({
     id: list.id,
     name: list.name,
     order: list.order || 0,
@@ -64,10 +96,13 @@ const transformedShoppingLists = computed(() => {
 });
 
 // Watch for integration changes
-watch([activeTab, selectedIntegrationId], async ([newTab, _newIntegrationId]) => {
+watch([activeTab, selectedIntegrationId], async ([newTab, newIntegrationId]) => {
   if (newTab === "native") {
     // Clear any integration-specific state
     selectedListId.value = "";
+  } else if (newIntegrationId) {
+    // Fetch integration lists when switching to an integration tab
+    await fetchIntegrationLists();
   }
 });
 
@@ -77,8 +112,11 @@ onMounted(async () => {
     // Fetch integrations first
     await fetchIntegrations();
 
-    // Then fetch shopping lists
-    await fetchShoppingLists();
+    // Then fetch both native and integration lists
+    await Promise.all([
+      fetchNativeLists(),
+      fetchIntegrationLists()
+    ]);
   }
   catch (error) {
     console.error("Failed to initialize shopping lists:", error);
@@ -103,11 +141,17 @@ function openEditItem(item: any) {
 
 async function handleListSave(listData: CreateShoppingListInput) {
   try {
-    if (editingList.value?.id) {
-      await updateShoppingList(editingList.value.id, listData);
-    }
-    else {
-      await createShoppingList(listData);
+    if (activeTab.value === "native") {
+      if (editingList.value?.id) {
+        await updateShoppingList(editingList.value.id, listData);
+      }
+      else {
+        await createShoppingList(listData);
+      }
+    } else {
+      // Handle integration list creation/update
+      // For now, we'll show an alert that this isn't supported yet
+      showAlert("Creating/editing lists in integrations is not yet supported.", "warning");
     }
     listDialog.value = false;
     editingList.value = null;
@@ -123,7 +167,12 @@ async function handleListDelete() {
     return;
 
   try {
-    await deleteShoppingList(editingList.value.id);
+    if (activeTab.value === "native") {
+      await deleteShoppingList(editingList.value.id);
+    } else {
+      // Handle integration list deletion
+      showAlert("Deleting lists in integrations is not yet supported.", "warning");
+    }
     listDialog.value = false;
     editingList.value = null;
   }
@@ -135,11 +184,27 @@ async function handleListDelete() {
 
 async function handleItemSave(itemData: CreateShoppingListItemInput) {
   try {
-    if (editingItem.value?.id) {
-      await updateShoppingListItem(editingItem.value.id, itemData);
-    }
-    else if (selectedListId.value) {
-      await addItemToList(selectedListId.value, itemData);
+    if (activeTab.value === "native") {
+      if (editingItem.value?.id) {
+        await updateShoppingListItem(editingItem.value.id, itemData);
+      }
+      else if (selectedListId.value) {
+        await addItemToList(selectedListId.value, itemData);
+      }
+    } else {
+      // Handle integration item creation/update
+      if (editingItem.value?.id) {
+        // Find the integration ID from the current list
+        const currentList = (currentLists.value as any[]).find(list => 
+          list.items?.some((item: any) => item.id === editingItem.value.id)
+        );
+        if (currentList?.integrationId) {
+          await updateIntegrationItem(currentList.integrationId, editingItem.value.id, itemData);
+        }
+      }
+      else if (selectedListId.value && selectedIntegrationId.value) {
+        await addItemToIntegrationList(selectedIntegrationId.value, selectedListId.value, itemData);
+      }
     }
     itemDialog.value = false;
     selectedListId.value = "";
@@ -147,12 +212,24 @@ async function handleItemSave(itemData: CreateShoppingListItemInput) {
   }
   catch (error) {
     console.error("Failed to save item:", error);
+    showAlert("Failed to save item. Please try again.", "error");
   }
 }
 
 async function handleItemDelete(itemId: string) {
   try {
-    await deleteShoppingListItem(itemId);
+    if (activeTab.value === "native") {
+      await deleteShoppingListItem(itemId);
+    } else {
+      // Handle integration item deletion
+      const currentList = (currentLists.value as any[]).find(list => 
+        list.items?.some((item: any) => item.id === itemId)
+      );
+      if (currentList?.integrationId) {
+        // Note: deleteShoppingListItem is not yet implemented in useShoppingIntegrations
+        showAlert("Deleting items in integrations is not yet supported.", "warning");
+      }
+    }
     itemDialog.value = false;
     editingItem.value = null;
   }
@@ -164,17 +241,32 @@ async function handleItemDelete(itemId: string) {
 
 async function handleToggleItem(itemId: string, checked: boolean) {
   try {
-    await updateShoppingListItem(itemId, { checked });
+    if (activeTab.value === "native") {
+      await updateShoppingListItem(itemId, { checked });
+    } else {
+      // Handle integration item toggle
+      const currentList = (currentLists.value as any[]).find(list => 
+        list.items?.some((item: any) => item.id === itemId)
+      );
+      if (currentList?.integrationId) {
+        await toggleIntegrationItem(currentList.integrationId, itemId, checked);
+      }
+    }
   }
   catch (error) {
     console.error("Failed to toggle item:", error);
+    showAlert("Failed to toggle item. Please try again.", "error");
   }
 }
 
 async function handleDeleteList(listId: string) {
   confirmAction.value = async () => {
     try {
-      await deleteShoppingList(listId);
+      if (activeTab.value === "native") {
+        await deleteShoppingList(listId);
+      } else {
+        showAlert("Deleting lists in integrations is not yet supported.", "warning");
+      }
     }
     catch (error) {
       console.error("Failed to delete list:", error);
@@ -207,7 +299,11 @@ async function handleReorderItem(itemId: string, direction: "up" | "down") {
   reorderingItems.value.add(itemId);
 
   try {
-    await reorderItem(itemId, direction);
+    if (activeTab.value === "native") {
+      await reorderItem(itemId, direction);
+    } else {
+      showAlert("Reordering items in integrations is not yet supported.", "warning");
+    }
   }
   catch (error) {
     console.error("Failed to reorder item:", error);
@@ -228,7 +324,11 @@ async function handleReorderList(listId: string, direction: "up" | "down") {
   reorderingLists.value.add(listId);
 
   try {
-    await reorderShoppingList(listId, direction);
+    if (activeTab.value === "native") {
+      await reorderShoppingList(listId, direction);
+    } else {
+      showAlert("Reordering lists in integrations is not yet supported.", "warning");
+    }
   }
   catch (error) {
     console.error("Failed to reorder shopping list:", error);
@@ -241,7 +341,16 @@ async function handleReorderList(listId: string, direction: "up" | "down") {
 
 async function handleClearCompleted(listId: string) {
   try {
-    await deleteCompletedItems(listId);
+    if (activeTab.value === "native") {
+      await deleteCompletedItems(listId);
+    } else {
+      // For integration lists, use the selected integration ID
+      if (selectedIntegrationId.value) {
+        await clearIntegrationCompletedItems(selectedIntegrationId.value, listId);
+      } else {
+        showAlert("Unable to clear completed items. Integration not found.", "error");
+      }
+    }
   }
   catch (error) {
     console.error("Failed to clear completed items:", error);
@@ -251,6 +360,17 @@ async function handleClearCompleted(listId: string) {
 
 function getIntegrationIcon(_service: string) {
   return "i-lucide-plug";
+}
+
+// Sync integration lists
+async function handleSyncIntegrationLists() {
+  try {
+    await syncShoppingLists();
+    showAlert("Integration lists synced successfully!", "success");
+  } catch (error) {
+    console.error("Failed to sync integration lists:", error);
+    showAlert("Failed to sync integration lists. Please try again.", "error");
+  }
 }
 </script>
 
@@ -303,7 +423,7 @@ function getIntegrationIcon(_service: string) {
       <div v-if="activeTab === 'native'" class="flex-1 overflow-y-auto">
         <GlobalList
           :lists="transformedShoppingLists"
-          :loading="loading"
+          :loading="currentLoading"
           empty-state-icon="i-lucide-shopping-cart"
           empty-state-title="No shopping lists found"
           empty-state-description="Create your first shopping list to get started"
@@ -323,6 +443,53 @@ function getIntegrationIcon(_service: string) {
           @reorder-list="handleReorderList"
           @clear-completed="handleClearCompleted"
         />
+      </div>
+
+      <!-- Integration Lists -->
+      <div v-else class="flex-1 overflow-y-auto">
+        <div class="p-4">
+          <!-- Integration Header -->
+          <div class="flex items-center justify-between mb-4">
+            <div class="flex items-center gap-2">
+              <UIcon
+                :name="getIntegrationIcon(selectedIntegrationId || '')"
+                class="h-5 w-5 text-primary-500"
+              />
+              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+                {{ shoppingIntegrations.find((i: any) => i.id === selectedIntegrationId)?.name || 'Integration' }} Lists
+              </h2>
+            </div>
+            <UButton
+              color="primary"
+              variant="outline"
+              size="sm"
+              :loading="integrationLoading"
+              @click="handleSyncIntegrationLists"
+            >
+              <UIcon name="i-lucide-refresh-cw" class="h-4 w-4 mr-1" />
+              Sync
+            </UButton>
+          </div>
+
+          <!-- Integration Lists -->
+          <GlobalList
+            :lists="transformedShoppingLists"
+            :loading="currentLoading"
+            empty-state-icon="i-lucide-shopping-cart"
+            empty-state-title="No shopping lists found"
+            empty-state-description="No shopping lists found in this integration"
+            show-quantity
+            show-notes
+            :show-reorder="false"
+            :show-edit="false"
+            :show-add="true"
+            show-completed
+            @add-item="openAddItem"
+            @edit-item="openEditItem"
+            @toggle-item="handleToggleItem"
+            @clear-completed="handleClearCompleted"
+          />
+        </div>
       </div>
     </div>
 

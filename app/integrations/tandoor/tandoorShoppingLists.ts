@@ -59,7 +59,46 @@ export class TandoorService implements IntegrationService {
   }
 
   async testConnection(): Promise<boolean> {
-    return this.validate();
+    try {
+      // For connection testing, make a direct API call instead of using the server proxy
+      // since the integration doesn't exist in the database yet
+      const response = await fetch(`${this.baseUrl}/api/shopping-list-entry/`, {
+        method: 'GET',
+        headers: {
+          'Authorization': `Token ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Tandoor API error:', response.status, response.statusText, errorText);
+        this.status = {
+          isConnected: false,
+          lastChecked: new Date(),
+          error: `API error: ${response.status} ${response.statusText}`
+        };
+        return false;
+      }
+
+      // Try to parse the response to ensure it's valid JSON
+      const data = await response.json();
+      
+      this.status = {
+        isConnected: true,
+        lastChecked: new Date()
+      };
+      
+      return true;
+    } catch (error) {
+      console.error('Tandoor connection test error:', error);
+      this.status = {
+        isConnected: false,
+        lastChecked: new Date(),
+        error: error instanceof Error ? error.message : "Unknown error"
+      };
+      return false;
+    }
   }
 
   async getCapabilities(): Promise<string[]> {
@@ -69,32 +108,43 @@ export class TandoorService implements IntegrationService {
 
   // Tandoor-specific methods using server service
   async getShoppingLists(): Promise<ShoppingList[]> {
-    // Tandoor doesn't have separate lists, so we return the entries as a single list
-    const entries = await this.serverService.getShoppingListEntries();
-    
-    // Transform Tandoor entries to our database format
-    const items: ShoppingListItem[] = entries.map((entry, index) => ({
-      id: entry.id.toString(),
-      name: entry.food.name,
-      checked: entry.checked,
-      order: entry.order || index,
-      notes: null, // Tandoor doesn't have notes field
-      quantity: entry.amount,
-      unit: entry.unit?.name || null,
-      label: null // Tandoor doesn't have labels
-    }));
-
-    return [{
-      id: "default",
-      name: "Shopping List",
-      order: 0,
-      createdAt: new Date(), // Tandoor doesn't provide list creation date
-      updatedAt: new Date(), // Tandoor doesn't provide list update date
-      items,
-      _count: {
-        items: items.length
+    try {
+      // Tandoor doesn't have separate lists, so we return the entries as a single list
+      const entries = await this.serverService.getShoppingListEntries();
+      
+      // Add null/undefined checks
+      if (!entries || !Array.isArray(entries)) {
+        console.warn('Tandoor service returned invalid entries:', entries);
+        return [];
       }
-    }];
+      
+      // Transform Tandoor entries to our database format
+      const items: ShoppingListItem[] = entries.map((entry, index) => ({
+        id: entry.id.toString(),
+        name: entry.food?.name || "Unknown Item",
+        checked: entry.checked,
+        order: entry.order || index,
+        notes: null, // Tandoor doesn't have notes field
+        quantity: entry.amount,
+        unit: entry.unit?.name || null,
+        label: null // Tandoor doesn't have labels
+      }));
+
+      return [{
+        id: "default",
+        name: "Shopping List",
+        order: 0,
+        createdAt: new Date(), // Tandoor doesn't provide list creation date
+        updatedAt: new Date(), // Tandoor doesn't provide list update date
+        items,
+        _count: {
+          items: items.length
+        }
+      }];
+    } catch (error) {
+      console.error('Error fetching Tandoor shopping lists:', error);
+      return [];
+    }
   }
 
   async getShoppingListEntries() {
@@ -173,5 +223,29 @@ export class TandoorService implements IntegrationService {
     }
     
     return list;
+  }
+
+  async toggleItem(itemId: string, checked: boolean): Promise<ShoppingListItem> {
+    try {
+      // Update the shopping list entry
+      const updatedEntry = await this.serverService.updateShoppingListEntry(parseInt(itemId), {
+        checked: checked
+      });
+      
+      // Transform back to our database format
+      return {
+        id: updatedEntry.id.toString(),
+        name: updatedEntry.food.name,
+        checked: updatedEntry.checked,
+        order: updatedEntry.order,
+        notes: null, // Tandoor doesn't support notes
+        quantity: updatedEntry.amount,
+        unit: updatedEntry.unit?.name || null,
+        label: null // Tandoor doesn't support labels
+      };
+    } catch (error) {
+      console.error(`Error toggling item ${itemId}:`, error);
+      throw new Error(`Failed to toggle item: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 } 

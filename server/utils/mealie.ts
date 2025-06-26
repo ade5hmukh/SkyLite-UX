@@ -13,7 +13,7 @@ export interface MealieShoppingList {
 }
 
 export interface MealieShoppingListItem {
-  id: string
+  id: string | null
   quantity: number
   unit: MealieUnit | null
   food: MealieFood | null
@@ -104,7 +104,7 @@ export class MealieService {
   }
 
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
-    const url = `/api/mealie/${path}${path.includes('?') ? '&' : '?'}integrationId=${this.integrationId}`
+    const url = `/api/integrations/mealie/${path}${path.includes('?') ? '&' : '?'}integrationId=${this.integrationId}`
     const headers = {
       'Content-Type': 'application/json',
       ...options.headers
@@ -150,10 +150,17 @@ export class MealieService {
     })
   }
 
-  async createShoppingListItems(items: Partial<MealieShoppingListItem>[]): Promise<MealieShoppingListItem[]> {
-    return await this.request<MealieShoppingListItem[]>('api/households/shopping/items/create-bulk', {
+  async createShoppingListItems(listId: string, items: Partial<MealieShoppingListItem>[]): Promise<MealieShoppingListItem[]> {
+    return await this.request<MealieShoppingListItem[]>(`api/households/shopping/items`, {
       method: 'POST',
       body: JSON.stringify(items)
+    })
+  }
+
+  async createShoppingListItem(item: Partial<MealieShoppingListItem>): Promise<MealieShoppingListItem> {
+    return await this.request<MealieShoppingListItem>(`api/households/shopping/items`, {
+      method: 'POST',
+      body: JSON.stringify(item)
     })
   }
 
@@ -191,6 +198,13 @@ export class MealieService {
     return await this.request<MealieBulkUpdateResponse>('api/households/shopping/items', {
       method: 'PUT',
       body: JSON.stringify(items)
+    })
+  }
+
+  async updateShoppingListItemById(itemId: string, data: Partial<MealieShoppingListItem>): Promise<MealieShoppingListItem> {
+    return await this.request<MealieShoppingListItem>(`api/households/shopping/items/${itemId}`, {
+      method: 'PUT',
+      body: JSON.stringify(data)
     })
   }
 } 

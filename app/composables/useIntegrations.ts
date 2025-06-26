@@ -1,4 +1,4 @@
-import { computed, ref } from "vue";
+import { computed, ref, onMounted } from "vue";
 import type { Integration } from "~/types/database";
 import type { IntegrationService } from "~/types/integrations";
 import { createIntegrationService } from "~/types/integrations";
@@ -9,9 +9,6 @@ export function useIntegrations() {
   const error = ref<string | null>(null);
   const initialized = ref(false);
   const services = ref<Map<string, IntegrationService>>(new Map());
-
-  // Server-side data fetching
-  const { data: serverIntegrations } = useNuxtData<Integration[]>("integrations");
 
   const fetchIntegrations = async () => {
     if (loading.value)
@@ -25,12 +22,14 @@ export function useIntegrations() {
         throw new Error("Failed to fetch integrations");
       }
       const data = await response.json();
-      integrations.value = data;
+      // Mutate array in place for reactivity
+      integrations.value.splice(0, integrations.value.length, ...data);
       
-      // Initialize services for each integration
+      // Clear existing services and initialize new ones
+      services.value.clear();
       for (const integration of data) {
         if (integration.enabled) {
-          const service = createIntegrationService(integration);
+          const service = await createIntegrationService(integration);
           if (service) {
             services.value.set(integration.id, service);
             await service.initialize();
@@ -49,12 +48,14 @@ export function useIntegrations() {
     }
   };
 
-  // Watch for server data changes
-  watch(serverIntegrations, (newIntegrations) => {
-    if (newIntegrations) {
-      integrations.value = newIntegrations;
-      initialized.value = true;
-    }
+  // Manual refresh function
+  const refreshIntegrations = async () => {
+    await fetchIntegrations();
+  };
+
+  // Initialize on composable creation
+  onMounted(() => {
+    fetchIntegrations();
   });
 
   const createIntegration = async (integration: Omit<Integration, "id">) => {
@@ -68,15 +69,18 @@ export function useIntegrations() {
         },
         body: JSON.stringify(integration),
       });
+      
       if (!response.ok) {
-        throw new Error("Failed to create integration");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to create integration");
       }
+      
       const newIntegration = await response.json();
       await fetchIntegrations(); // Refresh data after creation
       return newIntegration;
     }
     catch (err) {
-      error.value = "Failed to create integration";
+      error.value = err instanceof Error ? err.message : "Failed to create integration";
       console.error("Error creating integration:", err);
       throw err;
     }
@@ -96,15 +100,18 @@ export function useIntegrations() {
         },
         body: JSON.stringify(updates),
       });
+      
       if (!response.ok) {
-        throw new Error("Failed to update integration");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to update integration");
       }
+      
       const updatedIntegration = await response.json();
       await fetchIntegrations(); // Refresh data after update
       return updatedIntegration;
     }
     catch (err) {
-      error.value = "Failed to update integration";
+      error.value = err instanceof Error ? err.message : "Failed to update integration";
       console.error("Error updating integration:", err);
       throw err;
     }
@@ -164,6 +171,7 @@ export function useIntegrations() {
     error,
     initialized,
     fetchIntegrations,
+    refreshIntegrations,
     createIntegration,
     updateIntegration,
     deleteIntegration,

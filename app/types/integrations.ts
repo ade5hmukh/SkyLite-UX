@@ -36,7 +36,7 @@ export function registerIntegration(config: IntegrationConfig) {
 }
 
 // Factory to create integration service instances
-export function createIntegrationService(integration: Integration): IntegrationService | null {
+export async function createIntegrationService(integration: Integration): Promise<IntegrationService | null> {
   const key = `${integration.type}:${integration.service}`;
   const config = integrationRegistry.get(key);
   
@@ -45,7 +45,22 @@ export function createIntegrationService(integration: Integration): IntegrationS
     return null;
   }
   
-  // Import and instantiate the appropriate service
-  // This will be implemented by each integration
-  return null;
+  try {
+    // Import and instantiate the appropriate service
+    if (integration.type === "shopping" && integration.service === "mealie") {
+      const { MealieService } = await import("~/integrations/mealie/mealieShoppingLists");
+      return new MealieService(integration.id, integration.apiKey || "", integration.baseUrl || "");
+    }
+    
+    if (integration.type === "shopping" && integration.service === "tandoor") {
+      const { TandoorService } = await import("~/integrations/tandoor/tandoorShoppingLists");
+      return new TandoorService(integration.id, integration.apiKey || "", integration.baseUrl || "");
+    }
+    
+    console.warn(`No service implementation found for ${key}`);
+    return null;
+  } catch (error) {
+    console.error(`Error creating integration service for ${key}:`, error);
+    return null;
+  }
 } 

@@ -88,6 +88,7 @@ export type ShoppingListItem = BaseListItem & {
   quantity: number;
   unit: string | null;
   label: string | null;
+  integrationData?: JsonObject;
 };
 
 export type ShoppingListWithItems = Prisma.ShoppingListGetPayload<{
