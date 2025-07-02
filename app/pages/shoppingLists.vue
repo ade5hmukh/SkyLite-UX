@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import type { CreateShoppingListInput, CreateShoppingListItemInput } from "~/types/database";
-
+import { consola } from "consola";
 import GlobalAlert from "~/components/global/globalAlert.vue";
 import GlobalConfirm from "~/components/global/globalConfirm.vue";
 import GlobalList from "~/components/global/globalList.vue";
@@ -119,7 +119,7 @@ onMounted(async () => {
     ]);
   }
   catch (error) {
-    console.error("Failed to initialize shopping lists:", error);
+    consola.error("Failed to initialize shopping lists:", error);
   }
 });
 
@@ -157,7 +157,7 @@ async function handleListSave(listData: CreateShoppingListInput) {
     editingList.value = null;
   }
   catch (error) {
-    console.error("Failed to save shopping list:", error);
+    consola.error("Failed to save shopping list:", error);
     showAlert("Failed to save shopping list. Please try again.", "error");
   }
 }
@@ -177,7 +177,7 @@ async function handleListDelete() {
     editingList.value = null;
   }
   catch (error) {
-    console.error("Failed to delete list:", error);
+    consola.error("Failed to delete list:", error);
     showAlert("Failed to delete shopping list. Please try again.", "error");
   }
 }
@@ -211,7 +211,7 @@ async function handleItemSave(itemData: CreateShoppingListItemInput) {
     editingItem.value = null;
   }
   catch (error) {
-    console.error("Failed to save item:", error);
+    consola.error("Failed to save item:", error);
     showAlert("Failed to save item. Please try again.", "error");
   }
 }
@@ -234,7 +234,7 @@ async function handleItemDelete(itemId: string) {
     editingItem.value = null;
   }
   catch (error) {
-    console.error("Failed to delete item:", error);
+    consola.error("Failed to delete item:", error);
     showAlert("Failed to delete item. Please try again.", "error");
   }
 }
@@ -254,7 +254,7 @@ async function handleToggleItem(itemId: string, checked: boolean) {
     }
   }
   catch (error) {
-    console.error("Failed to toggle item:", error);
+    consola.error("Failed to toggle item:", error);
     showAlert("Failed to toggle item. Please try again.", "error");
   }
 }
@@ -269,7 +269,7 @@ async function handleDeleteList(listId: string) {
       }
     }
     catch (error) {
-      console.error("Failed to delete list:", error);
+      consola.error("Failed to delete list:", error);
     }
   };
   confirmDialog.value = true;
@@ -306,7 +306,7 @@ async function handleReorderItem(itemId: string, direction: "up" | "down") {
     }
   }
   catch (error) {
-    console.error("Failed to reorder item:", error);
+    consola.error("Failed to reorder item:", error);
     showAlert("Failed to reorder item. Please try again.");
   }
   finally {
@@ -331,7 +331,7 @@ async function handleReorderList(listId: string, direction: "up" | "down") {
     }
   }
   catch (error) {
-    console.error("Failed to reorder shopping list:", error);
+    consola.error("Failed to reorder shopping list:", error);
     showAlert("Failed to reorder shopping list. Please try again.");
   }
   finally {
@@ -353,7 +353,7 @@ async function handleClearCompleted(listId: string) {
     }
   }
   catch (error) {
-    console.error("Failed to clear completed items:", error);
+    consola.error("Failed to clear completed items:", error);
     showAlert("Failed to clear completed items. Please try again.", "error");
   }
 }
@@ -368,7 +368,7 @@ async function handleSyncIntegrationLists() {
     await syncShoppingLists();
     showAlert("Integration lists synced successfully!", "success");
   } catch (error) {
-    console.error("Failed to sync integration lists:", error);
+    consola.error("Failed to sync integration lists:", error);
     showAlert("Failed to sync integration lists. Please try again.", "error");
   }
 }

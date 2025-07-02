@@ -48,7 +48,7 @@ export default defineEventHandler(async (event) => {
     },
   });
 
-  if (!integration || !integration.apiKey || !integration.baseUrl) {
+  if (!integration || !integration.baseUrl) {
     throw createError({
       statusCode: 404,
       statusMessage: "Tandoor integration not found or not configured",
@@ -74,8 +74,9 @@ export default defineEventHandler(async (event) => {
     url,
     method,
     headers: {
-      "Authorization": `Bearer ${integration.apiKey}`,
+      ...(integration.apiKey && { "Authorization": `Bearer ${integration.apiKey}` }),
       "Content-Type": "application/json",
+      "Host": "localhost",
     },
     body,
   });
@@ -83,12 +84,19 @@ export default defineEventHandler(async (event) => {
   try {
     const fixedUrl = url.charAt(url.length) === "/" ? url : `${url}/`;
     console.warn("DEBUG: Fixed URL:", fixedUrl);
+    
+    const headers: Record<string, string> = {
+      "Content-Type": "application/json",
+      "Host": "localhost",
+    };
+    
+    if (integration.apiKey) {
+      headers["Authorization"] = `Bearer ${integration.apiKey}`;
+    }
+    
     const response = await fetch(fixedUrl, {
       method,
-      headers: {
-        "Authorization": `Bearer ${integration.apiKey}`,
-        "Content-Type": "application/json",
-      },
+      headers,
       body: body ? JSON.stringify(body) : undefined,
     });
 

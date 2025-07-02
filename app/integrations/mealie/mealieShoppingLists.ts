@@ -1,16 +1,8 @@
 import type { IntegrationService, IntegrationStatus } from "~/types/integrations";
-import { integrationRegistry, registerIntegration } from "~/types/integrations";
-import { MealieService as ServerMealieService, type MealieShoppingListItem } from "../../../server/utils/mealie";
+import { integrationRegistry } from "~/types/integrations";
+import { MealieService as ServerMealieService } from "../../../server/utils/mealie";
 import type { ShoppingList, ShoppingListItem } from "~/types/database";
-
-// Register the integration
-registerIntegration({
-  type: "shopping",
-  service: "mealie",
-  requiredFields: ["apiKey", "baseUrl"],
-  capabilities: ["addItems", "deleteItems", "editItems", "getItems", "getLists"],
-  icon: "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/mealie.svg",
-});
+import { consola } from "consola";
 
 export class MealieService implements IntegrationService {
   private apiKey: string;
@@ -72,7 +64,7 @@ export class MealieService implements IntegrationService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Mealie API error:', response.status, response.statusText, errorText);
+        consola.error('Mealie API error:', response.status, response.statusText, errorText);
         this.status = {
           isConnected: false,
           lastChecked: new Date(),
@@ -91,7 +83,7 @@ export class MealieService implements IntegrationService {
       
       return true;
     } catch (error) {
-      console.error('Mealie connection test error:', error);
+      consola.error('Mealie connection test error:', error);
       this.status = {
         isConnected: false,
         lastChecked: new Date(),
@@ -113,7 +105,7 @@ export class MealieService implements IntegrationService {
       
       // Add null/undefined checks
       if (!response || !response.items || !Array.isArray(response.items)) {
-        console.warn('Mealie service returned invalid response:', response);
+        consola.warn('Mealie service returned invalid response:', response);
         return [];
       }
       
@@ -148,14 +140,14 @@ export class MealieService implements IntegrationService {
             }
           });
         } catch (listError) {
-          console.error(`Error fetching list ${mealieList.id}:`, listError);
+          consola.error(`Error fetching list ${mealieList.id}:`, listError);
           // Continue with other lists even if one fails
         }
       }
       
       return shoppingLists;
     } catch (error) {
-      console.error('Error fetching Mealie shopping lists:', error);
+      consola.error('Error fetching Mealie shopping lists:', error);
       return [];
     }
   }
@@ -314,7 +306,7 @@ export class MealieService implements IntegrationService {
         integrationData: updatedItem as any // Store the updated data
       };
     } catch (error) {
-      console.error(`Error toggling item ${itemId}:`, error);
+      consola.error(`Error toggling item ${itemId}:`, error);
       throw new Error(`Failed to toggle item: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }

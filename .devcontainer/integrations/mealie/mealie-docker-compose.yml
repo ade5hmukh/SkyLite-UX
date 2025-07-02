@@ -1,6 +1,7 @@
 version: '3.8'
 
 services:
+  # base url: http://mealie:9000
   mealie:
     image: ghcr.io/mealie-recipes/mealie:latest 
     container_name: mealie

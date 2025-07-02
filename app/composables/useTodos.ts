@@ -1,4 +1,5 @@
 import type { CreateTodoInput, TodoWithUser, UpdateTodoInput } from "~/types/database";
+import { consola } from "consola";
 
 export function useTodos() {
   const todos = ref<TodoWithUser[]>([]);
@@ -19,7 +20,7 @@ export function useTodos() {
     }
     catch (err) {
       error.value = "Failed to fetch todos";
-      console.error("Error fetching todos:", err);
+      consola.error("Error fetching todos:", err);
       return [];
     }
     finally {
@@ -45,7 +46,7 @@ export function useTodos() {
     }
     catch (err) {
       error.value = "Failed to create todo";
-      console.error("Error creating todo:", err);
+      consola.error("Error creating todo:", err);
       throw err;
     }
   };
@@ -64,7 +65,7 @@ export function useTodos() {
     }
     catch (err) {
       error.value = "Failed to update todo";
-      console.error("Error updating todo:", err);
+      consola.error("Error updating todo:", err);
       throw err;
     }
   };
@@ -85,7 +86,7 @@ export function useTodos() {
     }
     catch (err) {
       error.value = "Failed to delete todo";
-      console.error("Error deleting todo:", err);
+      consola.error("Error deleting todo:", err);
       throw err;
     }
   };
@@ -152,7 +153,7 @@ export function useTodos() {
       // Revert on error
       todos.value = originalTodos;
       error.value = "Failed to reorder todo";
-      console.error("Error reordering todo:", err);
+      consola.error("Error reordering todo:", err);
       throw err;
     }
   };
@@ -176,7 +177,7 @@ export function useTodos() {
     }
     catch (err) {
       error.value = "Failed to clear completed todos";
-      console.error("Error clearing completed todos:", err);
+      consola.error("Error clearing completed todos:", err);
       throw err;
     }
   };

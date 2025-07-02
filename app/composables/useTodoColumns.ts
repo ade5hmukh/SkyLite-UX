@@ -1,4 +1,5 @@
 import type { TodoColumn } from "~/types/database";
+import { consola } from "consola";
 
 export function useTodoColumns() {
   const todoColumns = ref<TodoColumn[]>([]);
@@ -22,7 +23,7 @@ export function useTodoColumns() {
     }
     catch (err: any) {
       error.value = err?.message || "Failed to fetch todo columns";
-      console.error("Failed to fetch todo columns:", err);
+      consola.error("Failed to fetch todo columns:", err);
     }
     finally {
       loading.value = false;
@@ -55,7 +56,7 @@ export function useTodoColumns() {
     }
     catch (err: any) {
       error.value = err?.message || "Failed to create todo column";
-      console.error("Failed to create todo column:", err);
+      consola.error("Failed to create todo column:", err);
       throw err;
     }
     finally {
@@ -82,7 +83,7 @@ export function useTodoColumns() {
     }
     catch (err: any) {
       error.value = err?.message || "Failed to update todo column";
-      console.error("Failed to update todo column:", err);
+      consola.error("Failed to update todo column:", err);
       throw err;
     }
   };
@@ -105,7 +106,7 @@ export function useTodoColumns() {
     }
     catch (err: any) {
       error.value = err?.message || "Failed to delete todo column";
-      console.error("Failed to delete todo column:", err);
+      consola.error("Failed to delete todo column:", err);
       throw err;
     }
   };
@@ -147,7 +148,7 @@ export function useTodoColumns() {
       // Rollback on error
       await fetchTodoColumns();
       error.value = err?.message || "Failed to reorder todo columns";
-      console.error("Failed to reorder todo columns:", err);
+      consola.error("Failed to reorder todo columns:", err);
       throw err;
     }
   };

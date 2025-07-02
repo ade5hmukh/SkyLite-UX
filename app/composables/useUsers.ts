@@ -1,5 +1,5 @@
 import type { CreateUserInput, User } from "~/types/database";
-
+import { consola } from "consola";
 export function useUsers() {
   const users = ref<User[]>([]);
   const currentUser = ref<User | null>(null);
@@ -19,7 +19,7 @@ export function useUsers() {
     }
     catch (err) {
       error.value = "Failed to fetch users";
-      console.error("Error fetching users:", err);
+      consola.error("Error fetching users:", err);
       return [];
     }
     finally {
@@ -45,7 +45,7 @@ export function useUsers() {
     }
     catch (err) {
       error.value = "Failed to create user";
-      console.error("Error creating user:", err);
+      consola.error("Error creating user:", err);
       throw err;
     }
   };
@@ -90,7 +90,7 @@ export function useUsers() {
     }
     catch (err) {
       error.value = "Failed to delete user";
-      console.error("Error deleting user:", err);
+      consola.error("Error deleting user:", err);
       throw err;
     }
   };
@@ -155,7 +155,7 @@ export function useUsers() {
       // Revert on error
       users.value = originalUsers;
       error.value = "Failed to reorder user";
-      console.error("Error reordering user:", err);
+      consola.error("Error reordering user:", err);
       throw err;
     }
   };

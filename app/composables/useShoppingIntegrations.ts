@@ -2,6 +2,7 @@ import { computed, ref, onMounted, onUnmounted } from "vue";
 import type { ShoppingList, ShoppingListItem, CreateShoppingListItemInput, UpdateShoppingListItemInput } from "~/types/database";
 import type { IntegrationService } from "~/types/integrations";
 import { useIntegrations } from "./useIntegrations";
+import { consola } from "consola";
 
 export function useShoppingIntegrations() {
   const { integrations, loading: integrationsLoading, error: integrationsError, getService } = useIntegrations();
@@ -64,7 +65,7 @@ export function useShoppingIntegrations() {
           
           // Add null/undefined checks
           if (!lists || !Array.isArray(lists)) {
-            console.warn(`Integration ${integrationId} returned invalid shopping lists:`, lists);
+            consola.warn(`Integration ${integrationId} returned invalid shopping lists:`, lists);
             continue;
           }
           
@@ -76,7 +77,7 @@ export function useShoppingIntegrations() {
           }));
           allLists.push(...listsWithIntegration);
         } catch (err) {
-          console.error(`Error fetching lists from integration ${integrationId}:`, err);
+          consola.error(`Error fetching lists from integration ${integrationId}:`, err);
           // Continue with other integrations even if one fails
         }
       }
@@ -84,7 +85,7 @@ export function useShoppingIntegrations() {
       shoppingLists.value = allLists;
     } catch (err) {
       error.value = "Failed to fetch shopping lists from integrations";
-      console.error("Error fetching shopping lists:", err);
+      consola.error("Error fetching shopping lists:", err);
     } finally {
       loading.value = false;
     }
@@ -105,7 +106,7 @@ export function useShoppingIntegrations() {
         integrationName: shoppingIntegrations.value.find(i => i.id === integrationId)?.name || 'Unknown'
       };
     } catch (err) {
-      console.error(`Error fetching list ${listId} from integration ${integrationId}:`, err);
+      consola.error(`Error fetching list ${listId} from integration ${integrationId}:`, err);
       throw err;
     }
   };
@@ -195,7 +196,7 @@ export function useShoppingIntegrations() {
         });
       }
       
-      console.error(`Error adding item to list ${listId} in integration ${integrationId}:`, err);
+      consola.error(`Error adding item to list ${listId} in integration ${integrationId}:`, err);
       throw err;
     }
   };
@@ -221,7 +222,7 @@ export function useShoppingIntegrations() {
       await fetchShoppingLists();
       return updatedItem;
     } catch (err) {
-      console.error(`Error updating item ${itemId} in integration ${integrationId}:`, err);
+      consola.error(`Error updating item ${itemId} in integration ${integrationId}:`, err);
       throw err;
     }
   };
@@ -249,7 +250,7 @@ export function useShoppingIntegrations() {
       // Refresh the lists to get updated data
       await fetchShoppingLists();
     } catch (err) {
-      console.error(`Error deleting item ${itemId} from integration ${integrationId}:`, err);
+      consola.error(`Error deleting item ${itemId} from integration ${integrationId}:`, err);
       throw err;
     }
   };
@@ -271,7 +272,7 @@ export function useShoppingIntegrations() {
       // Optionally refresh to ensure consistency, but don't block the UI
       // fetchShoppingLists();
     } catch (err) {
-      console.error(`Error toggling item ${itemId} in integration ${integrationId}:`, err);
+      consola.error(`Error toggling item ${itemId} in integration ${integrationId}:`, err);
       
       // Revert the optimistic update on error
       optimisticallyUpdateItem(itemId, { checked: !checked });
@@ -303,7 +304,7 @@ export function useShoppingIntegrations() {
         integrationName: shoppingIntegrations.value.find(i => i.id === integrationId)?.name || 'Unknown'
       };
     } catch (err) {
-      console.error(`Error creating shopping list in integration ${integrationId}:`, err);
+      consola.error(`Error creating shopping list in integration ${integrationId}:`, err);
       throw err;
     }
   };
@@ -331,7 +332,7 @@ export function useShoppingIntegrations() {
         integrationName: shoppingIntegrations.value.find(i => i.id === integrationId)?.name || 'Unknown'
       };
     } catch (err) {
-      console.error(`Error updating shopping list ${listId} in integration ${integrationId}:`, err);
+      consola.error(`Error updating shopping list ${listId} in integration ${integrationId}:`, err);
       throw err;
     }
   };
@@ -349,7 +350,7 @@ export function useShoppingIntegrations() {
       // Refresh the lists to get updated data
       await fetchShoppingLists();
     } catch (err) {
-      console.error(`Error deleting shopping list ${listId} from integration ${integrationId}:`, err);
+      consola.error(`Error deleting shopping list ${listId} from integration ${integrationId}:`, err);
       throw err;
     }
   };
@@ -400,7 +401,7 @@ export function useShoppingIntegrations() {
       // Revert optimistic update on error
       await fetchShoppingLists();
       
-      console.error(`Error clearing completed items from list ${listId} in integration ${integrationId}:`, err);
+      consola.error(`Error clearing completed items from list ${listId} in integration ${integrationId}:`, err);
       throw err;
     }
   };
@@ -415,7 +416,7 @@ export function useShoppingIntegrations() {
       lastSyncTime.value = new Date();
     } catch (err) {
       error.value = "Failed to sync shopping lists";
-      console.error("Error syncing shopping lists:", err);
+      consola.error("Error syncing shopping lists:", err);
     } finally {
       syncing.value = false;
     }
@@ -430,11 +431,11 @@ export function useShoppingIntegrations() {
     
     // Start new timer - 15 minutes = 900,000 milliseconds
     autoSyncTimer.value = setInterval(async () => {
-      console.log('Auto-syncing shopping lists...');
+      consola.log('Auto-syncing shopping lists...');
       await syncShoppingLists();
     }, 15 * 60 * 1000);
     
-    console.log('Auto-sync started for shopping lists (every 15 minutes)');
+    consola.log('Auto-sync started for shopping lists (every 15 minutes)');
   };
 
   // Stop automatic sync
@@ -442,7 +443,7 @@ export function useShoppingIntegrations() {
     if (autoSyncTimer.value) {
       clearInterval(autoSyncTimer.value);
       autoSyncTimer.value = null;
-      console.log('Auto-sync stopped for shopping lists');
+      consola.log('Auto-sync stopped for shopping lists');
     }
   };
 
@@ -466,7 +467,7 @@ export function useShoppingIntegrations() {
     try {
       return await service.testConnection?.() || false;
     } catch (err) {
-      console.error(`Error testing connection for integration ${integrationId}:`, err);
+      consola.error(`Error testing connection for integration ${integrationId}:`, err);
       return false;
     }
   };

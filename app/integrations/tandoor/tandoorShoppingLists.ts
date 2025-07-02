@@ -1,16 +1,8 @@
 import type { IntegrationService, IntegrationStatus } from "~/types/integrations";
-import { registerIntegration, integrationRegistry } from "~/types/integrations";
+import { integrationRegistry } from "~/types/integrations";
 import { TandoorService as ServerTandoorService } from "../../../server/utils/tandoor";
 import type { ShoppingList, ShoppingListItem } from "~/types/database";
-
-// Register the integration
-registerIntegration({
-  type: "shopping",
-  service: "tandoor",
-  requiredFields: ["apiKey", "baseUrl"],
-  capabilities: ["addItems", "deleteItems", "editItems", "getItems", "getLists"],
-  icon: "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/tandoor-recipes.svg",
-});
+import { consola } from "consola";
 
 export class TandoorService implements IntegrationService {
   private apiKey: string;
@@ -26,7 +18,7 @@ export class TandoorService implements IntegrationService {
     this.integrationId = integrationId;
     this.apiKey = apiKey;
     this.baseUrl = baseUrl;
-    this.serverService = new ServerTandoorService(apiKey, baseUrl, integrationId);
+    this.serverService = new ServerTandoorService(integrationId);
   }
 
   async initialize(): Promise<void> {
@@ -65,14 +57,15 @@ export class TandoorService implements IntegrationService {
       const response = await fetch(`${this.baseUrl}/api/shopping-list-entry/`, {
         method: 'GET',
         headers: {
-          'Authorization': `Token ${this.apiKey}`,
+          'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
+          'Host': 'localhost', // Tandoor requires localhost as the Host header
         },
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Tandoor API error:', response.status, response.statusText, errorText);
+        consola.error('Tandoor API error:', response.status, response.statusText, errorText);
         this.status = {
           isConnected: false,
           lastChecked: new Date(),
@@ -91,7 +84,7 @@ export class TandoorService implements IntegrationService {
       
       return true;
     } catch (error) {
-      console.error('Tandoor connection test error:', error);
+      consola.error('Tandoor connection test error:', error);
       this.status = {
         isConnected: false,
         lastChecked: new Date(),
@@ -114,7 +107,7 @@ export class TandoorService implements IntegrationService {
       
       // Add null/undefined checks
       if (!entries || !Array.isArray(entries)) {
-        console.warn('Tandoor service returned invalid entries:', entries);
+        consola.warn('Tandoor service returned invalid entries:', entries);
         return [];
       }
       
@@ -142,7 +135,7 @@ export class TandoorService implements IntegrationService {
         }
       }];
     } catch (error) {
-      console.error('Error fetching Tandoor shopping lists:', error);
+      consola.error('Error fetching Tandoor shopping lists:', error);
       return [];
     }
   }
@@ -244,7 +237,7 @@ export class TandoorService implements IntegrationService {
         label: null // Tandoor doesn't support labels
       };
     } catch (error) {
-      console.error(`Error toggling item ${itemId}:`, error);
+      consola.error(`Error toggling item ${itemId}:`, error);
       throw new Error(`Failed to toggle item: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }

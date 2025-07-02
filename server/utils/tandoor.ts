@@ -26,20 +26,16 @@ export interface TandoorShoppingListEntry {
 }
 
 export class TandoorService {
-  private apiKey: string
-  private baseUrl: string
   private integrationId: string
 
-  constructor(apiKey: string, baseUrl: string, integrationId: string) {
-    this.apiKey = apiKey
-    this.baseUrl = baseUrl
+  constructor(integrationId: string) {
     this.integrationId = integrationId
   }
 
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
     // Ensure endpoint starts with a slash and ends with a slash
     const formattedEndpoint = path.startsWith('/') ? path : `/${path}`
-    const url = `/api/tandoor${formattedEndpoint}?integrationId=${this.integrationId}`
+    const url = `/api/integrations/tandoor${formattedEndpoint}?integrationId=${this.integrationId}`
     
     const headers = {
       'Content-Type': 'application/json',
@@ -74,8 +70,6 @@ export class TandoorService {
     amount: string
     list_recipe?: number
   }): Promise<TandoorShoppingListEntry> {
-    console.log('DEBUG: Creating shopping list entry with data:', data)
-    console.log('DEBUG: Tandoor API request:', JSON.stringify(data))
     const response = await this.request<TandoorShoppingListEntry>('/shopping-list-entry/', {
       method: 'POST',
       headers: {

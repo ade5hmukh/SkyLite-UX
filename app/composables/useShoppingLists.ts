@@ -1,4 +1,5 @@
 import type { CreateShoppingListInput, CreateShoppingListItemInput, ShoppingListItem, ShoppingListWithItemsAndCount, UpdateShoppingListItemInput } from "~/types/database";
+import { consola } from "consola";
 
 export function useShoppingLists() {
   const shoppingLists = ref<ShoppingListWithItemsAndCount[]>([]);
@@ -17,7 +18,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to fetch shopping lists";
-      console.error("Error fetching shopping lists:", err);
+      consola.error("Error fetching shopping lists:", err);
     }
     finally {
       loading.value = false;
@@ -42,7 +43,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to create shopping list";
-      console.error("Error creating shopping list:", err);
+      consola.error("Error creating shopping list:", err);
       throw err;
     }
   };
@@ -64,7 +65,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to update shopping list";
-      console.error("Error updating shopping list:", err);
+      consola.error("Error updating shopping list:", err);
       throw err;
     }
   };
@@ -88,7 +89,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to update shopping list item";
-      console.error("Error updating shopping list item:", err);
+      consola.error("Error updating shopping list item:", err);
       throw err;
     }
   };
@@ -110,7 +111,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to add item to shopping list";
-      console.error("Error adding item to shopping list:", err);
+      consola.error("Error adding item to shopping list:", err);
       throw err;
     }
   };
@@ -127,7 +128,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to delete shopping list";
-      console.error("Error deleting shopping list:", err);
+      consola.error("Error deleting shopping list:", err);
       throw err;
     }
   };
@@ -194,7 +195,7 @@ export function useShoppingLists() {
       // Revert on error
       shoppingLists.value = originalShoppingLists;
       error.value = "Failed to reorder shopping list";
-      console.error("Error reordering shopping list:", err);
+      consola.error("Error reordering shopping list:", err);
       throw err;
     }
   };
@@ -282,7 +283,7 @@ export function useShoppingLists() {
       // Revert on error
       shoppingLists.value = originalShoppingLists;
       error.value = "Failed to reorder item";
-      console.error("Error reordering item:", err);
+      consola.error("Error reordering item:", err);
       throw err;
     }
   };
@@ -322,7 +323,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to clear completed items";
-      console.error("Error clearing completed items:", err);
+      consola.error("Error clearing completed items:", err);
       throw err;
     }
   };
@@ -343,7 +344,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to delete shopping list item";
-      console.error("Error deleting shopping list item:", err);
+      consola.error("Error deleting shopping list item:", err);
       throw err;
     }
   };

@@ -4,6 +4,7 @@ import { integrationRegistry } from "~/types/integrations";
 
 import SettingsIntegrationDialog from "~/components/settings/settingsIntegrationDialog.vue";
 import SettingsUserDialog from "~/components/settings/settingsUserDialog.vue";
+import { consola } from "consola";
 
 const { users, loading, error, fetchUsers, createUser, deleteUser } = useUsers();
 const { integrations, loading: integrationsLoading, fetchIntegrations, createIntegration, updateIntegration, deleteIntegration } = useIntegrations();
@@ -60,7 +61,7 @@ const filteredIntegrations = computed(() => {
 function handleUserSave(userData: CreateUserInput) {
   if (selectedUser.value?.id) {
     // TODO: Implement user update
-    console.warn("Update user:", userData);
+    consola.warn("Update user:", userData);
   }
   else {
     createUser(userData);
@@ -130,7 +131,7 @@ async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
       connectionTestResult.value = null; // Clear the result
     }, 1500);
   } catch (error) {
-    console.error('Failed to save integration:', error);
+    consola.error('Failed to save integration:', error);
     connectionTestResult.value = {
       success: false,
       error: error instanceof Error ? error.message : "Failed to save integration"
@@ -146,7 +147,7 @@ async function handleIntegrationDelete(integrationId: string) {
     isIntegrationDialogOpen.value = false;
     selectedIntegration.value = null;
   } catch (error) {
-    console.error('Failed to delete integration:', error);
+    consola.error('Failed to delete integration:', error);
   }
 }
 
@@ -165,7 +166,7 @@ async function handleToggleIntegration(integrationId: string, enabled: boolean) 
     await updateIntegration(integrationId, { enabled });
   }
   catch (error) {
-    console.error("Failed to toggle integration:", error);
+    consola.error("Failed to toggle integration:", error);
   }
 }
 

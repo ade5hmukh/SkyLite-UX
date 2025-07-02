@@ -26,6 +26,12 @@ export default defineNuxtConfig({
 
   css: ["~/assets/css/main.css"],
 
+  nitro: {
+    plugins: [
+      "../server/plugins/integrations.ts"
+    ]
+  },
+
   future: {
     compatibilityVersion: 4,
   },

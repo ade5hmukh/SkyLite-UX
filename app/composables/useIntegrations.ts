@@ -2,6 +2,7 @@ import { computed, ref, onMounted } from "vue";
 import type { Integration } from "~/types/database";
 import type { IntegrationService } from "~/types/integrations";
 import { createIntegrationService } from "~/types/integrations";
+import { consola } from "consola";
 
 export function useIntegrations() {
   const integrations = ref<Integration[]>([]);
@@ -41,7 +42,7 @@ export function useIntegrations() {
     }
     catch (err) {
       error.value = "Failed to fetch integrations";
-      console.error("Error fetching integrations:", err);
+      consola.error("Error fetching integrations:", err);
     }
     finally {
       loading.value = false;
@@ -81,7 +82,7 @@ export function useIntegrations() {
     }
     catch (err) {
       error.value = err instanceof Error ? err.message : "Failed to create integration";
-      console.error("Error creating integration:", err);
+      consola.error("Error creating integration:", err);
       throw err;
     }
     finally {
@@ -112,7 +113,7 @@ export function useIntegrations() {
     }
     catch (err) {
       error.value = err instanceof Error ? err.message : "Failed to update integration";
-      console.error("Error updating integration:", err);
+      consola.error("Error updating integration:", err);
       throw err;
     }
     finally {
@@ -135,7 +136,7 @@ export function useIntegrations() {
     }
     catch (err) {
       error.value = "Failed to delete integration";
-      console.error("Error deleting integration:", err);
+      consola.error("Error deleting integration:", err);
       throw err;
     }
     finally {
