@@ -23,7 +23,7 @@ services:
     volumes:
       - staticfiles:/opt/recipes/staticfiles
       # Do not make this a bind mount, see https://docs.tandoor.dev/install/docker/#volumes-vs-bind-mounts
-      - ./default.conf:/opt/recipes/nginx/conf.d
+      - nginx_config:/opt/recipes/nginx/conf.d
       - ./mediafiles:/opt/recipes/mediafiles
     depends_on:
       - db_recipes
@@ -42,7 +42,7 @@ services:
       - web_recipes
     volumes:
       # Mount our custom nginx config
-      - ./default.conf:/etc/nginx/conf.d/default.conf:ro
+      - nginx_config:/etc/nginx/conf.d:ro
       - staticfiles:/static:ro
       - ./mediafiles:/media:ro
     networks:
@@ -50,6 +50,7 @@ services:
       default:
 
 volumes:
+  nginx_config:
   staticfiles:
   
 networks:
