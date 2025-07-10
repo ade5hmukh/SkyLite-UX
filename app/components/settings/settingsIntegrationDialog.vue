@@ -2,6 +2,8 @@
 import type { CreateIntegrationInput, Integration } from "~/types/database";
 import { integrationRegistry } from "~/types/integrations";
 
+const show = ref(false);
+
 const props = defineProps<{
   integration: Integration | null;
   isOpen: boolean;
@@ -139,12 +141,6 @@ function generateUniqueName(serviceName: string, existingIntegrations: Integrati
   }
   
   return `${baseName}${counter}`;
-}
-
-// Remove testConnectionFromComposable and use a local stub for testConnection
-async function testConnection() {
-  // Optionally, you can emit an event or show a message that test connection is not available in the dialog
-  error.value = 'Test connection is only available from the parent context.';
 }
 
 async function handleSave() {
@@ -293,16 +289,26 @@ function handleDelete() {
             <UInput
               v-model="apiKey"
               placeholder="Enter API key"
+              :type="show ? 'text' : 'password'"
               class="w-full"
               :ui="{ base: 'w-full' }"
-            />
+            >
+              <template #trailing>
+                <UButton
+                  color="neutral"
+                  variant="ghost"
+                  icon="i-lucide-eye"
+                  @click="show = !show"
+                />
+              </template>
+            </UInput>
           </div>
 
           <div v-if="currentIntegrationConfig.requiredFields.includes('baseUrl')" class="space-y-2">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Base URL *</label>
             <UInput
               v-model="baseUrl"
-              placeholder="https://your-integration-instance.com"
+              placeholder="http://your-integration-instance:port"
               class="w-full"
               :ui="{ base: 'w-full' }"
             />

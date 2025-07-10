@@ -1,6 +1,5 @@
 <script setup lang="ts">
 import { format, isSameDay } from "date-fns";
-import { nextTick, onMounted, watch } from "vue";
 
 import type { CalendarEvent } from "~/utils/calendarTypes";
 

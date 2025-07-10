@@ -9,7 +9,7 @@ export function useShoppingLists() {
   // Server-side data fetching
   const { data: serverShoppingLists } = useNuxtData<ShoppingListWithItemsAndCount[]>("native-shopping-lists");
 
-  const fetchShoppingLists = async () => {
+  const getShoppingLists = async () => {
     loading.value = true;
     error.value = null;
     try {
@@ -328,32 +328,11 @@ export function useShoppingLists() {
     }
   };
 
-  const deleteShoppingListItem = async (itemId: string) => {
-    try {
-      const response = await fetch(`/api/shopping-list-items/${itemId}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) {
-        throw new Error("Failed to delete shopping list item");
-      }
-
-      // Update local state by removing the item
-      shoppingLists.value.forEach((list) => {
-        list.items = list.items.filter(item => item.id !== itemId);
-      });
-    }
-    catch (err) {
-      error.value = "Failed to delete shopping list item";
-      consola.error("Error deleting shopping list item:", err);
-      throw err;
-    }
-  };
-
   return {
     shoppingLists: readonly(shoppingLists),
     loading: readonly(loading),
     error: readonly(error),
-    fetchShoppingLists,
+    getShoppingLists,
     createShoppingList,
     updateShoppingList,
     updateShoppingListItem,
@@ -363,6 +342,5 @@ export function useShoppingLists() {
     reorderShoppingList,
     reorderItem,
     deleteCompletedItems,
-    deleteShoppingListItem,
   };
 }

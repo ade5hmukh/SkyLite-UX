@@ -1,4 +1,5 @@
 import type { Integration } from "./database";
+import { integrationConfigs, getServiceFactories } from "~/integrations/integrationConfig";
 import { consola } from "consola";
 
 export interface IntegrationService {
@@ -36,32 +37,27 @@ export function registerIntegration(config: IntegrationConfig) {
   integrationRegistry.set(key, config);
 }
 
+// Register all integration configurations
+for (const config of integrationConfigs) {
+  const key = `${config.type}:${config.service}`;
+  integrationRegistry.set(key, config);
+}
+
 // Factory to create integration service instances
 export async function createIntegrationService(integration: Integration): Promise<IntegrationService | null> {
-  const key = `${integration.type}:${integration.service}`;
-  const config = integrationRegistry.get(key);
-  
-  if (!config) {
-    consola.warn(`No integration implementation found for ${key}`);
-    return null;
-  }
-  
   try {
-    // Import and instantiate the appropriate service
-    if (integration.type === "shopping" && integration.service === "mealie") {
-      const { MealieService } = await import("~/integrations/mealie/mealieShoppingLists");
-      return new MealieService(integration.id, integration.apiKey || "", integration.baseUrl || "");
+    const key = `${integration.type}:${integration.service}`;
+    const serviceFactory = getServiceFactories().find(sf => sf.key === key);
+    
+    if (!serviceFactory) {
+      consola.warn(`No service factory found for integration type: ${key}`);
+      return null;
     }
     
-    if (integration.type === "shopping" && integration.service === "tandoor") {
-      const { TandoorService } = await import("~/integrations/tandoor/tandoorShoppingLists");
-      return new TandoorService(integration.id, integration.apiKey || "", integration.baseUrl || "");
-    }
-    
-    consola.warn(`No service implementation found for ${key}`);
-    return null;
-  } catch (error) {
-    consola.error(`Error creating integration service for ${key}:`, error);
+    return serviceFactory.factory(integration.id, integration.apiKey || "", integration.baseUrl || "");
+  }
+  catch (error) {
+    consola.error(`Failed to create integration service for ${integration.type}:${integration.service}:`, error);
     return null;
   }
 } 

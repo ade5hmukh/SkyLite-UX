@@ -1,4 +1,3 @@
-import { computed, ref, onMounted, onUnmounted } from "vue";
 import type { ShoppingList, ShoppingListItem, CreateShoppingListItemInput, UpdateShoppingListItemInput } from "~/types/database";
 import type { IntegrationService } from "~/types/integrations";
 import { useIntegrations } from "./useIntegrations";
@@ -52,8 +51,8 @@ export function useShoppingIntegrations() {
     }));
   };
 
-  // Fetch shopping lists from all integrations
-  const fetchShoppingLists = async () => {
+  // Get shopping lists from all integrations
+  const getShoppingLists = async () => {
     loading.value = true;
     error.value = null;
     
@@ -98,26 +97,6 @@ export function useShoppingIntegrations() {
       throw err; // Re-throw the error so the caller can handle it
     } finally {
       loading.value = false;
-    }
-  };
-
-  // Get a specific shopping list from an integration
-  const getShoppingList = async (integrationId: string, listId: string): Promise<ShoppingList | null> => {
-    const service = shoppingServices.value.get(integrationId);
-    if (!service) {
-      throw new Error(`Integration service not found for ${integrationId}`);
-    }
-    
-    try {
-      const list = await (service as any).getShoppingList(listId);
-      return {
-        ...list,
-        integrationId,
-        integrationName: shoppingIntegrations.value.find(i => i.id === integrationId)?.name || 'Unknown'
-      };
-    } catch (err) {
-      consola.error(`Error fetching list ${listId} from integration ${integrationId}:`, err);
-      throw err;
     }
   };
 
@@ -229,38 +208,10 @@ export function useShoppingIntegrations() {
         throw new Error("Service does not support updating shopping list items");
       }
       
-      await fetchShoppingLists();
+      await getShoppingLists();
       return updatedItem;
     } catch (err) {
       consola.error(`Error updating item ${itemId} in integration ${integrationId}:`, err);
-      throw err;
-    }
-  };
-
-  // Delete a shopping list item from an integration
-  const deleteShoppingListItem = async (integrationId: string, itemId: string): Promise<void> => {
-    const service = shoppingServices.value.get(integrationId);
-    if (!service) {
-      throw new Error(`Integration service not found for ${integrationId}`);
-    }
-    
-    try {
-      // Find the item in our local state to get the list ID
-      const list = shoppingLists.value?.find((l: ShoppingList) => 
-        l.items?.some((item: ShoppingListItem) => item.id === itemId)
-      );
-      
-      if (!list) {
-        throw new Error(`Item ${itemId} not found in any shopping list`);
-      }
-      
-      // Delete the item using the service
-      await (service as any).deleteShoppingListItems?.([itemId]);
-      
-      // Refresh the lists to get updated data
-      await fetchShoppingLists();
-    } catch (err) {
-      consola.error(`Error deleting item ${itemId} from integration ${integrationId}:`, err);
       throw err;
     }
   };
@@ -280,87 +231,13 @@ export function useShoppingIntegrations() {
       await (service as any).toggleItem(itemId, checked);
       
       // Optionally refresh to ensure consistency, but don't block the UI
-      // fetchShoppingLists();
+      // getShoppingLists();
     } catch (err) {
       consola.error(`Error toggling item ${itemId} in integration ${integrationId}:`, err);
       
       // Revert the optimistic update on error
       optimisticallyUpdateItem(itemId, { checked: !checked });
       
-      throw err;
-    }
-  };
-
-  // Create a new shopping list in an integration
-  const createShoppingList = async (integrationId: string, name: string): Promise<ShoppingList> => {
-    const service = shoppingServices.value.get(integrationId);
-    if (!service) {
-      throw new Error(`Integration service not found for ${integrationId}`);
-    }
-    
-    try {
-      const list = await (service as any).createShoppingList?.(name);
-      
-      if (!list) {
-        throw new Error("Service does not support creating shopping lists");
-      }
-      
-      // Refresh the lists to get updated data
-      await fetchShoppingLists();
-      
-      return {
-        ...list,
-        integrationId,
-        integrationName: shoppingIntegrations.value.find(i => i.id === integrationId)?.name || 'Unknown'
-      };
-    } catch (err) {
-      consola.error(`Error creating shopping list in integration ${integrationId}:`, err);
-      throw err;
-    }
-  };
-
-  // Update a shopping list in an integration
-  const updateShoppingList = async (integrationId: string, listId: string, name: string): Promise<ShoppingList> => {
-    const service = shoppingServices.value.get(integrationId);
-    if (!service) {
-      throw new Error(`Integration service not found for ${integrationId}`);
-    }
-    
-    try {
-      const list = await (service as any).updateShoppingList?.(listId, name);
-      
-      if (!list) {
-        throw new Error("Service does not support updating shopping lists");
-      }
-      
-      // Refresh the lists to get updated data
-      await fetchShoppingLists();
-      
-      return {
-        ...list,
-        integrationId,
-        integrationName: shoppingIntegrations.value.find(i => i.id === integrationId)?.name || 'Unknown'
-      };
-    } catch (err) {
-      consola.error(`Error updating shopping list ${listId} in integration ${integrationId}:`, err);
-      throw err;
-    }
-  };
-
-  // Delete a shopping list from an integration
-  const deleteShoppingList = async (integrationId: string, listId: string): Promise<void> => {
-    const service = shoppingServices.value.get(integrationId);
-    if (!service) {
-      throw new Error(`Integration service not found for ${integrationId}`);
-    }
-    
-    try {
-      await (service as any).deleteShoppingList?.(listId);
-      
-      // Refresh the lists to get updated data
-      await fetchShoppingLists();
-    } catch (err) {
-      consola.error(`Error deleting shopping list ${listId} from integration ${integrationId}:`, err);
       throw err;
     }
   };
@@ -409,7 +286,7 @@ export function useShoppingIntegrations() {
       // No need to refresh since we already updated optimistically
     } catch (err) {
       // Revert optimistic update on error
-      await fetchShoppingLists();
+      await getShoppingLists();
       
       consola.error(`Error clearing completed items from list ${listId} in integration ${integrationId}:`, err);
       throw err;
@@ -422,7 +299,7 @@ export function useShoppingIntegrations() {
     error.value = null;
     
     try {
-      await fetchShoppingLists();
+      await getShoppingLists();
       lastSyncTime.value = new Date();
     } catch (err) {
       error.value = "Failed to sync shopping lists";
@@ -458,31 +335,6 @@ export function useShoppingIntegrations() {
     }
   };
 
-  // Get integration status
-  const getIntegrationStatus = async (integrationId: string) => {
-    const service = shoppingServices.value.get(integrationId);
-    if (!service) {
-      return null;
-    }
-    
-    return await service.getStatus();
-  };
-
-  // Test integration connection
-  const testIntegrationConnection = async (integrationId: string): Promise<boolean> => {
-    const service = shoppingServices.value.get(integrationId);
-    if (!service) {
-      return false;
-    }
-    
-    try {
-      return await service.testConnection?.() || false;
-    } catch (err) {
-      consola.error(`Error testing connection for integration ${integrationId}:`, err);
-      return false;
-    }
-  };
-
   // Initialize on composable creation
   onMounted(async () => {
     // Wait for integrations to be loaded before fetching shopping lists
@@ -499,7 +351,7 @@ export function useShoppingIntegrations() {
     }
     
     try {
-      await fetchShoppingLists();
+      await getShoppingLists();
     } catch (error) {
       initialFetchError.value = error;
       consola.error('Initial fetch failed:', error);
@@ -533,20 +385,13 @@ export function useShoppingIntegrations() {
     initialFetchError: readonly(initialFetchError),
     
     // Methods
-    fetchShoppingLists,
-    getShoppingList,
+    getShoppingLists,
     addItemToList,
     updateShoppingListItem,
-    deleteShoppingListItem,
     toggleItem,
-    createShoppingList,
-    updateShoppingList,
-    deleteShoppingList,
     clearCompletedItems,
     syncShoppingLists,
     startAutoSync,
     stopAutoSync,
-    getIntegrationStatus,
-    testIntegrationConnection,
   };
 }

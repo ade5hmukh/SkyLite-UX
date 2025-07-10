@@ -1,6 +1,6 @@
 import type { IntegrationService, IntegrationStatus } from "~/types/integrations";
 import { integrationRegistry } from "~/types/integrations";
-import { TandoorService as ServerTandoorService } from "../../../server/utils/tandoor";
+import { TandoorService as ServerTandoorService } from "../../../server/utils/tandoorShoppingLists";
 import type { ShoppingList, ShoppingListItem } from "~/types/database";
 import { consola } from "consola";
 
@@ -276,4 +276,9 @@ export class TandoorService implements IntegrationService {
       throw new Error(`Failed to toggle item: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
-} 
+}
+
+// Factory function for creating TandoorService instances
+export const createTandoorService = (integrationId: string, apiKey: string, baseUrl: string): TandoorService => {
+  return new TandoorService(integrationId, apiKey, baseUrl);
+}; 

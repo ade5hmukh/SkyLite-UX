@@ -1,6 +1,6 @@
 import type { IntegrationService, IntegrationStatus } from "~/types/integrations";
 import { integrationRegistry } from "~/types/integrations";
-import { MealieService as ServerMealieService } from "../../../server/utils/mealie";
+import { MealieService as ServerMealieService } from "../../../server/utils/mealieShoppingLists";
 import type { ShoppingList, ShoppingListItem } from "~/types/database";
 import { consola } from "consola";
 
@@ -357,4 +357,9 @@ export class MealieService implements IntegrationService {
       throw new Error(`Failed to toggle item: ${error instanceof Error ? error.message : 'Unknown error'}`);
     }
   }
-} 
+}
+
+// Factory function for creating MealieService instances
+export const createMealieService = (integrationId: string, apiKey: string, baseUrl: string): MealieService => {
+  return new MealieService(integrationId, apiKey, baseUrl);
+}; 

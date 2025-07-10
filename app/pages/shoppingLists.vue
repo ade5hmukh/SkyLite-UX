@@ -4,7 +4,6 @@ import { consola } from "consola";
 import { useToast } from "~/composables/useToast";
 import { integrationRegistry } from "~/types/integrations";
 
-import GlobalConfirm from "~/components/global/globalConfirm.vue";
 import GlobalList from "~/components/global/globalList.vue";
 import ShoppingListDialog from "~/components/shopping/shoppingListDialog.vue";
 import ShoppingListItemDialog from "~/components/shopping/shoppingListItemDialog.vue";
@@ -17,8 +16,7 @@ const {
   deleteShoppingList,
   addItemToList,
   updateShoppingListItem,
-  deleteShoppingListItem,
-  fetchShoppingLists: fetchNativeLists,
+  getShoppingLists: fetchNativeLists,
   reorderItem,
   reorderShoppingList,
   deleteCompletedItems,
@@ -28,7 +26,7 @@ const {
   shoppingLists: integrationLists,
   shoppingIntegrations,
   loading: integrationLoading,
-  fetchShoppingLists: fetchIntegrationLists,
+  getShoppingLists: fetchIntegrationLists,
   addItemToList: addItemToIntegrationList,
   updateShoppingListItem: updateIntegrationItem,
   toggleItem: toggleIntegrationItem,
@@ -42,8 +40,6 @@ const { fetchIntegrations, getEnabledIntegrations, getIntegrationsByType } = use
 // Modal state
 const listDialog = ref(false);
 const itemDialog = ref(false);
-const confirmDialog = ref(false);
-const confirmAction = ref<(() => Promise<void>) | null>(null);
 const selectedListId = ref<string>("");
 const editingList = ref<any>(null);
 const editingItem = ref<any>(null);
@@ -240,17 +236,18 @@ async function handleItemSave(itemData: CreateShoppingListItemInput) {
 
 async function handleItemDelete(itemId: string) {
   try {
-    if (editingList.value?.source === "native" || !editingList.value?.source) {
-      await deleteShoppingListItem(itemId);
-    } else {
+    // Find which list this item belongs to
+    const list = findItemList(itemId);
+    if (!list) {
+      throw new Error("Item not found in any list");
+    }
+
+    if (list.source === 'integration') {
       // Handle integration item deletion
-      const currentList = allShoppingLists.value.find(list => 
-        list.items?.some((item: any) => item.id === itemId)
-      );
-      if (currentList?.integrationId) {
-        // Note: deleteShoppingListItem is not yet implemented in useShoppingIntegrations
-        showWarning("Warning", "Deleting items in integrations is not yet supported.");
-      }
+      showWarning("Warning", "Deleting items in integrations is not yet supported.");
+    } else {
+      // Handle native item deletion
+      showWarning("Warning", "Deleting individual items is not yet supported.");
     }
     itemDialog.value = false;
     editingItem.value = null;
@@ -283,27 +280,16 @@ async function handleToggleItem(itemId: string, checked: boolean) {
 }
 
 async function handleDeleteList(listId: string) {
-  confirmAction.value = async () => {
-    try {
-      if (editingList.value?.source === "native" || !editingList.value?.source) {
-        await deleteShoppingList(listId);
-      } else {
-        showWarning("Warning", "Deleting lists in integrations is not yet supported.");
-      }
+  try {
+    if (editingList.value?.source === "native" || !editingList.value?.source) {
+      await deleteShoppingList(listId);
+    } else {
+      showWarning("Warning", "Deleting lists in integrations is not yet supported.");
     }
-    catch (error) {
-      consola.error("Failed to delete list:", error);
-      showError("Error", "Failed to delete list. Please try again.");
-    }
-  };
-  confirmDialog.value = true;
-}
-
-async function handleConfirm() {
-  if (confirmAction.value) {
-    await confirmAction.value();
-    confirmAction.value = null;
-    confirmDialog.value = false;
+  }
+  catch (error) {
+    consola.error("Failed to delete list:", error);
+    showError("Error", "Failed to delete list. Please try again.");
   }
 }
 
@@ -506,17 +492,6 @@ async function handleSyncIntegrationLists() {
       @save="handleItemSave"
       @delete="handleItemDelete"
     />
-
-    <GlobalConfirm
-      :is-open="confirmDialog"
-      title="Delete Shopping List"
-      message="Are you sure you want to delete this shopping list? This action cannot be undone."
-      confirm-text="Delete"
-      variant="danger"
-      @close="confirmDialog = false; confirmAction = null"
-      @confirm="handleConfirm"
-    />
-
 
   </div>
 </template>

@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import { notNullish } from "@vueuse/core";
 import type { BaseListItem, ShoppingListItem, TodoListItem, Priority } from "~/types/database";
 
 type ToggleEvent = {
