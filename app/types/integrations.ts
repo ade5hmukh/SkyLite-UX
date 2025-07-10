@@ -1,4 +1,5 @@
 import type { Integration } from "./database";
+import { consola } from "consola";
 
 export interface IntegrationService {
   // Core service methods
@@ -41,7 +42,7 @@ export async function createIntegrationService(integration: Integration): Promis
   const config = integrationRegistry.get(key);
   
   if (!config) {
-    console.warn(`No integration implementation found for ${key}`);
+    consola.warn(`No integration implementation found for ${key}`);
     return null;
   }
   
@@ -57,10 +58,10 @@ export async function createIntegrationService(integration: Integration): Promis
       return new TandoorService(integration.id, integration.apiKey || "", integration.baseUrl || "");
     }
     
-    console.warn(`No service implementation found for ${key}`);
+    consola.warn(`No service implementation found for ${key}`);
     return null;
   } catch (error) {
-    console.error(`Error creating integration service for ${key}:`, error);
+    consola.error(`Error creating integration service for ${key}:`, error);
     return null;
   }
 } 

@@ -13,6 +13,7 @@ export function useShoppingIntegrations() {
   const loading = ref(false);
   const error = ref<string | null>(null);
   const syncing = ref(false);
+  const initialFetchError = ref<any>(null);
   
   // Auto-sync timer
   const autoSyncTimer = ref<NodeJS.Timeout | null>(null);
@@ -58,6 +59,7 @@ export function useShoppingIntegrations() {
     
     try {
       const allLists: ShoppingList[] = [];
+      const integrationErrors: Array<{ integrationId: string; integrationName: string; error: any }> = [];
       
       for (const [integrationId, service] of shoppingServices.value) {
         try {
@@ -77,15 +79,23 @@ export function useShoppingIntegrations() {
           }));
           allLists.push(...listsWithIntegration);
         } catch (err) {
+          const integrationName = shoppingIntegrations.value.find(i => i.id === integrationId)?.name || 'Unknown';
           consola.error(`Error fetching lists from integration ${integrationId}:`, err);
+          integrationErrors.push({ integrationId, integrationName, error: err });
           // Continue with other integrations even if one fails
         }
       }
       
       shoppingLists.value = allLists;
+      
+      // If any integrations failed, throw the first error to notify the caller
+      if (integrationErrors.length > 0) {
+        throw integrationErrors[0]?.error || new Error('Integration error occurred');
+      }
     } catch (err) {
       error.value = "Failed to fetch shopping lists from integrations";
       consola.error("Error fetching shopping lists:", err);
+      throw err; // Re-throw the error so the caller can handle it
     } finally {
       loading.value = false;
     }
@@ -417,6 +427,7 @@ export function useShoppingIntegrations() {
     } catch (err) {
       error.value = "Failed to sync shopping lists";
       consola.error("Error syncing shopping lists:", err);
+      throw err; // Re-throw the error so the caller can handle it
     } finally {
       syncing.value = false;
     }
@@ -431,11 +442,11 @@ export function useShoppingIntegrations() {
     
     // Start new timer - 15 minutes = 900,000 milliseconds
     autoSyncTimer.value = setInterval(async () => {
-      consola.log('Auto-syncing shopping lists...');
+      consola.info('Auto-syncing shopping lists...');
       await syncShoppingLists();
     }, 15 * 60 * 1000);
     
-    consola.log('Auto-sync started for shopping lists (every 15 minutes)');
+    consola.info('Auto-sync started for shopping lists (every 15 minutes)');
   };
 
   // Stop automatic sync
@@ -443,7 +454,7 @@ export function useShoppingIntegrations() {
     if (autoSyncTimer.value) {
       clearInterval(autoSyncTimer.value);
       autoSyncTimer.value = null;
-      consola.log('Auto-sync stopped for shopping lists');
+      consola.info('Auto-sync stopped for shopping lists');
     }
   };
 
@@ -473,8 +484,26 @@ export function useShoppingIntegrations() {
   };
 
   // Initialize on composable creation
-  onMounted(() => {
-    fetchShoppingLists();
+  onMounted(async () => {
+    // Wait for integrations to be loaded before fetching shopping lists
+    if (integrationsLoading.value) {
+      // Wait for loading to complete
+      await new Promise<void>((resolve) => {
+        const unwatch = watch(integrationsLoading, (newLoading) => {
+          if (!newLoading) {
+            unwatch();
+            resolve();
+          }
+        });
+      });
+    }
+    
+    try {
+      await fetchShoppingLists();
+    } catch (error) {
+      initialFetchError.value = error;
+      consola.error('Initial fetch failed:', error);
+    }
     // Start auto-sync after initial fetch
     startAutoSync();
   });
@@ -501,6 +530,7 @@ export function useShoppingIntegrations() {
     // Errors
     error: readonly(error),
     integrationsError: readonly(integrationsError),
+    initialFetchError: readonly(initialFetchError),
     
     // Methods
     fetchShoppingLists,

@@ -7,7 +7,7 @@ export function useShoppingLists() {
   const error = ref<string | null>(null);
 
   // Server-side data fetching
-  const { data: serverShoppingLists } = useNuxtData<ShoppingListWithItemsAndCount[]>("shopping-lists");
+  const { data: serverShoppingLists } = useNuxtData<ShoppingListWithItemsAndCount[]>("native-shopping-lists");
 
   const fetchShoppingLists = async () => {
     loading.value = true;

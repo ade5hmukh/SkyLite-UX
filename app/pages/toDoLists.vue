@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { Priority, TodoList, TodoColumn } from "~/types/database";
+import { consola } from "consola";
 
 import TodoItemDialog from "~/components/todos/todoItemDialog.vue";
 import TodoColumnDialog from "~/components/todos/todoColumnDialog.vue";
@@ -97,7 +98,7 @@ async function handleTodoSave(todoData: any) {
     editingTodo.value = null;
   }
   catch (error) {
-    console.error("Failed to save todo:", error);
+    consola.error("Failed to save todo:", error);
   }
 }
 
@@ -108,7 +109,7 @@ async function handleTodoDelete(todoId: string) {
     editingTodo.value = null;
   }
   catch (error) {
-    console.error("Failed to delete todo:", error);
+    consola.error("Failed to delete todo:", error);
   }
 }
 
@@ -124,7 +125,7 @@ async function handleColumnSave(columnData: { name: string }) {
     editingColumn.value = null;
   }
   catch (error) {
-    console.error("Failed to save column:", error);
+    consola.error("Failed to save column:", error);
   }
 }
 
@@ -143,7 +144,7 @@ async function handleColumnDelete() {
     editingColumn.value = null;
   }
   catch (error) {
-    console.error("Failed to delete column:", error);
+    consola.error("Failed to delete column:", error);
   }
 }
 
@@ -152,7 +153,7 @@ async function handleToggleTodo(todoId: string, completed: boolean) {
     await toggleTodo(todoId, completed);
   }
   catch (error) {
-    console.error("Failed to toggle todo:", error);
+    consola.error("Failed to toggle todo:", error);
   }
 }
 
@@ -180,7 +181,7 @@ async function handleReorderColumn(columnIndex: number, direction: "left" | "rig
     await reorderTodoColumns(columnIndex, targetIndex);
   }
   catch (error) {
-    console.error("Failed to reorder column:", error);
+    consola.error("Failed to reorder column:", error);
     alert("Failed to reorder column. Please try again.");
   }
   finally {
@@ -199,7 +200,7 @@ async function handleReorderTodo(todoId: string, direction: "up" | "down", todoC
     await reorderTodo(todoId, direction, todoColumnId);
   }
   catch (error) {
-    console.error("Failed to reorder todo:", error);
+    consola.error("Failed to reorder todo:", error);
     alert("Failed to reorder todo. Please try again.");
   }
   finally {
@@ -212,7 +213,7 @@ async function handleClearCompleted(columnId: string) {
     await clearCompleted(columnId);
   }
   catch (error) {
-    console.error("Failed to clear completed todos:", error);
+    consola.error("Failed to clear completed todos:", error);
   }
 }
 

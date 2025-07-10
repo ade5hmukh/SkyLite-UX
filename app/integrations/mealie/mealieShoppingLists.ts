@@ -148,7 +148,7 @@ export class MealieService implements IntegrationService {
       return shoppingLists;
     } catch (error) {
       consola.error('Error fetching Mealie shopping lists:', error);
-      return [];
+      throw error; // Re-throw the error so useShoppingIntegrations can handle it
     }
   }
 
@@ -252,8 +252,55 @@ export class MealieService implements IntegrationService {
     return await this.serverService.createUnit(data);
   }
 
-  async updateShoppingListItem(item: any) {
-    return await this.serverService.updateShoppingListItem([item]);
+  async updateShoppingListItem(itemId: string, updates: any): Promise<ShoppingListItem> {
+    try {
+      // We need to find the item in one of the lists to get its full data
+      const lists = await this.getShoppingLists();
+      let targetItem: any = null;
+      
+      // Find the item across all lists
+      for (const list of lists) {
+        const item = list.items?.find(i => i.id === itemId);
+        if (item) {
+          targetItem = item;
+          break;
+        }
+      }
+      
+      if (!targetItem) {
+        throw new Error(`Item ${itemId} not found in any shopping list`);
+      }
+      
+      // Use the stored original Mealie data and apply updates
+      const originalData = targetItem.integrationData;
+      if (!originalData) {
+        throw new Error(`No integration data found for item ${itemId}`);
+      }
+      
+      const updateData = {
+        ...originalData,
+        ...updates // Apply the updates
+      };
+      
+      // Use the individual item update method
+      const updatedItem = await this.serverService.updateShoppingListItemById(itemId, updateData);
+      
+      // Transform back to our database format
+      return {
+        id: updatedItem.id || '',
+        name: updatedItem.food?.name || updatedItem.display || "Unknown Item",
+        checked: updatedItem.checked,
+        order: updatedItem.position,
+        notes: updatedItem.note || null,
+        quantity: updatedItem.quantity,
+        unit: updatedItem.unit?.name || null,
+        label: updatedItem.label?.name || null,
+        integrationData: updatedItem as any // Store the updated data
+      };
+    } catch (error) {
+      consola.error(`Error updating item ${itemId}:`, error);
+      throw new Error(`Failed to update item: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   async deleteShoppingListItems(ids: string[]) {

@@ -14,6 +14,7 @@ const props = defineProps<{
   showEdit?: boolean | ((list: ShoppingList | TodoList) => boolean);
   showAdd?: boolean;
   showCompleted?: boolean;
+  showIntegrationIcons?: boolean;
 }>();
 
 const _emit = defineEmits<{
@@ -109,6 +110,32 @@ const showItemEdit = computed(() => {
                 <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-t-lg">
                   <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2 flex-1 min-w-0">
+                      <!-- Integration Icon -->
+                      <div
+                        v-if="showIntegrationIcons && (list as any).source === 'integration' && (list as any).integrationIcon"
+                        class="w-5 h-5 rounded-sm flex items-center justify-center flex-shrink-0"
+                      >
+                        <img
+                          :src="(list as any).integrationIcon"
+                          :alt="(list as any).integrationName || 'Integration'"
+                          class="h-4 w-4"
+                          style="object-fit: contain"
+                          @error="(event) => { const target = event.target as HTMLImageElement; if (target) target.style.display = 'none'; }"
+                        />
+                      </div>
+                      <!-- Native List Icon -->
+                      <div
+                        v-else-if="showIntegrationIcons && (list as any).source === 'native'"
+                        class="w-5 h-5 rounded-sm flex items-center justify-center flex-shrink-0"
+                      >
+                        <img
+                          src="/favicon.ico"
+                          alt="SkyLite"
+                          class="h-5 w-5"
+                          style="object-fit: contain"
+                          @error="(event) => { const target = event.target as HTMLImageElement; if (target) target.style.display = 'none'; }"
+                        />
+                      </div>
                       <h2 class="text-lg font-semibold text-gray-900 dark:text-white truncate">
                         {{ list.name }}
                       </h2>
@@ -225,7 +252,7 @@ const showItemEdit = computed(() => {
                         :total-items="list.activeItems.length"
                         :show-quantity="showQuantity"
                         :show-notes="showNotes"
-                        :show-reorder="showReorder"
+                        :show-reorder="(list as any).source === 'integration' ? false : showReorder"
                         :show-edit="showItemEdit"
                         @edit="_emit('editItem', $event)"
                         @toggle="(payload) => _emit('toggleItem', payload.itemId, payload.checked)"
@@ -257,7 +284,7 @@ const showItemEdit = computed(() => {
                         :total-items="list.completedItems.length"
                         :show-quantity="showQuantity"
                         :show-notes="showNotes"
-                        :show-reorder="showReorder"
+                        :show-reorder="(list as any).source === 'integration' ? false : showReorder"
                         :show-edit="showItemEdit"
                         @edit="_emit('editItem', $event)"
                         @toggle="(payload) => _emit('toggleItem', payload.itemId, payload.checked)"

@@ -1,4 +1,5 @@
 import prisma from "~/lib/prisma";
+import { consola } from "consola";
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, "id");
@@ -18,7 +19,7 @@ export default defineEventHandler(async (event) => {
     return { success: true };
   }
   catch (error) {
-    console.error("Error deleting shopping list item:", error);
+    consola.error("Error deleting shopping list item:", error);
     throw createError({
       statusCode: 500,
       message: "Failed to delete shopping list item",

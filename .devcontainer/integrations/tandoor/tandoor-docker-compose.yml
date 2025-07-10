@@ -41,10 +41,19 @@ services:
     depends_on:
       - web_recipes
     volumes:
-      # Mount our custom nginx config
+      # Do not make this a bind mount, see https://docs.tandoor.dev/install/docker/#volumes-vs-bind-mounts
       - nginx_config:/etc/nginx/conf.d:ro
       - staticfiles:/static:ro
       - ./mediafiles:/media:ro
+      # Mount our local conf for copying
+      - ./nginx/conf.d:/tmp/nginx/conf.d:ro
+    # Copy the custom conf to the container
+    command: >
+      sh -c "
+        cp /tmp/nginx/conf.d/Recipes.conf /etc/nginx/conf.d/ &&
+        cp -r /tmp/nginx/conf.d/errorpages /etc/nginx/conf.d/ 2>/dev/null || true &&
+        nginx -g 'daemon off;'
+      "
     networks:
       skylite-ux_devcontainer_default:
       default:

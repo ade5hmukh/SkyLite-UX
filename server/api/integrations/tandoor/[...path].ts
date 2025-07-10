@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { createError, defineEventHandler, getQuery, readBody } from "h3";
+import { consola } from "consola";
 
 const prisma = new PrismaClient();
 
@@ -23,12 +24,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  console.warn("DEBUG: Server received request:", {
-    method,
-    path: pathParts,
-    query,
-    body,
-  });
+
 
   // Get integration ID from query parameter
   const integrationId = query.integrationId as string;
@@ -56,7 +52,7 @@ export default defineEventHandler(async (event) => {
   }
 
   // Verify that this is a Tandoor integration
-  if (integration.type !== "shopping" || !integration.baseUrl.includes("tandoor")) {
+  if (integration.type !== "shopping" || integration.service !== "tandoor") {
     throw createError({
       statusCode: 400,
       statusMessage: "Invalid integration type for Tandoor API",
@@ -70,20 +66,10 @@ export default defineEventHandler(async (event) => {
   const { integrationId: _, ...restQuery } = query;
   const url = `${baseUrl}/api/${path}${Object.keys(restQuery).length ? `?${new URLSearchParams(restQuery as any).toString()}` : ""}`;
 
-  console.warn("DEBUG: Server forwarding request to Tandoor:", {
-    url,
-    method,
-    headers: {
-      ...(integration.apiKey && { "Authorization": `Bearer ${integration.apiKey}` }),
-      "Content-Type": "application/json",
-      "Host": "localhost",
-    },
-    body,
-  });
+
 
   try {
     const fixedUrl = url.charAt(url.length) === "/" ? url : `${url}/`;
-    console.warn("DEBUG: Fixed URL:", fixedUrl);
     
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
@@ -100,11 +86,11 @@ export default defineEventHandler(async (event) => {
       body: body ? JSON.stringify(body) : undefined,
     });
 
-    console.warn("DEBUG: Tandoor API response:", response);
+
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error("DEBUG: Tandoor API error response:", errorText);
+      consola.error("Tandoor API error response:", errorText);
       throw createError({
         statusCode: response.status,
         statusMessage: `Tandoor API error: ${response.status} ${response.statusText} - ${errorText}`,
@@ -114,7 +100,7 @@ export default defineEventHandler(async (event) => {
     return await response.json();
   }
   catch (error: any) {
-    console.error("Error proxying request to Tandoor:", error);
+    consola.error("Error proxying request to Tandoor:", error);
     throw createError({
       statusCode: error.statusCode || 500,
       statusMessage: error.message || "Failed to proxy request to Tandoor",

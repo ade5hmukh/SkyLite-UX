@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { createError, defineEventHandler, readBody } from "h3";
+import { consola } from "consola";
 import { integrationRegistry } from "~/types/integrations";
 
 const prisma = new PrismaClient();
@@ -39,12 +40,35 @@ export default defineEventHandler(async (event) => {
     }
 
     // Test connection before creating the integration
-    const connectionTestResult = await testIntegrationConnection(type, service, apiKey || '', baseUrl);
+    const { createIntegrationService } = await import("~/types/integrations");
+    const tempIntegration = {
+      id: "temp",
+      type,
+      service,
+      apiKey: apiKey || '',
+      baseUrl,
+      enabled: true,
+      name: name || "Temp",
+      icon: icon || null,
+      settings: settings || {},
+      createdAt: new Date(),
+      updatedAt: new Date()
+    };
     
-    if (!connectionTestResult.success) {
+    const integrationService = await createIntegrationService(tempIntegration);
+    if (!integrationService) {
       throw createError({
         statusCode: 400,
-        message: `Connection test failed: ${connectionTestResult.error}`,
+        message: `Unsupported integration type: ${type}:${service}`,
+      });
+    }
+    
+    const connectionSuccess = await integrationService.testConnection?.();
+    if (!connectionSuccess) {
+      const status = await integrationService.getStatus();
+      throw createError({
+        statusCode: 400,
+        message: `Connection test failed: ${status.error || 'Unknown error'}`,
       });
     }
 
@@ -64,7 +88,7 @@ export default defineEventHandler(async (event) => {
 
     return integration;
   } catch (error: any) {
-    console.error("Error creating integration:", error);
+    consola.error("Error creating integration:", error);
     throw createError({
       statusCode: error.statusCode || 500,
       message: error.message || "Failed to create integration",
@@ -72,66 +96,4 @@ export default defineEventHandler(async (event) => {
   }
 });
 
-async function testIntegrationConnection(type: string, service: string, apiKey: string, baseUrl: string): Promise<{ success: boolean; error?: string }> {
-  try {
-    console.log('Testing connection for:', type, service);
-    
-    if (type === "shopping" && service === "mealie") {
-      console.log('Testing Mealie connection');
-      const response = await fetch(`${baseUrl}/api/households/shopping/lists`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-      });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        return {
-          success: false,
-          error: `Mealie API error: ${response.status} ${response.statusText} - ${errorText}`
-        };
-      }
-
-      // Try to parse the response to ensure it's valid JSON
-      await response.json();
-      return { success: true };
-    }
-
-    if (type === "shopping" && service === "tandoor") {
-      console.log('Testing Tandoor connection');
-      const response = await fetch(`${baseUrl}/api/shopping-list-entry/`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return {
-          success: false,
-          error: `Tandoor API error: ${response.status} ${response.statusText} - ${errorText}`
-        };
-      }
-
-      // Try to parse the response to ensure it's valid JSON
-      await response.json();
-      return { success: true };
-    }
-
-    console.log('No matching integration type found, returning unsupported error');
-    return {
-      success: false,
-      error: `Unsupported integration type: ${type}:${service}`
-    };
-  } catch (error) {
-    console.error('Connection test error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown connection error"
-    };
-  }
-}

@@ -1,3 +1,5 @@
+import { consola } from "consola";
+
 export interface TandoorShoppingList {
   id: number
   title: string
@@ -48,10 +50,12 @@ export class TandoorService {
     })
 
     if (!response.ok) {
+      const errorText = await response.text();
+      consola.error('Response error:', errorText);
       throw new Error(`Tandoor API error: ${response.status} ${response.statusText}`)
     }
 
-    return response.json()
+    return response.json();
   }
 
   async getShoppingListEntries(): Promise<TandoorShoppingListEntry[]> {

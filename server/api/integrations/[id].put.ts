@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { createError, defineEventHandler, readBody } from "h3";
+import { consola } from "consola";
 
 const prisma = new PrismaClient();
 
@@ -44,17 +45,35 @@ export default defineEventHandler(async (event) => {
       };
 
       // Test connection before updating
-      const connectionTestResult = await testIntegrationConnection(
-        updatedData.type, 
-        updatedData.service, 
-        updatedData.apiKey, 
-        updatedData.baseUrl
-      );
+      const { createIntegrationService } = await import("~/types/integrations");
+      const tempIntegration = {
+        id: "temp",
+        type: updatedData.type,
+        service: updatedData.service,
+        apiKey: updatedData.apiKey,
+        baseUrl: updatedData.baseUrl,
+        enabled: true,
+        name: updatedData.name || "Temp",
+        icon: updatedData.icon || null,
+        settings: updatedData.settings || {},
+        createdAt: new Date(),
+        updatedAt: new Date()
+      };
       
-      if (!connectionTestResult.success) {
+      const integrationService = await createIntegrationService(tempIntegration);
+      if (!integrationService) {
         throw createError({
           statusCode: 400,
-          message: `Connection test failed: ${connectionTestResult.error}`,
+          message: `Unsupported integration type: ${updatedData.type}:${updatedData.service}`,
+        });
+      }
+      
+      const connectionSuccess = await integrationService.testConnection?.();
+      if (!connectionSuccess) {
+        const status = await integrationService.getStatus();
+        throw createError({
+          statusCode: 400,
+          message: `Connection test failed: ${status.error || 'Unknown error'}`,
         });
       }
     }
@@ -76,7 +95,7 @@ export default defineEventHandler(async (event) => {
 
     return integration;
   } catch (error: any) {
-    console.error("Error updating integration:", error);
+    consola.error("Error updating integration:", error);
     throw createError({
       statusCode: error.statusCode || 500,
       message: error.message || "Failed to update integration",
@@ -84,61 +103,4 @@ export default defineEventHandler(async (event) => {
   }
 });
 
-async function testIntegrationConnection(type: string, service: string, apiKey: string, baseUrl: string): Promise<{ success: boolean; error?: string }> {
-  try {
-    if (type === "shopping" && service === "mealie") {
-      const response = await fetch(`${baseUrl}/api/households/shopping/lists`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Bearer ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-      });
 
-      if (!response.ok) {
-        const errorText = await response.text();
-        return {
-          success: false,
-          error: `Mealie API error: ${response.status} ${response.statusText} - ${errorText}`
-        };
-      }
-
-      // Try to parse the response to ensure it's valid JSON
-      await response.json();
-      return { success: true };
-    }
-
-    if (type === "shopping" && service === "tandoor") {
-      const response = await fetch(`${baseUrl}/api/shopping-list-entry/`, {
-        method: 'GET',
-        headers: {
-          'Authorization': `Token ${apiKey}`,
-          'Content-Type': 'application/json',
-        },
-      });
-
-      if (!response.ok) {
-        const errorText = await response.text();
-        return {
-          success: false,
-          error: `Tandoor API error: ${response.status} ${response.statusText} - ${errorText}`
-        };
-      }
-
-      // Try to parse the response to ensure it's valid JSON
-      await response.json();
-      return { success: true };
-    }
-
-    return {
-      success: false,
-      error: `Unsupported integration type: ${type}:${service}`
-    };
-  } catch (error) {
-    console.error('Connection test error:', error);
-    return {
-      success: false,
-      error: error instanceof Error ? error.message : "Unknown connection error"
-    };
-  }
-}

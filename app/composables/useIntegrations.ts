@@ -23,6 +23,7 @@ export function useIntegrations() {
         throw new Error("Failed to fetch integrations");
       }
       const data = await response.json();
+      
       // Mutate array in place for reactivity
       integrations.value.splice(0, integrations.value.length, ...data);
       

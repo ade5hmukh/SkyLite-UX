@@ -136,7 +136,7 @@ export class TandoorService implements IntegrationService {
       }];
     } catch (error) {
       consola.error('Error fetching Tandoor shopping lists:', error);
-      return [];
+      throw error; // Re-throw the error so useShoppingIntegrations can handle it
     }
   }
 
@@ -216,6 +216,41 @@ export class TandoorService implements IntegrationService {
     }
     
     return list;
+  }
+
+  async updateShoppingListItem(itemId: string, updates: any): Promise<ShoppingListItem> {
+    try {
+      // Convert updates to Tandoor format
+      const tandoorUpdates: any = {};
+      
+      if (updates.checked !== undefined) {
+        tandoorUpdates.checked = updates.checked;
+      }
+      if (updates.quantity !== undefined) {
+        tandoorUpdates.amount = updates.quantity.toString();
+      }
+      if (updates.order !== undefined) {
+        tandoorUpdates.order = updates.order;
+      }
+      
+      // Update the shopping list entry
+      const updatedEntry = await this.serverService.updateShoppingListEntry(parseInt(itemId), tandoorUpdates);
+      
+      // Transform back to our database format
+      return {
+        id: updatedEntry.id.toString(),
+        name: updatedEntry.food.name,
+        checked: updatedEntry.checked,
+        order: updatedEntry.order,
+        notes: null, // Tandoor doesn't support notes
+        quantity: updatedEntry.amount,
+        unit: updatedEntry.unit?.name || null,
+        label: null // Tandoor doesn't support labels
+      };
+    } catch (error) {
+      consola.error(`Error updating item ${itemId}:`, error);
+      throw new Error(`Failed to update item: ${error instanceof Error ? error.message : 'Unknown error'}`);
+    }
   }
 
   async toggleItem(itemId: string, checked: boolean): Promise<ShoppingListItem> {

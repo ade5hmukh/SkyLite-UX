@@ -1,5 +1,6 @@
 import { PrismaClient } from "@prisma/client";
 import { createError, defineEventHandler, getQuery, readBody } from "h3";
+import { consola } from "consola";
 
 const prisma = new PrismaClient();
 
@@ -23,12 +24,7 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  console.warn("DEBUG: Server received request:", {
-    method,
-    path: pathParts,
-    query,
-    body,
-  });
+
 
   // Get integration ID from query parameter
   const integrationId = query.integrationId as string;
@@ -105,7 +101,7 @@ export default defineEventHandler(async (event) => {
     return data;
   }
   catch (error: any) {
-    console.error("Error proxying to Mealie:", error);
+    consola.error("Error proxying to Mealie:", error);
     throw createError({
       statusCode: error.statusCode || 500,
       message: error.message || "Failed to proxy request to Mealie",
