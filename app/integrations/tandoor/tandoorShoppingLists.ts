@@ -1,6 +1,6 @@
 import type { IntegrationService, IntegrationStatus } from "~/types/integrations";
 import { integrationRegistry } from "~/types/integrations";
-import { TandoorService as ServerTandoorService } from "../../../server/utils/tandoorShoppingLists";
+import { TandoorService as ServerTandoorService } from "../../../server/integrations/tandoor";
 import type { ShoppingList, ShoppingListItem } from "~/types/database";
 import { consola } from "consola";
 

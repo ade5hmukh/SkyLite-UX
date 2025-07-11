@@ -1,31 +1,9 @@
 import { consola } from "consola";
-
-export interface TandoorShoppingList {
-  id: number
-  title: string
-  created_by: number
-  created_at: string
-  note: string
-  entries: TandoorShoppingListEntry[]
-}
-
-export interface TandoorShoppingListEntry {
-  id: number
-  list_recipe: number | null
-  food: {
-    id: number
-    name: string
-    plural_name: string
-  }
-  unit: {
-    id: number
-    name: string
-    plural_name: string
-  } | null
-  amount: number
-  order: number
-  checked: boolean
-}
+import type { 
+  TandoorShoppingListEntry, 
+  TandoorFood, 
+  TandoorUnit 
+} from './types'
 
 export class TandoorService {
   private integrationId: string
@@ -102,13 +80,13 @@ export class TandoorService {
     })
   }
 
-  async searchFoods(query: string): Promise<Array<{ id: number; name: string }>> {
-    const response = await this.request<{ results: Array<{ id: number; name: string }> }>(`/food/?search=${encodeURIComponent(query)}`)
+  async searchFoods(query: string): Promise<TandoorFood[]> {
+    const response = await this.request<{ results: TandoorFood[] }>(`/food/?search=${encodeURIComponent(query)}`)
     return response.results
   }
 
-  async getUnits(): Promise<Array<{ id: number; name: string; plural_name: string }>> {
-    const response = await this.request<{ results: Array<{ id: number; name: string; plural_name: string }> }>('/unit/')
+  async getUnits(): Promise<TandoorUnit[]> {
+    const response = await this.request<{ results: TandoorUnit[] }>('/unit/')
     return response.results
   }
 } 

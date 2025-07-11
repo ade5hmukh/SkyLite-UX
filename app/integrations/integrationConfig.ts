@@ -13,7 +13,7 @@ export const integrationConfigs = [
     files: [
       "/integrations/tandoor/tandoorShoppingLists.ts", 
       "/server/api/integrations/tandoor/[...path].ts",
-      "/server/utils/tandoorShoppingLists.ts"
+      "/server/integrations/tandoor/"
     ],
   },
   {
@@ -25,7 +25,7 @@ export const integrationConfigs = [
     files: [
       "/integrations/mealie/mealieShoppingLists.ts", 
       "/server/api/integrations/mealie/[...path].ts",
-      "/server/utils/mealieShoppingLists.ts"
+      "/server/integrations/mealie/"
     ],
   },
 ];

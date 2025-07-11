@@ -1,6 +1,6 @@
 import type { IntegrationService, IntegrationStatus } from "~/types/integrations";
 import { integrationRegistry } from "~/types/integrations";
-import { MealieService as ServerMealieService } from "../../../server/utils/mealieShoppingLists";
+import { MealieService as ServerMealieService } from "../../../server/integrations/mealie";
 import type { ShoppingList, ShoppingListItem } from "~/types/database";
 import { consola } from "consola";
 
