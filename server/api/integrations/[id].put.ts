@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
 import { createError, defineEventHandler, readBody } from "h3";
 import { consola } from "consola";
+import { integrationRegistry } from "~/types/integrations";
 
 const prisma = new PrismaClient();
 
@@ -43,6 +44,33 @@ export default defineEventHandler(async (event) => {
         ...(enabled !== undefined && { enabled }),
         ...(settings && { settings }),
       };
+
+      // Validate required fields if type or service is being updated
+      if (type || service) {
+        const integrationKey = `${updatedData.type}:${updatedData.service}`;
+        const integrationConfig = integrationRegistry.get(integrationKey);
+        
+        if (integrationConfig) {
+          const missingFields = integrationConfig.settingsFields
+            .filter(field => field.required)
+            .filter(field => {
+              if (field.key === 'apiKey') return !updatedData.apiKey;
+              if (field.key === 'baseUrl') return !updatedData.baseUrl;
+              if (field.key === 'name') return !updatedData.name;
+              if (field.key === 'type') return !updatedData.type;
+              if (field.key === 'service') return !updatedData.service;
+              return false;
+            })
+            .map(field => field.label);
+
+          if (missingFields.length > 0) {
+            throw createError({
+              statusCode: 400,
+              message: `Missing required fields: ${missingFields.join(', ')}`,
+            });
+          }
+        }
+      }
 
       // Test connection before updating
       const { createIntegrationService } = await import("~/types/integrations");

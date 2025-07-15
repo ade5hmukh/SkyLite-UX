@@ -23,14 +23,17 @@ export default defineEventHandler(async (event) => {
     }
 
     // Check required fields from registry
-    const missingFields = integrationConfig.requiredFields.filter(field => {
-      if (field === 'apiKey') return !apiKey;
-      if (field === 'baseUrl') return !baseUrl;
-      if (field === 'name') return !name;
-      if (field === 'type') return !type;
-      if (field === 'service') return !service;
-      return false;
-    });
+    const missingFields = integrationConfig.settingsFields
+      .filter(field => field.required)
+      .filter(field => {
+        if (field.key === 'apiKey') return !apiKey;
+        if (field.key === 'baseUrl') return !baseUrl;
+        if (field.key === 'name') return !name;
+        if (field.key === 'type') return !type;
+        if (field.key === 'service') return !service;
+        return false;
+      })
+      .map(field => field.label);
 
     if (missingFields.length > 0) {
       throw createError({
