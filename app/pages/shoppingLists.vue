@@ -1,8 +1,10 @@
 <script setup lang="ts">
 import type { CreateShoppingListInput, CreateShoppingListItemInput } from "~/types/database";
 import { consola } from "consola";
-import { useToast } from "~/composables/useToast";
+import { useAlertToast } from "~/composables/useAlertToast";
 import { integrationRegistry } from "~/types/integrations";
+import { getIntegrationFields, getFieldsForItem, type ShoppingListItemField } from "~/integrations/integrationConfig";
+
 
 import GlobalList from "~/components/global/globalList.vue";
 import ShoppingListDialog from "~/components/shopping/shoppingListDialog.vue";
@@ -37,39 +39,33 @@ const {
 
 const { fetchIntegrations, getEnabledIntegrations, getIntegrationsByType } = useIntegrations();
 
-// Modal state
 const listDialog = ref(false);
 const itemDialog = ref(false);
 const selectedListId = ref<string>("");
 const editingList = ref<any>(null);
 const editingItem = ref<any>(null);
 
-// Global toast
-const { showError, showWarning, showSuccess } = useToast();
+const { showError, showWarning, showSuccess } = useAlertToast();
 
-// Get enabled integrations by type
 const enabledIntegrationsByType = computed(() => {
   return getIntegrationsByType("shopping");
 });
 
-// Combine native and integration lists
 const allShoppingLists = computed(() => {
   const nativeLists = nativeShoppingLists.value || [];
   const integrationListsData = integrationLists.value || [];
   
-  // Add a source indicator to integration lists
   const integrationListsWithSource = integrationListsData.map((list: any) => {
     const integration = shoppingIntegrations.value.find((i: any) => i.id === list.integrationId);
     return {
       ...list,
       source: 'integration',
-      integrationId: list.integrationId, // Ensure integrationId is preserved
+      integrationId: list.integrationId,
       integrationName: integration?.name || 'Integration',
       integrationIcon: integration ? getIntegrationIconUrl(integration) : null
     };
   });
   
-  // Add source indicator to native lists
   const nativeListsWithSource = nativeLists.map((list: any) => ({
     ...list,
     source: 'native'
@@ -78,12 +74,10 @@ const allShoppingLists = computed(() => {
   return [...nativeListsWithSource, ...integrationListsWithSource];
 });
 
-// Combined loading state
 const isLoading = computed(() => {
   return nativeLoading.value || integrationLoading.value;
 });
 
-// Transform shopping lists to match the expected ShoppingList type
 const transformedShoppingLists = computed(() => {
   return allShoppingLists.value.map(list => ({
     id: list.id,
@@ -94,20 +88,15 @@ const transformedShoppingLists = computed(() => {
     items: list.items,
     _count: list._count,
     source: list.source,
+    integrationId: list.integrationId,
     integrationName: list.integrationName,
     integrationIcon: list.integrationIcon
-  })) as any; // Type assertion to bypass strict typing
+  })) as any;
 });
 
-
-
-// Load shopping lists and integrations on mount
 onMounted(async () => {
   try {
-    // Fetch integrations first
     await fetchIntegrations();
-
-    // Then fetch native lists (integration lists are handled by useShoppingIntegrations)
     await fetchNativeLists();
   }
   catch (error) {
@@ -115,12 +104,9 @@ onMounted(async () => {
   }
 });
 
-// Watch for initial fetch errors and display them to the user
 watch(initialFetchError, (error) => {
   if (error) {
     consola.error("Initial integration fetch failed:", error);
-    
-    // Extract detailed error message for user display
     let errorMessage = "There was an error while trying to sync your shopping lists. Please check your connection and try again.";
     
     if (error?.cause?.statusMessage) {
@@ -147,17 +133,14 @@ function openAddItem(listId: string) {
 }
 
 function openEditItem(item: any) {
-  // Find which list this item belongs to to preserve integration metadata
   const list = findItemList(item.id);
   if (list?.source === 'integration') {
-    // For integration items, add integration metadata
     editingItem.value = { 
       ...item,
       integrationId: list.integrationId,
       source: 'integration'
     };
   } else {
-    // For native items, use the existing dialog
     editingItem.value = { ...item };
   }
   itemDialog.value = true;
@@ -173,8 +156,6 @@ async function handleListSave(listData: CreateShoppingListInput) {
         await createShoppingList(listData);
       }
     } else {
-      // Handle integration list creation/update
-      // For now, we'll show an alert that this isn't supported yet
       showWarning("Warning", "Creating/editing lists in integrations is not yet supported.");
     }
     listDialog.value = false;
@@ -204,7 +185,6 @@ async function handleListDelete() {
 async function handleItemSave(itemData: CreateShoppingListItemInput) {
   try {
     if (editingItem.value?.id) {
-      // Editing existing item - use preserved integration metadata
       if (editingItem.value.source === 'integration') {
         await updateIntegrationItem(editingItem.value.integrationId, editingItem.value.id, itemData);
       } else {
@@ -212,7 +192,6 @@ async function handleItemSave(itemData: CreateShoppingListItemInput) {
       }
     }
     else if (selectedListId.value) {
-      // Adding new item - find the selected list
       const selectedList = allShoppingLists.value.find(list => list.id === selectedListId.value);
       if (!selectedList) {
         throw new Error("Selected list not found");
@@ -236,17 +215,14 @@ async function handleItemSave(itemData: CreateShoppingListItemInput) {
 
 async function handleItemDelete(itemId: string) {
   try {
-    // Find which list this item belongs to
     const list = findItemList(itemId);
     if (!list) {
       throw new Error("Item not found in any list");
     }
 
     if (list.source === 'integration') {
-      // Handle integration item deletion
       showWarning("Warning", "Deleting items in integrations is not yet supported.");
     } else {
-      // Handle native item deletion
       showWarning("Warning", "Deleting individual items is not yet supported.");
     }
     itemDialog.value = false;
@@ -266,10 +242,8 @@ async function handleToggleItem(itemId: string, checked: boolean) {
     }
 
     if (list.source === 'integration') {
-      // Use integration composable for integration items
       await toggleIntegrationItem(list.integrationId, itemId, checked);
     } else {
-      // Use native composable for native items
       await updateShoppingListItem(itemId, { checked });
     }
   }
@@ -296,7 +270,6 @@ async function handleDeleteList(listId: string) {
 const reorderingItems = ref(new Set<string>());
 
 async function handleReorderItem(itemId: string, direction: "up" | "down") {
-  // Prevent multiple simultaneous reorders of the same item
   if (reorderingItems.value.has(itemId))
     return;
 
@@ -309,10 +282,8 @@ async function handleReorderItem(itemId: string, direction: "up" | "down") {
     }
 
     if (list.source === 'integration') {
-      // Integration items don't support reordering yet
       showWarning("Reorder Not Supported", "Reordering items in integration lists is not currently supported.");
     } else {
-      // Use native composable for native items
       await reorderItem(itemId, direction);
     }
   }
@@ -328,7 +299,6 @@ async function handleReorderItem(itemId: string, direction: "up" | "down") {
 const reorderingLists = ref(new Set<string>());
 
 async function handleReorderList(listId: string, direction: "up" | "down") {
-  // Prevent multiple simultaneous reorders of the same list
   if (reorderingLists.value.has(listId))
     return;
 
@@ -341,10 +311,8 @@ async function handleReorderList(listId: string, direction: "up" | "down") {
     }
 
     if (list.source === 'integration') {
-      // Integration lists don't support reordering yet
       showWarning("Reorder Not Supported", "Reordering integration lists is not currently supported.");
     } else {
-      // Use native composable for native lists
       await reorderShoppingList(listId, direction);
     }
   }
@@ -365,10 +333,8 @@ async function handleClearCompleted(listId: string) {
     }
 
     if (list.source === 'integration') {
-      // Use integration composable for integration lists
       await clearIntegrationCompletedItems(list.integrationId, listId);
     } else {
-      // Use native composable for native lists
       await deleteCompletedItems(listId);
     }
   }
@@ -378,14 +344,12 @@ async function handleClearCompleted(listId: string) {
   }
 }
 
-// Helper function to find which list an item belongs to
 function findItemList(itemId: string) {
   return allShoppingLists.value.find(list => 
     list.items?.some((item: any) => item.id === itemId)
   );
 }
 
-// Function to get integration icon from registry or fallback
 function getIntegrationIconUrl(integration: any) {
   if (integration.icon) {
     return integration.icon;
@@ -395,7 +359,90 @@ function getIntegrationIconUrl(integration: any) {
   return config?.icon || null;
 }
 
-// Sync integration lists
+function getIntegrationCapabilities(integrationId: string): string[] {
+  const integrations = shoppingIntegrations.value;
+  const integration = integrations.find((i: any) => i.id === integrationId);
+  if (!integration) return [];
+  
+  const config = integrationRegistry.get(`${integration.type}:${integration.service}`);
+  return config?.capabilities || [];
+}
+
+function hasCapability(integrationId: string, capability: string): boolean {
+  const capabilities = getIntegrationCapabilities(integrationId);
+  return capabilities.includes(capability);
+}
+
+function getIntegrationType(): string | undefined {
+  if (editingItem.value?.source === 'integration') {
+    const integration = shoppingIntegrations.value.find((i: any) => i.id === editingItem.value.integrationId);
+    return integration?.service;
+  }
+  
+  if (selectedListId.value) {
+    const selectedList = allShoppingLists.value.find(list => list.id === selectedListId.value);
+    if (selectedList?.source === 'integration') {
+      const integration = shoppingIntegrations.value.find((i: any) => i.id === selectedList.integrationId);
+      return integration?.service;
+    }
+  }
+  
+  return undefined;
+}
+
+function getItemIntegrationCapabilities(): string[] | undefined {
+  if (editingItem.value?.source === 'integration') {
+    return getIntegrationCapabilities(editingItem.value.integrationId);
+  }
+  
+  if (selectedListId.value) {
+    const selectedList = allShoppingLists.value.find(list => list.id === selectedListId.value);
+    if (selectedList?.source === 'integration') {
+      return getIntegrationCapabilities(selectedList.integrationId);
+    }
+  }
+  
+  return undefined;
+}
+
+function getFilteredFieldsForItem(item: any, integrationType: string | undefined): ShoppingListItemField[] {
+  const baseFields: ShoppingListItemField[] = integrationType 
+    ? getIntegrationFields(integrationType)
+    : [
+        {
+          key: 'name',
+          label: 'Item Name',
+          type: 'text' as const,
+          placeholder: 'Milk, Bread, Apples, etc.',
+          required: true,
+          canEdit: true,
+        },
+        {
+          key: 'quantity',
+          label: 'Quantity',
+          type: 'number' as const,
+          min: 0,
+          canEdit: true,
+        },
+        {
+          key: 'unit',
+          label: 'Unit',
+          type: 'text' as const,
+          placeholder: 'Can, Box, etc.',
+          canEdit: true,
+        },
+        {
+          key: 'notes',
+          label: 'Notes',
+          type: 'textarea' as const,
+          placeholder: 'Additional notes (optional)',
+          canEdit: true,
+        },
+      ];
+  
+  return getFieldsForItem(item, integrationType, baseFields);
+}
+
 async function handleSyncIntegrationLists() {
   try {
     await syncShoppingLists();
@@ -403,7 +450,6 @@ async function handleSyncIntegrationLists() {
   } catch (error: any) {
     consola.error("Failed to sync integration lists:", error);
     
-    // Extract detailed error message for user display
     let errorMessage = "There was an error while trying to sync your shopping lists. Please check your connection and try again.";
     
     if (error?.cause?.statusMessage) {
@@ -421,11 +467,9 @@ async function handleSyncIntegrationLists() {
 
 <template>
   <div class="flex h-[calc(100vh-2rem)] w-full flex-col rounded-lg">
-    <!-- Header -->
     <div class="py-5 sm:px-4 sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
       <GlobalDateHeader />
 
-      <!-- Sync Button (only show if integrations are enabled) -->
       <div v-if="enabledIntegrationsByType.length > 0" class="mt-4 flex justify-end">
         <UButton
           color="primary"
@@ -440,7 +484,6 @@ async function handleSyncIntegrationLists() {
       </div>
     </div>
 
-    <!-- Shopping Lists Content -->
     <div class="flex-1 overflow-y-auto">
       <GlobalList
         :lists="transformedShoppingLists"
@@ -449,11 +492,12 @@ async function handleSyncIntegrationLists() {
         empty-state-title="No shopping lists found"
         empty-state-description="Create your first shopping list to get started"
         show-quantity
-        show-notes
+        :show-notes="true"
         show-reorder
         :show-edit="(list) => (list as any).source === 'native'"
-        show-add
-        show-completed
+        :show-add="(list) => (list as any).source === 'native' || hasCapability((list as any).integrationId, 'add_items')"
+        :show-edit-item="(list: any) => list.source === 'native' || hasCapability(list.integrationId, 'edit_items')"
+        :show-completed="(list: any) => list.source === 'native' || hasCapability(list.integrationId, 'clear_items')"
         show-integration-icons
         @create="openCreateList"
         @edit="editingList = $event; listDialog = true"
@@ -467,7 +511,6 @@ async function handleSyncIntegrationLists() {
       />
     </div>
 
-    <!-- Floating Action Button -->
     <UButton
       class="fixed bottom-6 right-6 h-12 w-12 rounded-full shadow-lg"
       color="primary"
@@ -476,10 +519,10 @@ async function handleSyncIntegrationLists() {
       <UIcon name="i-lucide-plus" class="h-6 w-6" />
     </UButton>
 
-    <!-- Dialogs -->
     <ShoppingListDialog
       :is-open="listDialog"
       :list="editingList"
+      :integration-capabilities="editingList?.source === 'integration' ? getIntegrationCapabilities(editingList.integrationId) : undefined"
       @close="listDialog = false; editingList = null"
       @save="handleListSave"
       @delete="handleListDelete"
@@ -488,6 +531,8 @@ async function handleSyncIntegrationLists() {
     <ShoppingListItemDialog
       :is-open="itemDialog"
       :item="editingItem"
+      :fields="getFilteredFieldsForItem(editingItem, getIntegrationType())"
+      :integration-capabilities="getItemIntegrationCapabilities()"
       @close="itemDialog = false; selectedListId = ''; editingItem = null"
       @save="handleItemSave"
       @delete="handleItemDelete"

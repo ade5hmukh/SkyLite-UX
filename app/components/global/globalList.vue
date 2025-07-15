@@ -12,8 +12,9 @@ const props = defineProps<{
   showNotes?: boolean;
   showReorder?: boolean;
   showEdit?: boolean | ((list: ShoppingList | TodoList) => boolean);
-  showAdd?: boolean;
-  showCompleted?: boolean;
+  showAdd?: boolean | ((list: ShoppingList | TodoList) => boolean);
+  showEditItem?: boolean | ((list: ShoppingList | TodoList) => boolean);
+  showCompleted?: boolean | ((list: ShoppingList | TodoList) => boolean);
   showIntegrationIcons?: boolean;
 }>();
 
@@ -28,7 +29,6 @@ const _emit = defineEmits<{
   (e: "clearCompleted", listId: string): void;
 }>();
 
-// Computed property to ensure proper reactivity for sorted lists
 const sortedLists = computed(() => {
   return [...props.lists]
     .sort((a, b) => (a.order || 0) - (b.order || 0))
@@ -60,16 +60,18 @@ function getProgressColor(percentage: number) {
 }
 
 const showItemEdit = computed(() => {
-  if (typeof props.showEdit === 'function') {
-    return (item: BaseListItem) => true; // Always show edit for items
+  if (typeof props.showEditItem === 'function') {
+    return (item: BaseListItem) => {
+      const list = props.lists.find(l => l.items?.some(i => i.id === item.id));
+      return list ? (props.showEditItem as (list: ShoppingList | TodoList) => boolean)(list) : false;
+    };
   }
-  return props.showEdit;
+  return props.showEditItem;
 });
 </script>
 
 <template>
   <div class="flex h-[calc(100vh-2rem)] w-full flex-col rounded-lg">
-    <!-- Lists Content -->
     <div class="flex-1 overflow-hidden">
       <div class="flex-1 overflow-y-auto p-4">
         <div v-if="loading" class="flex items-center justify-center h-full">
@@ -106,11 +108,9 @@ const showItemEdit = computed(() => {
                 :key="list.id"
                 class="flex-shrink-0 w-80 h-full flex flex-col bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"
               >
-                <!-- List Header -->
                 <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-t-lg">
                   <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2 flex-1 min-w-0">
-                      <!-- Integration Icon -->
                       <div
                         v-if="showIntegrationIcons && (list as any).source === 'integration' && (list as any).integrationIcon"
                         class="w-5 h-5 rounded-sm flex items-center justify-center flex-shrink-0"
@@ -123,7 +123,6 @@ const showItemEdit = computed(() => {
                           @error="(event) => { const target = event.target as HTMLImageElement; if (target) target.style.display = 'none'; }"
                         />
                       </div>
-                      <!-- Native List Icon -->
                       <div
                         v-else-if="showIntegrationIcons && (list as any).source === 'native'"
                         class="w-5 h-5 rounded-sm flex items-center justify-center flex-shrink-0"
@@ -141,7 +140,6 @@ const showItemEdit = computed(() => {
                       </h2>
                     </div>
                     <div class="flex gap-1">
-                      <!-- Column reorder buttons -->
                       <div v-if="showReorder" class="flex flex-col gap-1 items-center justify-center" style="height: 64px;">
                         <template v-if="listIndex > 0 && listIndex < sortedLists.length - 1">
                           <UButton
@@ -194,7 +192,6 @@ const showItemEdit = computed(() => {
                     </div>
                   </div>
 
-                  <!-- Progress Section -->
                   <div v-if="showProgress && list.items && list.items.length > 0" class="space-y-2">
                     <div class="flex justify-between text-sm">
                       <span class="text-gray-600 dark:text-gray-400">
@@ -213,14 +210,11 @@ const showItemEdit = computed(() => {
                     </div>
                   </div>
                   <div v-else-if="!list.items || list.items.length === 0 && showProgress" class="text-sm text-gray-500 dark:text-gray-400 py-4.5">
-                    <!-- Padding when no items -->
                   </div>
                 </div>
 
-                <!-- Items List -->
                 <div class="flex-1 p-4 overflow-y-auto">
-                  <!-- Add Item Button -->
-                  <div v-if="showAdd" class="flex justify-center mb-4">
+                  <div v-if="typeof showAdd === 'function' ? showAdd(list) : showAdd" class="flex justify-center mb-4">
                     <UButton
                       size="xl"
                       color="primary"
@@ -242,7 +236,6 @@ const showItemEdit = computed(() => {
                     </p>
                   </div>
                   <div v-else class="space-y-4">
-                    <!-- Active Items -->
                     <div v-if="list.activeItems.length > 0" class="space-y-2">
                       <GlobalListItem
                         v-for="(item, index) in list.activeItems"
@@ -260,8 +253,7 @@ const showItemEdit = computed(() => {
                       />
                     </div>
 
-                    <!-- Completed Items -->
-                    <div v-if="showCompleted && list.completedItems.length > 0" class="space-y-2">
+                    <div v-if="(typeof showCompleted === 'function' ? showCompleted(list) : showCompleted) && list.completedItems.length > 0" class="space-y-2">
                       <div class="flex items-center justify-between px-1">
                         <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">
                           Completed ({{ list.completedItems.length }})

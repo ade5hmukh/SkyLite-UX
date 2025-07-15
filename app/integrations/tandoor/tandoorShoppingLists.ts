@@ -27,7 +27,6 @@ export class TandoorService implements IntegrationService {
 
   async validate(): Promise<boolean> {
     try {
-      // Use the server service to test connection
       await this.serverService.getShoppingListEntries();
       
       this.status = {
@@ -52,14 +51,12 @@ export class TandoorService implements IntegrationService {
 
   async testConnection(): Promise<boolean> {
     try {
-      // For connection testing, make a direct API call instead of using the server proxy
-      // since the integration doesn't exist in the database yet
       const response = await fetch(`${this.baseUrl}/api/shopping-list-entry/`, {
         method: 'GET',
         headers: {
           'Authorization': `Bearer ${this.apiKey}`,
           'Content-Type': 'application/json',
-          'Host': 'localhost', // Tandoor requires localhost as the Host header
+          'Host': 'localhost',
         },
       });
 
@@ -74,7 +71,6 @@ export class TandoorService implements IntegrationService {
         return false;
       }
 
-      // Try to parse the response to ensure it's valid JSON
       const data = await response.json();
       
       this.status = {
@@ -99,36 +95,34 @@ export class TandoorService implements IntegrationService {
     return config?.capabilities || [];
   }
 
-  // Tandoor-specific methods using server service
   async getShoppingLists(): Promise<ShoppingList[]> {
     try {
-      // Tandoor doesn't have separate lists, so we return the entries as a single list
       const entries = await this.serverService.getShoppingListEntries();
       
-      // Add null/undefined checks
       if (!entries || !Array.isArray(entries)) {
         consola.warn('Tandoor service returned invalid entries:', entries);
         return [];
       }
       
-      // Transform Tandoor entries to our database format
       const items: ShoppingListItem[] = entries.map((entry, index) => ({
         id: entry.id.toString(),
-        name: entry.food?.name || "Unknown Item",
+        name: entry.food?.name || "Unknown",
         checked: entry.checked,
         order: entry.order || index,
-        notes: null, // Tandoor doesn't have notes field
+        notes: null,
         quantity: entry.amount,
         unit: entry.unit?.name || null,
-        label: null // Tandoor doesn't have labels
+        label: null,
+        food: null,
+        integrationData: entry as any
       }));
 
       return [{
         id: "default",
         name: "Shopping List",
         order: 0,
-        createdAt: new Date(), // Tandoor doesn't provide list creation date
-        updatedAt: new Date(), // Tandoor doesn't provide list update date
+        createdAt: new Date(),
+        updatedAt: new Date(),
         items,
         _count: {
           items: items.length
@@ -136,78 +130,11 @@ export class TandoorService implements IntegrationService {
       }];
     } catch (error) {
       consola.error('Error fetching Tandoor shopping lists:', error);
-      throw error; // Re-throw the error so useShoppingIntegrations can handle it
+      throw error;
     }
   }
 
-  async getShoppingListEntries() {
-    return await this.serverService.getShoppingListEntries();
-  }
-
-  async getShoppingListEntry(id: number) {
-    return await this.serverService.getShoppingListEntry(id);
-  }
-
-  async createShoppingListEntry(data: {
-    food: { name: string };
-    unit?: { name: string };
-    amount: string;
-    list_recipe?: number;
-  }) {
-    return await this.serverService.createShoppingListEntry(data);
-  }
-
-  async updateShoppingListEntry(id: number, data: {
-    amount?: string;
-    checked?: boolean;
-    order?: number;
-  }) {
-    return await this.serverService.updateShoppingListEntry(id, data);
-  }
-
-  async deleteShoppingListEntry(id: number) {
-    return await this.serverService.deleteShoppingListEntry(id);
-  }
-
-  async searchFoods(query: string) {
-    return await this.serverService.searchFoods(query);
-  }
-
-  async getUnits() {
-    return await this.serverService.getUnits();
-  }
-
-  async addItemToList(listId: string, item: {
-    name: string;
-    quantity: number;
-    unit?: string;
-    notes?: string;
-  }): Promise<ShoppingListItem> {
-    // Convert to Tandoor format
-    const tandoorItem = {
-      food: { name: item.name },
-      unit: item.unit ? { name: item.unit } : undefined,
-      amount: item.quantity.toString(),
-      list_recipe: undefined
-    };
-
-    const createdEntry = await this.serverService.createShoppingListEntry(tandoorItem);
-    
-    // Transform back to our database format
-    return {
-      id: createdEntry.id.toString(),
-      name: createdEntry.food.name,
-      checked: createdEntry.checked,
-      order: createdEntry.order,
-      notes: null, // Tandoor doesn't support notes
-      quantity: createdEntry.amount,
-      unit: createdEntry.unit?.name || null,
-      label: null // Tandoor doesn't support labels
-    };
-  }
-
   async getShoppingList(id: string): Promise<ShoppingList> {
-    // For Tandoor, we only have one list, so we return the same as getShoppingLists
     const lists = await this.getShoppingLists();
     const list = lists.find(l => l.id === id);
     
@@ -218,11 +145,42 @@ export class TandoorService implements IntegrationService {
     return list;
   }
 
+  async addItemToList(listId: string, item: {
+    name: string;
+    quantity: number;
+    unit?: string;
+    notes?: string;
+  }): Promise<ShoppingListItem> {
+    const tandoorItem = {
+      food: { name: item.name },
+      unit: item.unit ? { name: item.unit } : undefined,
+      amount: item.quantity.toString(),
+      list_recipe: undefined
+    };
+
+    const createdEntry = await this.serverService.createShoppingListEntry(tandoorItem);
+    
+    return {
+      id: createdEntry.id.toString(),
+      name: createdEntry.food.name,
+      checked: createdEntry.checked,
+      order: createdEntry.order,
+      notes: null,
+      quantity: createdEntry.amount,
+      unit: createdEntry.unit?.name || null,
+      label: null,
+      food: null,
+      integrationData: createdEntry as any
+    };
+  }
+
   async updateShoppingListItem(itemId: string, updates: any): Promise<ShoppingListItem> {
     try {
-      // Convert updates to Tandoor format
       const tandoorUpdates: any = {};
       
+      if (updates.name !== undefined) {
+        tandoorUpdates.food = { name: updates.name };
+      }
       if (updates.checked !== undefined) {
         tandoorUpdates.checked = updates.checked;
       }
@@ -233,19 +191,19 @@ export class TandoorService implements IntegrationService {
         tandoorUpdates.order = updates.order;
       }
       
-      // Update the shopping list entry
       const updatedEntry = await this.serverService.updateShoppingListEntry(parseInt(itemId), tandoorUpdates);
       
-      // Transform back to our database format
       return {
         id: updatedEntry.id.toString(),
         name: updatedEntry.food.name,
         checked: updatedEntry.checked,
         order: updatedEntry.order,
-        notes: null, // Tandoor doesn't support notes
+        notes: null,
         quantity: updatedEntry.amount,
         unit: updatedEntry.unit?.name || null,
-        label: null // Tandoor doesn't support labels
+        label: null,
+        food: null,
+        integrationData: updatedEntry as any
       };
     } catch (error) {
       consola.error(`Error updating item ${itemId}:`, error);
@@ -255,21 +213,21 @@ export class TandoorService implements IntegrationService {
 
   async toggleItem(itemId: string, checked: boolean): Promise<ShoppingListItem> {
     try {
-      // Update the shopping list entry
       const updatedEntry = await this.serverService.updateShoppingListEntry(parseInt(itemId), {
         checked: checked
       });
       
-      // Transform back to our database format
       return {
         id: updatedEntry.id.toString(),
         name: updatedEntry.food.name,
         checked: updatedEntry.checked,
         order: updatedEntry.order,
-        notes: null, // Tandoor doesn't support notes
+        notes: null,
         quantity: updatedEntry.amount,
         unit: updatedEntry.unit?.name || null,
-        label: null // Tandoor doesn't support labels
+        label: null,
+        food: null,
+        integrationData: updatedEntry as any
       };
     } catch (error) {
       consola.error(`Error toggling item ${itemId}:`, error);
@@ -278,7 +236,13 @@ export class TandoorService implements IntegrationService {
   }
 }
 
-// Factory function for creating TandoorService instances
 export const createTandoorService = (integrationId: string, apiKey: string, baseUrl: string): TandoorService => {
   return new TandoorService(integrationId, apiKey, baseUrl);
+};
+
+export const getTandoorFieldsForItem = (item: any, allFields: any[]): any[] => {
+  if (item?.unit === null || item === null || item === undefined) {
+    return allFields.filter(field => field.key !== 'unit');
+  }
+  return allFields;
 }; 

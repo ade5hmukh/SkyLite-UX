@@ -6,7 +6,6 @@ export function useShoppingLists() {
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  // Server-side data fetching
   const { data: serverShoppingLists } = useNuxtData<ShoppingListWithItemsAndCount[]>("native-shopping-lists");
 
   const getShoppingLists = async () => {
@@ -25,7 +24,6 @@ export function useShoppingLists() {
     }
   };
 
-  // Watch for server data changes
   watch(serverShoppingLists, (newLists) => {
     if (newLists) {
       shoppingLists.value = newLists;
@@ -55,7 +53,6 @@ export function useShoppingLists() {
         body: updates,
       });
 
-      // Update the list in the local state
       const listIndex = shoppingLists.value.findIndex(list => list.id === listId);
       if (listIndex !== -1) {
         shoppingLists.value[listIndex] = { ...shoppingLists.value[listIndex], ...updatedList };
@@ -77,7 +74,6 @@ export function useShoppingLists() {
         body: updates,
       });
 
-      // Update the item in the local state
       shoppingLists.value.forEach((list) => {
         const itemIndex = list.items.findIndex(item => item.id === itemId);
         if (itemIndex !== -1) {
@@ -101,7 +97,6 @@ export function useShoppingLists() {
         body: itemData,
       });
 
-      // Add the item to the local state
       const list = shoppingLists.value.find(l => l.id === listId);
       if (list) {
         list.items.push({ ...newItem, shoppingListId: listId });
@@ -138,7 +133,6 @@ export function useShoppingLists() {
   };
 
   const reorderShoppingList = async (listId: string, direction: "up" | "down") => {
-    // Store original state for potential rollback
     const originalShoppingLists = [...shoppingLists.value];
 
     try {
@@ -156,21 +150,18 @@ export function useShoppingLists() {
         targetIndex = currentIndex + 1;
       }
       else {
-        return; // No change needed
+        return;
       }
 
-      // Get the lists to swap
       const currentList = sortedLists[currentIndex];
       const targetList = sortedLists[targetIndex];
 
       if (!currentList || !targetList)
         return;
 
-      // Optimistically update the order values
       const currentOrder = (currentList as any).order || 0;
       const targetOrder = (targetList as any).order || 0;
 
-      // Update the lists
       shoppingLists.value = shoppingLists.value.map((list) => {
         if (list.id === currentList.id) {
           return { ...list, order: targetOrder } as any;
@@ -181,7 +172,6 @@ export function useShoppingLists() {
         return list;
       });
 
-      // Make API call with the new order
       const newOrder = shoppingLists.value
         .sort((a, b) => ((a as any).order || 0) - ((b as any).order || 0))
         .map(list => list.id);
@@ -192,7 +182,6 @@ export function useShoppingLists() {
       });
     }
     catch (err) {
-      // Revert on error
       shoppingLists.value = originalShoppingLists;
       error.value = "Failed to reorder shopping list";
       consola.error("Error reordering shopping list:", err);
@@ -201,11 +190,9 @@ export function useShoppingLists() {
   };
 
   const reorderItem = async (itemId: string, direction: "up" | "down") => {
-    // Store original state for potential rollback
     const originalShoppingLists = [...shoppingLists.value];
 
     try {
-      // Find the item and its list
       const listIndex = shoppingLists.value.findIndex(list =>
         list.items?.some(item => item.id === itemId),
       );
@@ -231,21 +218,18 @@ export function useShoppingLists() {
         targetIndex = currentIndex + 1;
       }
       else {
-        return; // No change needed
+        return;
       }
 
-      // Get the items to swap
       const currentItem = sortedItems[currentIndex];
       const targetItem = sortedItems[targetIndex];
 
       if (!currentItem || !targetItem)
         return;
 
-      // Optimistically update the order values
       const currentOrder = (currentItem as any).order || 0;
       const targetOrder = (targetItem as any).order || 0;
 
-      // Update the items in the list
       const updatedItems = list.items.map((item) => {
         if (item.id === currentItem.id) {
           return { ...item, order: targetOrder } as any;
@@ -256,20 +240,17 @@ export function useShoppingLists() {
         return item;
       });
 
-      // Update the list with new items
       const updatedList = {
         ...list,
         items: updatedItems,
       };
 
-      // Update the shopping lists array
       shoppingLists.value = [
         ...shoppingLists.value.slice(0, listIndex),
         updatedList,
         ...shoppingLists.value.slice(listIndex + 1),
       ];
 
-      // Make API call with the new order
       const newOrder = updatedItems
         .sort((a, b) => ((a as any).order || 0) - ((b as any).order || 0))
         .map(item => item.id);
@@ -280,7 +261,6 @@ export function useShoppingLists() {
       });
     }
     catch (err) {
-      // Revert on error
       shoppingLists.value = originalShoppingLists;
       error.value = "Failed to reorder item";
       consola.error("Error reordering item:", err);
@@ -290,12 +270,10 @@ export function useShoppingLists() {
 
   const deleteCompletedItems = async (listId: string) => {
     try {
-      // Find the list
       const list = shoppingLists.value.find(l => l.id === listId);
       if (!list)
         return;
 
-      // Get all completed item IDs
       const completedItemIds = list.items
         .filter(item => item.checked)
         .map(item => item.id);
@@ -303,19 +281,16 @@ export function useShoppingLists() {
       if (completedItemIds.length === 0)
         return;
 
-      // Delete all completed items
       await $fetch(`/api/shopping-lists/${listId}/items/clear-completed`, {
         method: "POST",
         body: { action: "delete" },
       });
 
-      // Update local state by removing completed items
       const updatedList = {
         ...list,
         items: list.items.filter(item => !item.checked),
       };
 
-      // Update the list in the local state
       const listIndex = shoppingLists.value.findIndex(l => l.id === listId);
       if (listIndex !== -1) {
         shoppingLists.value[listIndex] = updatedList;

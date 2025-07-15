@@ -12,11 +12,9 @@ const emit = defineEmits<{
   (e: "delete"): void;
 }>();
 
-// Form state
 const name = ref("");
 const error = ref<string | null>(null);
 
-// Watch for modal open/close and list changes
 watch(() => [props.isOpen, props.list], ([isOpen, list]) => {
   if (isOpen) {
     resetForm();

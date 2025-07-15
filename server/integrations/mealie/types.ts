@@ -13,6 +13,7 @@ export interface MealieShoppingList {
 }
 
 export interface MealieShoppingListItem {
+  createdItems: any
   id: string | null
   quantity: number
   unit: MealieUnit | null

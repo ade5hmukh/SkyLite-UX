@@ -88,6 +88,7 @@ export type ShoppingListItem = BaseListItem & {
   quantity: number;
   unit: string | null;
   label: string | null;
+  food: string | null;
   integrationData?: JsonObject;
 };
 

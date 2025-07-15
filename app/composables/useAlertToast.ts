@@ -2,7 +2,7 @@ import { useToast as useNuxtToast } from "#imports";
 
 export type ToastType = "error" | "warning" | "success" | "info";
 
-export function useToast() {
+export function useAlertToast() {
   const nuxtToast = useNuxtToast();
 
   const showAlert = (title: string, description?: string, type: ToastType = "error", duration?: number) => {

@@ -12,7 +12,7 @@ export function useIntegrations() {
 
   const fetchIntegrations = async () => {
     if (loading.value)
-      return; // Prevent multiple simultaneous fetches
+      return;
 
     loading.value = true;
     error.value = null;
@@ -23,10 +23,8 @@ export function useIntegrations() {
       }
       const data = await response.json();
       
-      // Mutate array in place for reactivity
       integrations.value.splice(0, integrations.value.length, ...data);
       
-      // Clear existing services and initialize new ones
       services.value.clear();
       for (const integration of data) {
         if (integration.enabled) {
@@ -49,12 +47,10 @@ export function useIntegrations() {
     }
   };
 
-  // Manual refresh function
   const refreshIntegrations = async () => {
     await fetchIntegrations();
   };
 
-  // Initialize on composable creation
   onMounted(() => {
     fetchIntegrations();
   });
@@ -77,7 +73,7 @@ export function useIntegrations() {
       }
       
       const newIntegration = await response.json();
-      await fetchIntegrations(); // Refresh data after creation
+      await fetchIntegrations();
       return newIntegration;
     }
     catch (err) {
@@ -108,7 +104,7 @@ export function useIntegrations() {
       }
       
       const updatedIntegration = await response.json();
-      await fetchIntegrations(); // Refresh data after update
+      await fetchIntegrations();
       return updatedIntegration;
     }
     catch (err) {
@@ -132,7 +128,7 @@ export function useIntegrations() {
         throw new Error("Failed to delete integration");
       }
       services.value.delete(id);
-      await fetchIntegrations(); // Refresh data after deletion
+      await fetchIntegrations();
     }
     catch (err) {
       error.value = "Failed to delete integration";

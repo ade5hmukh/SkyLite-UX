@@ -8,7 +8,7 @@ services:
     restart: always
     image: postgres:16-alpine
     volumes:
-      - ./postgresql:/var/lib/postgresql/data
+      - postgresql_data:/var/lib/postgresql/data
     env_file:
       - ./tandoor.env
     networks:
@@ -59,6 +59,7 @@ services:
       default:
 
 volumes:
+  postgresql_data:
   nginx_config:
   staticfiles:
   
