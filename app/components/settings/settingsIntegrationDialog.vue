@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import type { CreateIntegrationInput, Integration } from "~/types/database";
+import type { IntegrationSettingsField } from "~/integrations/integrationConfig";
 import { integrationRegistry } from "~/types/integrations";
 
 const show = ref(false);
@@ -19,28 +20,28 @@ const emit = defineEmits<{
   (e: "test-connection", integration: any): void;
 }>();
 
-// Form state
 const name = ref("");
 const type = ref<string>("");
 const service = ref("");
-const apiKey = ref("");
-const baseUrl = ref("");
 const enabled = ref(true);
 const error = ref<string | null>(null);
 const isSaving = ref(false);
 
-// Computed property to show loading state during connection test
+const settingsData = ref<Record<string, any>>({});
+
 const isTestingConnection = computed(() => {
   return isSaving.value && !props.connectionTestResult;
 });
 
-// Get the current integration config
 const currentIntegrationConfig = computed(() => {
   if (!type.value || !service.value) return null;
   return integrationRegistry.get(`${type.value}:${service.value}`);
 });
 
-// Load available types immediately when dialog opens
+const settingsFields = computed((): IntegrationSettingsField[] => {
+  return currentIntegrationConfig.value?.settingsFields || [];
+});
+
 const availableTypes = computed(() => {
   const types = new Set<string>();
   integrationRegistry.forEach((config) => {
@@ -53,7 +54,6 @@ const availableTypes = computed(() => {
   }));
 });
 
-// Load services based on selected type
 const availableServices = computed(() => {
   if (!type.value) return [];
   
@@ -70,10 +70,23 @@ const availableServices = computed(() => {
   }));
 });
 
-// Watch for dialog open state
+const initializeSettingsData = () => {
+  const initialData: Record<string, any> = {};
+  settingsFields.value.forEach((field: IntegrationSettingsField) => {
+    switch (field.type) {
+      case 'text':
+      case 'password':
+      case 'url':
+      default:
+        initialData[field.key] = "";
+        break;
+    }
+  });
+  settingsData.value = initialData;
+};
+
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
-    // Set initial type if available
     if (availableTypes.value.length > 0) {
       const firstType = availableTypes.value[0];
       if (firstType) {
@@ -83,12 +96,9 @@ watch(() => props.isOpen, (isOpen) => {
   }
 });
 
-// Watch for type changes
 watch(type, (newType) => {
-  // Reset service when type changes
   service.value = "";
   
-  // Set first available service for the new type
   if (availableServices.value.length > 0) {
     const firstService = availableServices.value[0];
     if (firstService) {
@@ -97,16 +107,27 @@ watch(type, (newType) => {
   }
 }, { immediate: true });
 
-// Watch for integration changes
+watch(service, () => {
+  if (!props.integration?.id || Object.keys(settingsData.value).length === 0) {
+    initializeSettingsData();
+  }
+});
+
 watch(() => props.integration, (newIntegration) => {
   if (newIntegration) {
     name.value = newIntegration.name || "";
     type.value = newIntegration.type || "";
     service.value = newIntegration.service || "";
-    apiKey.value = newIntegration.apiKey || "";
-    baseUrl.value = newIntegration.baseUrl || "";
     enabled.value = newIntegration.enabled;
     error.value = null;
+    
+    initializeSettingsData();
+    if (newIntegration.apiKey) {
+      settingsData.value.apiKey = newIntegration.apiKey;
+    }
+    if (newIntegration.baseUrl) {
+      settingsData.value.baseUrl = newIntegration.baseUrl;
+    }
   }
   else {
     resetForm();
@@ -118,23 +139,19 @@ function resetForm() {
   const firstType = availableTypes.value[0];
   type.value = firstType ? firstType.value : "";
   service.value = "";
-  apiKey.value = "";
-  baseUrl.value = "";
   enabled.value = true;
   error.value = null;
+  initializeSettingsData();
 }
 
-// Function to generate unique integration name
 function generateUniqueName(serviceName: string, existingIntegrations: Integration[]): string {
   const baseName = serviceName.charAt(0).toUpperCase() + serviceName.slice(1);
   
-  // Check if base name exists
   const existingNames = existingIntegrations.map(integration => integration.name);
   if (!existingNames.includes(baseName)) {
     return baseName;
   }
   
-  // Find the next available number
   let counter = 2;
   while (existingNames.includes(`${baseName}${counter}`)) {
     counter++;
@@ -155,17 +172,9 @@ async function handleSave() {
     return;
   }
 
-  // Validate required fields
-  const missingFields = config.requiredFields.filter(field => { 
-    switch (field) {
-      case "apiKey":
-        return !apiKey.value?.trim();
-      case "baseUrl":
-        return !baseUrl.value?.trim();
-      default:
-        return false;
-    }
-  });
+  const missingFields = settingsFields.value
+    .filter(field => field.required && !settingsData.value[field.key]?.toString().trim())
+    .map(field => field.label);
 
   if (missingFields.length > 0) {
     error.value = `Missing required fields: ${missingFields.join(", ")}`;
@@ -182,8 +191,8 @@ async function handleSave() {
       name: integrationName,
       type: type.value,
       service: service.value,
-      apiKey: apiKey.value.trim(),
-      baseUrl: baseUrl.value.trim(),
+      apiKey: settingsData.value.apiKey?.trim() || "",
+      baseUrl: settingsData.value.baseUrl?.trim() || "",
       icon: null,
       enabled: enabled.value,
       settings: {},
@@ -284,34 +293,30 @@ function handleDelete() {
         </div>
 
         <template v-if="currentIntegrationConfig">
-          <div v-if="currentIntegrationConfig.requiredFields.includes('apiKey')" class="space-y-2">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">API Key *</label>
+          <div v-for="field in settingsFields" :key="field.key" class="space-y-2">
+            <label :for="field.key" class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+              {{ field.label }}{{ field.required ? ' *' : '' }}
+            </label>
             <UInput
-              v-model="apiKey"
-              placeholder="Enter API key"
-              :type="show ? 'text' : 'password'"
+              :id="field.key"
+              v-model="settingsData[field.key]"
+              :type="field.type === 'password' ? (show ? 'text' : 'password') : field.type"
+              :placeholder="field.placeholder"
               class="w-full"
               :ui="{ base: 'w-full' }"
             >
-              <template #trailing>
+              <template v-if="field.type === 'password'" #trailing>
                 <UButton
                   color="neutral"
                   variant="ghost"
-                  icon="i-lucide-eye"
+                  :icon="show ? 'i-lucide-eye-off' : 'i-lucide-eye'"
                   @click="show = !show"
                 />
               </template>
             </UInput>
-          </div>
-
-          <div v-if="currentIntegrationConfig.requiredFields.includes('baseUrl')" class="space-y-2">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Base URL *</label>
-            <UInput
-              v-model="baseUrl"
-              placeholder="http://your-integration-instance:port"
-              class="w-full"
-              :ui="{ base: 'w-full' }"
-            />
+            <p v-if="field.description" class="text-sm text-gray-500 dark:text-gray-400">
+              {{ field.description }}
+            </p>
           </div>
         </template>
 

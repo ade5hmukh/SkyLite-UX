@@ -1,4 +1,5 @@
 import type { Integration } from "./database";
+import type { IntegrationSettingsField } from "~/integrations/integrationConfig";
 import { integrationConfigs, getServiceFactories } from "~/integrations/integrationConfig";
 import { consola } from "consola";
 
@@ -22,10 +23,11 @@ export interface IntegrationStatus {
 export interface IntegrationConfig {
   type: string;
   service: string;
-  requiredFields: string[];
-  optionalFields?: string[];
-  capabilities?: string[];
+  settingsFields: IntegrationSettingsField[];
+  capabilities: string[];
   icon: string;
+  files: string[];
+  dialogFields: any[];
 }
 
 // Registry to store all available integration configurations

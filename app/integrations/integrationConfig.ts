@@ -16,10 +16,19 @@ export interface ShoppingListItemField {
   canEdit: boolean;
 }
 
+export interface IntegrationSettingsField {
+  key: string;
+  label: string;
+  type: 'text' | 'password' | 'url';
+  placeholder?: string;
+  required?: boolean;
+  description?: string;
+}
+
 export interface IntegrationConfig {
   type: string;
   service: string;
-  settingsFields: string[];
+  settingsFields: IntegrationSettingsField[];
   capabilities: string[];
   icon: string;
   files: string[];
@@ -27,16 +36,40 @@ export interface IntegrationConfig {
 }
 
 export const integrationConfigs: IntegrationConfig[] = [
+  // ================================================
+  // Calendar integration configs can support the following list-level capabilities:
+  // ================================================
+  // Todo integration configs can support the following list-level capabilities:
+  // ================================================
   // Shopping integration configs can support the following list-level capabilities:
   // - add_items: Can add new items to lists
   // - clear_items: Can clear completed items from lists
   // - edit_items: Can edit existing items in lists  
   // - delete_items: Can delete items from lists
   // ================================================
+  // Meal integration configs can support the following list-level capabilities:
+  // ================================================
   {
     type: "shopping",
     service: "tandoor",
-    settingsFields: ["apiKey", "baseUrl"],
+    settingsFields: [
+      {
+        key: 'apiKey',
+        label: 'API Key',
+        type: 'password' as const,
+        placeholder: 'Scope needs to be "read write"',
+        required: true,
+        description: 'Your Tandoor API key for authentication'
+      },
+      {
+        key: 'baseUrl',
+        label: 'Base URL',
+        type: 'url' as const,
+        placeholder: 'http://your-tandoor-instance:port',
+        required: true,
+        description: 'The base URL of your Tandoor instance'
+      }
+    ],
     capabilities: ["add_items", "edit_items"],
     icon: "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/tandoor-recipes.svg",
     files: [
@@ -73,7 +106,24 @@ export const integrationConfigs: IntegrationConfig[] = [
   {
     type: "shopping",
     service: "mealie",
-    settingsFields: ["apiKey", "baseUrl"],
+    settingsFields: [
+      {
+        key: 'apiKey',
+        label: 'API Key',
+        type: 'password' as const,
+        placeholder: 'Enter your Mealie API key',
+        required: true,
+        description: 'Your Mealie API key for authentication'
+      },
+      {
+        key: 'baseUrl',
+        label: 'Base URL',
+        type: 'url' as const,
+        placeholder: 'http://your-mealie-instance:port',
+        required: true,
+        description: 'The base URL of your Mealie instance'
+      }
+    ],
     capabilities: ["add_items", "clear_items", "edit_items"],
     icon: "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/mealie.svg",
     files: [
