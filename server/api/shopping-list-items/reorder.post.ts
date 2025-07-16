@@ -51,6 +51,9 @@ export default defineEventHandler(async (event) => {
 
     // Simple swap: just exchange the order values of the two adjacent items
     const targetItem = items[targetIndex];
+    if (!targetItem) {
+      return currentItem; // No change needed
+    }
     const tempOrder = currentItem.order;
 
     await prisma.$transaction([

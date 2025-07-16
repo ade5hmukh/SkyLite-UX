@@ -3,8 +3,6 @@ import { format, getHours, isBefore, isSameDay, startOfDay, addHours, difference
 
 import type { CalendarEvent } from "~/utils/calendarTypes";
 
-import { getAllEventsForDay, sortEvents } from "~/utils/calendarUtils";
-
 const props = defineProps<{
   days: Date[];
   events: CalendarEvent[];
@@ -72,11 +70,18 @@ const processedDayEvents = computed(() => {
     });
 
     // Calculate positions for each event
-    const positionedEvents = [];
+    const positionedEvents: Array<{
+      event: CalendarEvent;
+      top: number;
+      height: number;
+      left: number;
+      width: number;
+      zIndex: number;
+    }> = [];
     const dayStart = startOfDay(day);
 
     // Track columns for overlapping events
-    const columns = [];
+    const columns: Array<Array<{ event: CalendarEvent; end: Date }>> = [];
 
     sortedEvents.forEach((event) => {
       const eventStart = new Date(event.start);
@@ -108,7 +113,7 @@ const processedDayEvents = computed(() => {
           columns[columnIndex] = col;
           placed = true;
         } else {
-          const overlaps = col.some((c) => {
+          const overlaps = col.some((c: { event: CalendarEvent; end: Date }) => {
             const colStart = new Date(c.event.start);
             const colEnd = new Date(c.event.end);
             return (

@@ -52,6 +52,9 @@ export default defineEventHandler(async (event) => {
 
     // Simple swap: just exchange the order values of the two adjacent todos
     const targetTodo = todos[targetIndex];
+    if (!targetTodo) {
+      return currentTodo; // No change needed
+    }
     const tempOrder = currentTodo.order;
 
     await prisma.$transaction([

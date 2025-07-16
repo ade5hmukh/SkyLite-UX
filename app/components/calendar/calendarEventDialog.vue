@@ -44,7 +44,7 @@ const error = ref<string | null>(null);
 
 // Color options
 const colorOptions = [
-  { value: "sky", label: "Blue" },
+  { value: "sky", label: "Sky" },
   { value: "violet", label: "Violet" },
   { value: "rose", label: "Rose" },
   { value: "emerald", label: "Emerald" },
@@ -80,7 +80,7 @@ watch(() => props.event, (newEvent) => {
     endTime.value = formatTimeForInput(end);
     allDay.value = newEvent.allDay || false;
     location.value = newEvent.location || "";
-    color.value = (newEvent.color as EventColor) || "blue";
+    color.value = (newEvent.color as EventColor) || "sky";
     error.value = null;
   }
   else {
@@ -98,7 +98,7 @@ function resetForm() {
   endTime.value = `${DefaultEndHour}:00`;
   allDay.value = false;
   location.value = "";
-  color.value = "blue";
+  color.value = "sky";
   error.value = null;
 }
 
@@ -229,8 +229,8 @@ function handleDelete() {
 
               <template #content>
                 <UCalendar
-                  :model-value="startDate"
-                  @update:model-value="(value: DateValue) => startDate = value"
+                  :model-value="startDate as DateValue"
+                  @update:model-value="(value) => { if (value) startDate = value as DateValue }"
                   class="p-2"
                 />
               </template>
@@ -265,8 +265,8 @@ function handleDelete() {
 
               <template #content>
                 <UCalendar
-                  :model-value="endDate"
-                  @update:model-value="(value: DateValue) => endDate = value"
+                  :model-value="endDate as DateValue"
+                  @update:model-value="(value) => { if (value) endDate = value as DateValue }"
                   class="p-2"
                 />
               </template>
