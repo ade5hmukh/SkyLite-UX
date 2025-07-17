@@ -5,6 +5,7 @@ import { CalendarDate, DateFormatter, getLocalTimeZone, parseDate } from "@inter
 import { format, isBefore } from "date-fns";
 
 import type { CalendarEvent } from "~/utils/calendarTypes";
+
 import { getEventColorClasses } from "~/utils/calendarUtils";
 
 type EventColor = "sky" | "violet" | "rose" | "emerald" | "orange";
@@ -230,8 +231,8 @@ function handleDelete() {
               <template #content>
                 <UCalendar
                   :model-value="startDate as DateValue"
-                  @update:model-value="(value) => { if (value) startDate = value as DateValue }"
                   class="p-2"
+                  @update:model-value="(value) => { if (value) startDate = value as DateValue }"
                 />
               </template>
             </UPopover>
@@ -266,8 +267,8 @@ function handleDelete() {
               <template #content>
                 <UCalendar
                   :model-value="endDate as DateValue"
-                  @update:model-value="(value) => { if (value) endDate = value as DateValue }"
                   class="p-2"
+                  @update:model-value="(value) => { if (value) endDate = value as DateValue }"
                 />
               </template>
             </UPopover>

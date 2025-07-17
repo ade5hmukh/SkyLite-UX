@@ -16,12 +16,14 @@
 
 # About The Project
 
-Skylite UX was conceived as an open source, self-hosted alternative to commercial family managers. Most commercial offerings require expensive hardware and include subscriptions. Our goal was to create an offering that allows you to bring your own hardware, avoid subscriptions, and subscription associated feature creep while playing nicely with other self-hosted offerings. 
+Skylite UX was conceived as an open source, self-hosted alternative to commercial family managers. Most commercial offerings require expensive hardware and include subscriptions. Our goal was to create an offering that allows you to bring your own hardware, avoid subscriptions, and subscription associated feature creep while playing nicely with other self-hosted offerings.
 
 ## Features
-- Deploy with Docker 
+
+- Deploy with Docker
 
 ## Feature Preview
+
 - Calendar
   - View upcoming and past events for your family in the month, week, day, or agenda views
   - Add, edit, or delete events
@@ -29,7 +31,7 @@ Skylite UX was conceived as an open source, self-hosted alternative to commerci
   - Track to-do lists for family members
   - Add, edit, or check items on your shopping lists
 - Meals
-  - View upcoming and past meals for your family in the month, week, day or agenda views 
+  - View upcoming and past meals for your family in the month, week, day or agenda views
   - Add breakfast, lunch, dinner, and sides to your meal plan
   - Edit or delete meals from your meal plan
 - Users
@@ -37,13 +39,15 @@ Skylite UX was conceived as an open source, self-hosted alternative to commerci
   - Assign family members a specific profile color
 
 ## Contributing
+
 Fork the repo and create your branch from `dev`.
 
 ### Setup
- - Install [Docker](https://docs.docker.com/get-started/get-docker/) and [Visual Studio Code](https://code.visualstudio.com/)
- - Install the [Github Codespaces](https://marketplace.visualstudio.com/items?itemName=GitHub.codespaces) and [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) VScode extensions
- - In VScode [open the command palette and select](https://code.visualstudio.com/docs/devcontainers/containers#_quick-start-open-a-git-repository-or-github-pr-in-an-isolated-container-volume) `Dev Containers: Clone Repository in Container Volume`. Select your repository and branch. 
- - Start the development server on `http://localhost:3000`:
+
+- Install [Docker](https://docs.docker.com/get-started/get-docker/) and [Visual Studio Code](https://code.visualstudio.com/)
+- Install the [Github Codespaces](https://marketplace.visualstudio.com/items?itemName=GitHub.codespaces) and [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) VScode extensions
+- In VScode [open the command palette and select](https://code.visualstudio.com/docs/devcontainers/containers#_quick-start-open-a-git-repository-or-github-pr-in-an-isolated-container-volume) `Dev Containers: Clone Repository in Container Volume`. Select your repository and branch.
+- Start the development server on `http://localhost:3000`:
 
 ```bash
 # npm
@@ -51,7 +55,9 @@ npm run dev
 ```
 
 ## License
+
 Distributed under the MIT License. See `LICENSE` for more information.
 
 ## Special Thanks
+
 The calendar UI was rewritten from [OriginUI](https://github.com/origin-space/ui-experiments) React code with express permission. Thank you Pasquale and Davide!

@@ -1,5 +1,6 @@
-import type { CreateShoppingListInput, CreateShoppingListItemInput, ShoppingListItem, ShoppingListWithItemsAndCount, UpdateShoppingListItemInput } from "~/types/database";
 import { consola } from "consola";
+
+import type { CreateShoppingListInput, CreateShoppingListItemInput, ShoppingListItem, ShoppingListWithItemsAndCount, UpdateShoppingListItemInput } from "~/types/database";
 
 // Extended type to include order property for shopping lists
 type ShoppingListWithOrder = ShoppingListWithItemsAndCount & { order: number };

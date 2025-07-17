@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
-import { createError, defineEventHandler, getQuery, readBody } from "h3";
 import { consola } from "consola";
+import { createError, defineEventHandler, getQuery, readBody } from "h3";
 
 const prisma = new PrismaClient();
 
@@ -60,27 +60,23 @@ export default defineEventHandler(async (event) => {
   const { integrationId: _, ...restQuery } = query;
   const url = `${baseUrl}/api/${path}${Object.keys(restQuery).length ? `?${new URLSearchParams(restQuery as Record<string, string>).toString()}` : ""}`;
 
-
-
   try {
     const fixedUrl = url.charAt(url.length) === "/" ? url : `${url}/`;
-    
+
     const headers: Record<string, string> = {
       "Content-Type": "application/json",
       "Host": "localhost",
     };
-    
+
     if (integration.apiKey) {
-      headers["Authorization"] = `Bearer ${integration.apiKey}`;
+      headers.Authorization = `Bearer ${integration.apiKey}`;
     }
-    
+
     const response = await fetch(fixedUrl, {
       method,
       headers,
       body: body ? JSON.stringify(body) : undefined,
     });
-
-
 
     if (!response.ok) {
       const errorText = await response.text();
@@ -95,8 +91,8 @@ export default defineEventHandler(async (event) => {
   }
   catch (error: unknown) {
     consola.error("Error proxying request to Tandoor:", error);
-    const statusCode = error && typeof error === 'object' && 'statusCode' in error ? Number(error.statusCode) : 500;
-    const message = error && typeof error === 'object' && 'message' in error ? String(error.message) : "Failed to proxy request to Tandoor";
+    const statusCode = error && typeof error === "object" && "statusCode" in error ? Number(error.statusCode) : 500;
+    const message = error && typeof error === "object" && "message" in error ? String(error.message) : "Failed to proxy request to Tandoor";
     throw createError({
       statusCode,
       statusMessage: message,

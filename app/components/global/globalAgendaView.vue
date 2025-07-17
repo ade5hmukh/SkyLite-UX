@@ -28,7 +28,7 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
 
 function scrollToCurrentDay() {
   const today = new Date();
-  const todayElement = document.querySelector(`[data-date="${format(today, 'yyyy-MM-dd')}"]`);
+  const todayElement = document.querySelector(`[data-date="${format(today, "yyyy-MM-dd")}"]`);
   if (todayElement) {
     const headerHeight = 80; // Approximate height of the header
     const padding = 20; // Additional padding
@@ -37,7 +37,7 @@ function scrollToCurrentDay() {
 
     window.scrollTo({
       top: offsetPosition,
-      behavior: 'smooth'
+      behavior: "smooth",
     });
   }
 }

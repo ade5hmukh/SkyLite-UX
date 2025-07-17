@@ -1,6 +1,6 @@
 import { PrismaClient } from "@prisma/client";
-import { createError, defineEventHandler, getQuery, readBody } from "h3";
 import { consola } from "consola";
+import { createError, defineEventHandler, getQuery, readBody } from "h3";
 
 const prisma = new PrismaClient();
 
@@ -95,8 +95,8 @@ export default defineEventHandler(async (event) => {
   }
   catch (error: unknown) {
     consola.error("Error proxying to Mealie:", error);
-    const statusCode = error && typeof error === 'object' && 'statusCode' in error ? Number(error.statusCode) : 500;
-    const message = error && typeof error === 'object' && 'message' in error ? String(error.message) : "Failed to proxy request to Mealie";
+    const statusCode = error && typeof error === "object" && "statusCode" in error ? Number(error.statusCode) : 500;
+    const message = error && typeof error === "object" && "message" in error ? String(error.message) : "Failed to proxy request to Mealie";
     throw createError({
       statusCode,
       message,

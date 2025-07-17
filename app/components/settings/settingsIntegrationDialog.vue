@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import type { CreateIntegrationInput, Integration } from "~/types/database";
 import type { IntegrationSettingsField } from "~/integrations/integrationConfig";
+import type { CreateIntegrationInput, Integration } from "~/types/database";
+
 import { integrationRegistry } from "~/types/integrations";
 
 // Type for connection test result
@@ -9,8 +10,6 @@ type ConnectionTestResult = {
   message?: string;
   error?: string;
 } | null;
-
-const show = ref(false);
 
 const props = defineProps<{
   integration: Integration | null;
@@ -27,6 +26,8 @@ const emit = defineEmits<{
   (e: "test-connection", integration: CreateIntegrationInput): void;
 }>();
 
+const show = ref(false);
+
 const name = ref("");
 const type = ref<string>("");
 const service = ref("");
@@ -41,7 +42,8 @@ const isTestingConnection = computed(() => {
 });
 
 const currentIntegrationConfig = computed(() => {
-  if (!type.value || !service.value) return null;
+  if (!type.value || !service.value)
+    return null;
   return integrationRegistry.get(`${type.value}:${service.value}`);
 });
 
@@ -54,43 +56,44 @@ const availableTypes = computed(() => {
   integrationRegistry.forEach((config) => {
     types.add(config.type);
   });
-  
+
   return Array.from(types).map(type => ({
     label: type.charAt(0).toUpperCase() + type.slice(1),
-    value: type
+    value: type,
   }));
 });
 
 const availableServices = computed(() => {
-  if (!type.value) return [];
-  
+  if (!type.value)
+    return [];
+
   const services = new Set<string>();
   integrationRegistry.forEach((config) => {
     if (config.type === type.value) {
       services.add(config.service);
     }
   });
-  
+
   return Array.from(services).map(service => ({
     label: service.charAt(0).toUpperCase() + service.slice(1),
-    value: service
+    value: service,
   }));
 });
 
-const initializeSettingsData = () => {
+function initializeSettingsData() {
   const initialData: Record<string, string> = {};
   settingsFields.value.forEach((field: IntegrationSettingsField) => {
     switch (field.type) {
-      case 'text':
-      case 'password':
-      case 'url':
+      case "text":
+      case "password":
+      case "url":
       default:
         initialData[field.key] = "";
         break;
     }
   });
   settingsData.value = initialData;
-};
+}
 
 watch(() => props.isOpen, (isOpen) => {
   if (isOpen) {
@@ -103,9 +106,9 @@ watch(() => props.isOpen, (isOpen) => {
   }
 });
 
-watch(type, (newType) => {
+watch(type, (_newType) => {
   service.value = "";
-  
+
   if (availableServices.value.length > 0) {
     const firstService = availableServices.value[0];
     if (firstService) {
@@ -127,7 +130,7 @@ watch(() => props.integration, (newIntegration) => {
     service.value = newIntegration.service || "";
     enabled.value = newIntegration.enabled;
     error.value = null;
-    
+
     initializeSettingsData();
     if (newIntegration.apiKey) {
       settingsData.value.apiKey = newIntegration.apiKey;
@@ -153,17 +156,17 @@ function resetForm() {
 
 function generateUniqueName(serviceName: string, existingIntegrations: Integration[]): string {
   const baseName = serviceName.charAt(0).toUpperCase() + serviceName.slice(1);
-  
+
   const existingNames = existingIntegrations.map(integration => integration.name);
   if (!existingNames.includes(baseName)) {
     return baseName;
   }
-  
+
   let counter = 2;
   while (existingNames.includes(`${baseName}${counter}`)) {
     counter++;
   }
-  
+
   return `${baseName}${counter}`;
 }
 
@@ -193,7 +196,7 @@ async function handleSave() {
 
   try {
     const integrationName = name.value.trim() || generateUniqueName(service.value, props.existingIntegrations);
-    
+
     const integrationData = {
       name: integrationName,
       type: type.value,
@@ -204,13 +207,15 @@ async function handleSave() {
       enabled: enabled.value,
       settings: {},
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
 
     emit("save", integrationData);
-  } catch (err) {
+  }
+  catch (err) {
     error.value = err instanceof Error ? err.message : "Failed to save integration";
-  } finally {
+  }
+  finally {
     isSaving.value = false;
   }
 }
@@ -300,7 +305,11 @@ function handleDelete() {
         </div>
 
         <template v-if="currentIntegrationConfig">
-          <div v-for="field in settingsFields" :key="field.key" class="space-y-2">
+          <div
+            v-for="field in settingsFields"
+            :key="field.key"
+            class="space-y-2"
+          >
             <label :for="field.key" class="block text-sm font-medium text-gray-700 dark:text-gray-200">
               {{ field.label }}{{ field.required ? ' *' : '' }}
             </label>

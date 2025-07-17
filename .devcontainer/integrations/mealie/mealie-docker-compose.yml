@@ -1,17 +1,17 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # base url: http://mealie:9000
   mealie:
-    image: ghcr.io/mealie-recipes/mealie:latest 
+    image: ghcr.io/mealie-recipes/mealie:latest
     container_name: mealie
     restart: always
     ports:
-        - "9925:9000" # 
+      - "9925:9000" #
     deploy:
       resources:
         limits:
-          memory: 1000M # 
+          memory: 1000M #
     volumes:
       - mealie-data:/app/data/
     environment:
@@ -25,7 +25,7 @@ services:
 
 volumes:
   mealie-data:
-  
+
 networks:
   skylite-ux_devcontainer_default:
     external: true

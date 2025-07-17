@@ -1,5 +1,6 @@
-import type { CreateTodoInput, TodoWithUser, UpdateTodoInput } from "~/types/database";
 import { consola } from "consola";
+
+import type { CreateTodoInput, TodoWithUser, UpdateTodoInput } from "~/types/database";
 
 // Extended type to include order property for todos
 type TodoWithOrder = TodoWithUser & { order: number };
@@ -165,7 +166,7 @@ export function useTodos() {
     try {
       // Find all completed todos for this column
       const completedTodos = todos.value.filter(t => t.todoColumnId === columnId && t.completed);
-      
+
       if (completedTodos.length === 0)
         return;
 

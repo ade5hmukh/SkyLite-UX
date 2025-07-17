@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import type { CreateShoppingListInput } from "~/types/database";
-import type { ShoppingList } from "~/types/database";
+import type { CreateShoppingListInput, ShoppingList } from "~/types/database";
 
 const props = defineProps<{
   isOpen: boolean;

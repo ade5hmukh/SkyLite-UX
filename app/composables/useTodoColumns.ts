@@ -1,5 +1,6 @@
-import type { TodoColumn } from "~/types/database";
 import { consola } from "consola";
+
+import type { TodoColumn } from "~/types/database";
 
 export function useTodoColumns() {
   const todoColumns = ref<TodoColumn[]>([]);

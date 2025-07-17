@@ -63,13 +63,13 @@ export type TodoColumnBasic = Pick<TodoColumn, "id" | "name"> & {
 };
 
 // Base types for lists
-export interface BaseListItem {
+export type BaseListItem = {
   id: string;
   name: string;
   checked: boolean;
   order: number;
   notes: string | null;
-}
+};
 
 // Shopping List types
 export type ShoppingList = {

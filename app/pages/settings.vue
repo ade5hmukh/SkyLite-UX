@@ -1,10 +1,11 @@
 <script setup lang="ts">
+import { consola } from "consola";
+
 import type { CreateIntegrationInput, CreateUserInput, Integration, User } from "~/types/database";
-import { integrationRegistry } from "~/types/integrations";
 
 import SettingsIntegrationDialog from "~/components/settings/settingsIntegrationDialog.vue";
 import SettingsUserDialog from "~/components/settings/settingsUserDialog.vue";
-import { consola } from "consola";
+import { integrationRegistry } from "~/types/integrations";
 
 const { users, loading, error, fetchUsers, createUser, deleteUser } = useUsers();
 const { integrations, loading: integrationsLoading, fetchIntegrations, createIntegration, updateIntegration, deleteIntegration } = useIntegrations();
@@ -36,7 +37,7 @@ const activeIntegrationTab = ref<string>("");
 
 const availableIntegrationTypes = computed(() => {
   const types = new Set<string>();
-  integrationRegistry.forEach((config) => types.add(config.type));
+  integrationRegistry.forEach(config => types.add(config.type));
   return Array.from(types);
 });
 
@@ -75,22 +76,22 @@ function openUserDialog(user: User | null = null) {
 async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
   try {
     connectionTestResult.value = null;
-    
+
     if (selectedIntegration.value?.id) {
       const updatedIntegration = await updateIntegration(selectedIntegration.value.id, {
         ...integrationData,
         createdAt: selectedIntegration.value.createdAt,
         updatedAt: new Date(),
       });
-      
+
       const index = integrations.value.findIndex(i => i.id === selectedIntegration.value?.id);
       if (index !== -1) {
         integrations.value[index] = updatedIntegration;
       }
-      
+
       connectionTestResult.value = {
         success: true,
-        message: "Integration updated successfully!"
+        message: "Integration updated successfully!",
       };
     }
     else {
@@ -99,25 +100,26 @@ async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
         createdAt: new Date(),
         updatedAt: new Date(),
       });
-      
+
       integrations.value.push(newIntegration);
-      
+
       connectionTestResult.value = {
         success: true,
-        message: "Integration created successfully!"
+        message: "Integration created successfully!",
       };
     }
-    
+
     setTimeout(() => {
       isIntegrationDialogOpen.value = false;
       selectedIntegration.value = null;
       connectionTestResult.value = null;
     }, 1500);
-  } catch (error) {
-    consola.error('Failed to save integration:', error);
+  }
+  catch (error) {
+    consola.error("Failed to save integration:", error);
     connectionTestResult.value = {
       success: false,
-      error: error instanceof Error ? error.message : "Failed to save integration"
+      error: error instanceof Error ? error.message : "Failed to save integration",
     };
   }
 }
@@ -128,8 +130,9 @@ async function handleIntegrationDelete(integrationId: string) {
     await fetchIntegrations();
     isIntegrationDialogOpen.value = false;
     selectedIntegration.value = null;
-  } catch (error) {
-    consola.error('Failed to delete integration:', error);
+  }
+  catch (error) {
+    consola.error("Failed to delete integration:", error);
   }
 }
 
@@ -137,7 +140,7 @@ function openIntegrationDialog(integration: Integration | null = null) {
   if (!activeIntegrationTab.value && availableIntegrationTypes.value.length > 0) {
     activeIntegrationTab.value = availableIntegrationTypes.value[0] || "";
   }
-  
+
   selectedIntegration.value = integration;
   isIntegrationDialogOpen.value = true;
 }
@@ -181,7 +184,7 @@ function getIntegrationIconUrl(integration: Integration) {
   if (integration.icon) {
     return integration.icon;
   }
-  
+
   const config = integrationRegistry.get(`${integration.type}:${integration.service}`);
   return config?.icon || null;
 }
@@ -348,10 +351,10 @@ function getIntegrationIconUrl(integration: Integration) {
                     <img
                       v-if="getIntegrationIconUrl(integration)"
                       :src="getIntegrationIconUrl(integration) || undefined"
-                      :alt="integration.service + ' icon'"
+                      :alt="`${integration.service} icon`"
                       class="h-5 w-5"
                       style="object-fit: contain"
-                    />
+                    >
                     <UIcon
                       v-else
                       :name="getIntegrationIcon(integration.type)"

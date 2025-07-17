@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import type { BaseListItem, TodoList, TodoListItem } from "~/types/database";
 import { consola } from "consola";
 
-import TodoItemDialog from "~/components/todos/todoItemDialog.vue";
-import TodoColumnDialog from "~/components/todos/todoColumnDialog.vue";
+import type { BaseListItem, TodoList, TodoListItem } from "~/types/database";
+
 import GlobalList from "~/components/global/globalList.vue";
+import TodoColumnDialog from "~/components/todos/todoColumnDialog.vue";
+import TodoItemDialog from "~/components/todos/todoItemDialog.vue";
 
 const { todos, loading: todosLoading, fetchTodos, createTodo, updateTodo, toggleTodo, deleteTodo, reorderTodo, clearCompleted } = useTodos();
 const { todoColumns, loading: columnsLoading, fetchTodoColumns, createTodoColumn, updateTodoColumn, deleteTodoColumn, reorderTodoColumns } = useTodoColumns();
@@ -16,8 +17,8 @@ const mutableTodoColumns = computed(() => todoColumns.value.map(col => ({
     : {
         id: col.user.id,
         name: col.user.name,
-        avatar: col.user.avatar
-      }
+        avatar: col.user.avatar,
+      },
 })));
 
 const todoItemDialog = ref(false);
@@ -25,8 +26,12 @@ const todoColumnDialog = ref(false);
 const editingTodo = ref<TodoListItem | null>(null);
 const editingColumn = ref<TodoList | null>(null);
 
+const editingTodoTyped = computed<TodoListItem | undefined>(() =>
+  editingTodo.value as TodoListItem | undefined,
+);
+
 const todoLists = computed<TodoList[]>(() => {
-  return todoColumns.value.map((column) => ({
+  return todoColumns.value.map(column => ({
     id: column.id,
     name: column.name,
     order: column.order,
@@ -34,9 +39,9 @@ const todoLists = computed<TodoList[]>(() => {
     updatedAt: new Date(column.updatedAt),
     isDefault: column.isDefault,
     items: todos.value
-      .filter((todo) => todo.todoColumnId === column.id)
+      .filter(todo => todo.todoColumnId === column.id)
       .sort((a, b) => (a.order || 0) - (b.order || 0))
-      .map((todo) => ({
+      .map(todo => ({
         id: todo.id,
         name: todo.title,
         checked: todo.completed,
@@ -59,8 +64,9 @@ function openCreateTodo(todoColumnId?: string) {
 
 function openEditTodo(item: BaseListItem) {
   const todo = todos.value.find(t => t.id === item.id);
-  if (!todo) return;
-  
+  if (!todo)
+    return;
+
   editingTodo.value = {
     id: todo.id,
     name: todo.title,
@@ -145,7 +151,7 @@ function openEditColumn(column: TodoList) {
 async function handleColumnDelete() {
   if (!editingColumn.value?.id)
     return;
-  
+
   try {
     await deleteTodoColumn(editingColumn.value.id);
     todoColumnDialog.value = false;
@@ -188,7 +194,7 @@ async function handleReorderColumn(columnIndex: number, direction: "left" | "rig
   }
   catch (error) {
     consola.error("Failed to reorder column:", error);
-    alert("Failed to reorder column. Please try again.");
+    useAlertToast().showError("Failed to reorder column. Please try again.");
   }
   finally {
     reorderingColumns.value.delete(column.id);
@@ -196,17 +202,21 @@ async function handleReorderColumn(columnIndex: number, direction: "left" | "rig
 }
 
 async function handleReorderTodo(itemId: string, direction: "up" | "down") {
-  if (reorderingTodos.value.has(itemId)) return;
+  if (reorderingTodos.value.has(itemId))
+    return;
   reorderingTodos.value.add(itemId);
 
   try {
     const item = todos.value.find(t => t.id === itemId);
-    if (!item) throw new Error("Todo not found");
+    if (!item)
+      throw new Error("Todo not found");
     await reorderTodo(itemId, direction, item.todoColumnId ?? null);
-  } catch (error) {
+  }
+  catch (error) {
     consola.error("Failed to reorder todo:", error);
-    alert("Failed to reorder todo. Please try again.");
-  } finally {
+    useAlertToast().showError("Failed to reorder todo. Please try again.");
+  }
+  finally {
     reorderingTodos.value.delete(itemId);
   }
 }
@@ -247,12 +257,12 @@ onMounted(async () => {
         show-progress
         @create="todoColumnDialog = true; editingColumn = null"
         @edit="openEditColumn($event as TodoList)"
-        @addItem="openCreateTodo($event)"
-        @editItem="openEditTodo($event)"
-        @toggleItem="handleToggleTodo"
-        @reorderItem="handleReorderTodo"
-        @reorderList="(listId, direction) => handleReorderColumn(todoLists.findIndex(l => l.id === listId), direction === 'up' ? 'left' : 'right')"
-        @clearCompleted="handleClearCompleted"
+        @add-item="openCreateTodo($event)"
+        @edit-item="openEditTodo($event)"
+        @toggle-item="handleToggleTodo"
+        @reorder-item="handleReorderTodo"
+        @reorder-list="(listId, direction) => handleReorderColumn(todoLists.findIndex(l => l.id === listId), direction === 'up' ? 'left' : 'right')"
+        @clear-completed="handleClearCompleted"
       />
     </div>
 
@@ -268,7 +278,7 @@ onMounted(async () => {
     <TodoItemDialog
       :is-open="todoItemDialog"
       :todo-columns="mutableTodoColumns"
-      :todo="editingTodo as TodoListItem | undefined"
+      :todo="editingTodoTyped"
       @close="todoItemDialog = false; editingTodo = null"
       @save="handleTodoSave"
       @delete="handleTodoDelete"

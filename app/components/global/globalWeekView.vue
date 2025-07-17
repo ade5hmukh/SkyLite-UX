@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { format, getHours, isBefore, isSameDay, startOfDay, addHours, differenceInMinutes } from "date-fns";
+import { addHours, differenceInMinutes, format, getHours, isBefore, isSameDay, startOfDay } from "date-fns";
 
 import type { CalendarEvent } from "~/utils/calendarTypes";
 
@@ -39,16 +39,17 @@ const processedDayEvents = computed(() => {
   return props.days.map((day) => {
     // Get events for this day that are not all-day events
     const dayEvents = props.events.filter((event) => {
-      if (event.allDay) return false;
+      if (event.allDay)
+        return false;
 
       const eventStart = new Date(event.start);
       const eventEnd = new Date(event.end);
 
       // Check if event is on this day
       return (
-        isSameDay(day, eventStart) ||
-        isSameDay(day, eventEnd) ||
-        (eventStart < day && eventEnd > day)
+        isSameDay(day, eventStart)
+        || isSameDay(day, eventEnd)
+        || (eventStart < day && eventEnd > day)
       );
     });
 
@@ -60,8 +61,10 @@ const processedDayEvents = computed(() => {
       const bEnd = new Date(b.end);
 
       // First sort by start time
-      if (aStart < bStart) return -1;
-      if (aStart > bStart) return 1;
+      if (aStart < bStart)
+        return -1;
+      if (aStart > bStart)
+        return 1;
 
       // If start times are equal, sort by duration (longer events first)
       const aDuration = differenceInMinutes(aEnd, aStart);
@@ -112,19 +115,21 @@ const processedDayEvents = computed(() => {
         if (col.length === 0) {
           columns[columnIndex] = col;
           placed = true;
-        } else {
+        }
+        else {
           const overlaps = col.some((c: { event: CalendarEvent; end: Date }) => {
             const colStart = new Date(c.event.start);
             const colEnd = new Date(c.event.end);
             return (
-              (adjustedStart >= colStart && adjustedStart < colEnd) ||
-              (adjustedEnd > colStart && adjustedEnd <= colEnd) ||
-              (adjustedStart <= colStart && adjustedEnd >= colEnd)
+              (adjustedStart >= colStart && adjustedStart < colEnd)
+              || (adjustedEnd > colStart && adjustedEnd <= colEnd)
+              || (adjustedStart <= colStart && adjustedEnd >= colEnd)
             );
           });
           if (!overlaps) {
             placed = true;
-          } else {
+          }
+          else {
             columnIndex++;
           }
         }

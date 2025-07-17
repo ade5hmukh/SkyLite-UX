@@ -1,5 +1,6 @@
-import type { CreateUserInput, User } from "~/types/database";
 import { consola } from "consola";
+
+import type { CreateUserInput, User } from "~/types/database";
 
 // Extended type to include todoOrder property for users
 type UserWithOrder = User & { todoOrder: number };
@@ -11,7 +12,7 @@ export function useUsers() {
   const error = ref<string | null>(null);
 
   // Server-side data fetching
-  const { data: serverUsers } = useNuxtData<UserWithOrder[]>('users');
+  const { data: serverUsers } = useNuxtData<UserWithOrder[]>("users");
 
   const fetchUsers = async () => {
     loading.value = true;

@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
-import { createError, defineEventHandler, readBody } from "h3";
 import { consola } from "consola";
+import { createError, defineEventHandler, readBody } from "h3";
+
 import { integrationRegistry } from "~/types/integrations";
 
 const prisma = new PrismaClient();
@@ -11,9 +12,9 @@ export default defineEventHandler(async (event) => {
     const { name, type, service, apiKey, baseUrl, icon, enabled, settings } = body;
 
     const integrationKey = `${type}:${service}`;
-    
+
     const integrationConfig = integrationRegistry.get(integrationKey);
-    
+
     if (!integrationConfig) {
       throw createError({
         statusCode: 400,
@@ -23,12 +24,17 @@ export default defineEventHandler(async (event) => {
 
     const missingFields = integrationConfig.settingsFields
       .filter(field => field.required)
-      .filter(field => {
-        if (field.key === 'apiKey') return !apiKey;
-        if (field.key === 'baseUrl') return !baseUrl;
-        if (field.key === 'name') return !name;
-        if (field.key === 'type') return !type;
-        if (field.key === 'service') return !service;
+      .filter((field) => {
+        if (field.key === "apiKey")
+          return !apiKey;
+        if (field.key === "baseUrl")
+          return !baseUrl;
+        if (field.key === "name")
+          return !name;
+        if (field.key === "type")
+          return !type;
+        if (field.key === "service")
+          return !service;
         return false;
       })
       .map(field => field.label);
@@ -36,7 +42,7 @@ export default defineEventHandler(async (event) => {
     if (missingFields.length > 0) {
       throw createError({
         statusCode: 400,
-        message: `Missing required fields: ${missingFields.join(', ')}`,
+        message: `Missing required fields: ${missingFields.join(", ")}`,
       });
     }
 
@@ -45,16 +51,16 @@ export default defineEventHandler(async (event) => {
       id: "temp",
       type,
       service,
-      apiKey: apiKey || '',
+      apiKey: apiKey || "",
       baseUrl,
       enabled: true,
       name: name || "Temp",
       icon: icon || null,
       settings: settings || {},
       createdAt: new Date(),
-      updatedAt: new Date()
+      updatedAt: new Date(),
     };
-    
+
     const integrationService = await createIntegrationService(tempIntegration);
     if (!integrationService) {
       throw createError({
@@ -62,13 +68,13 @@ export default defineEventHandler(async (event) => {
         message: `Unsupported integration type: ${type}:${service}`,
       });
     }
-    
+
     const connectionSuccess = await integrationService.testConnection?.();
     if (!connectionSuccess) {
       const status = await integrationService.getStatus();
       throw createError({
         statusCode: 400,
-        message: `Connection test failed: ${status.error || 'Unknown error'}`,
+        message: `Connection test failed: ${status.error || "Unknown error"}`,
       });
     }
 
@@ -89,13 +95,11 @@ export default defineEventHandler(async (event) => {
   }
   catch (error: unknown) {
     consola.error("Error creating integration:", error);
-    const statusCode = error && typeof error === 'object' && 'statusCode' in error ? Number(error.statusCode) : 500;
-    const message = error && typeof error === 'object' && 'message' in error ? String(error.message) : "Failed to create integration";
+    const statusCode = error && typeof error === "object" && "statusCode" in error ? Number(error.statusCode) : 500;
+    const message = error && typeof error === "object" && "message" in error ? String(error.message) : "Failed to create integration";
     throw createError({
       statusCode,
       message,
     });
   }
 });
-
-

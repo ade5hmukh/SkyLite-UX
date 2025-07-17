@@ -1,7 +1,9 @@
+import { consola } from "consola";
+
 import type { Integration } from "~/types/database";
 import type { IntegrationService } from "~/types/integrations";
+
 import { createIntegrationService } from "~/types/integrations";
-import { consola } from "consola";
 
 export function useIntegrations() {
   const integrations = ref<Integration[]>([]);
@@ -22,9 +24,9 @@ export function useIntegrations() {
         throw new Error("Failed to fetch integrations");
       }
       const data = await response.json();
-      
+
       integrations.value.splice(0, integrations.value.length, ...data);
-      
+
       services.value.clear();
       for (const integration of data) {
         if (integration.enabled) {
@@ -35,7 +37,7 @@ export function useIntegrations() {
           }
         }
       }
-      
+
       initialized.value = true;
     }
     catch (err) {
@@ -66,12 +68,12 @@ export function useIntegrations() {
         },
         body: JSON.stringify(integration),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || "Failed to create integration");
       }
-      
+
       const newIntegration = await response.json();
       await fetchIntegrations();
       return newIntegration;
@@ -97,12 +99,12 @@ export function useIntegrations() {
         },
         body: JSON.stringify(updates),
       });
-      
+
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}));
         throw new Error(errorData.message || "Failed to update integration");
       }
-      
+
       const updatedIntegration = await response.json();
       await fetchIntegrations();
       return updatedIntegration;

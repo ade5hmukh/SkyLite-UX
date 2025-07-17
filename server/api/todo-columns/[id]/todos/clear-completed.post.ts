@@ -34,4 +34,4 @@ export default defineEventHandler(async (event) => {
       message: `Failed to clear completed todos: ${error}`,
     });
   }
-}); 
+});

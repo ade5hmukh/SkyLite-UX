@@ -1,4 +1,4 @@
-version: '3.8'
+version: "3.8"
 
 services:
   # base url: http://nginx_recipes:80
@@ -62,7 +62,7 @@ volumes:
   postgresql_data:
   nginx_config:
   staticfiles:
-  
+
 networks:
   default:
   skylite-ux_devcontainer_default:

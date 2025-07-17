@@ -3,7 +3,7 @@ import tailwindcss from "@tailwindcss/vite";
 
 export default defineNuxtConfig({
   devtools: { enabled: true },
-  
+
   modules: [
     "@nuxt/ui",
     "@nuxt/eslint",
@@ -18,7 +18,7 @@ export default defineNuxtConfig({
     plugins: [tailwindcss()],
     optimizeDeps: {
       include: [
-        "date-fns", 
+        "date-fns",
         "@internationalized/date",
       ],
     },
@@ -28,8 +28,8 @@ export default defineNuxtConfig({
 
   nitro: {
     plugins: [
-      "../server/plugins/integrations.ts"
-    ]
+      "../server/plugins/integrations.ts",
+    ],
   },
 
   future: {

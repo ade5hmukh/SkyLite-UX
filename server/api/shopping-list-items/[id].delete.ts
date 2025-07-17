@@ -1,5 +1,6 @@
-import prisma from "~/lib/prisma";
 import { consola } from "consola";
+
+import prisma from "~/lib/prisma";
 
 export default defineEventHandler(async (event) => {
   const id = getRouterParam(event, "id");
@@ -25,4 +26,4 @@ export default defineEventHandler(async (event) => {
       message: "Failed to delete shopping list item",
     });
   }
-}); 
+});

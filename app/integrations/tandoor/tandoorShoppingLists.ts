@@ -1,9 +1,13 @@
-import type { IntegrationService, IntegrationStatus } from "~/types/integrations";
-import { integrationRegistry } from "~/types/integrations";
-import { TandoorService as ServerTandoorService } from "../../../server/integrations/tandoor";
-import type { ShoppingList, ShoppingListItem, UpdateShoppingListItemInput } from "~/types/database";
-import { consola } from "consola";
 import type { JsonObject } from "type-fest";
+
+import { consola } from "consola";
+
+import type { ShoppingList, ShoppingListItem, UpdateShoppingListItemInput } from "~/types/database";
+import type { IntegrationService, IntegrationStatus } from "~/types/integrations";
+
+import { integrationRegistry } from "~/types/integrations";
+
+import { TandoorService as ServerTandoorService } from "../../../server/integrations/tandoor";
 
 export class TandoorService implements IntegrationService {
   private apiKey: string;
@@ -11,8 +15,9 @@ export class TandoorService implements IntegrationService {
   private integrationId: string;
   private status: IntegrationStatus = {
     isConnected: false,
-    lastChecked: new Date()
+    lastChecked: new Date(),
   };
+
   private serverService: ServerTandoorService;
 
   constructor(integrationId: string, apiKey: string, baseUrl: string) {
@@ -29,18 +34,19 @@ export class TandoorService implements IntegrationService {
   async validate(): Promise<boolean> {
     try {
       await this.serverService.getShoppingListEntries();
-      
+
       this.status = {
         isConnected: true,
-        lastChecked: new Date()
+        lastChecked: new Date(),
       };
-      
+
       return true;
-    } catch (error) {
+    }
+    catch (error) {
       this.status = {
         isConnected: false,
         lastChecked: new Date(),
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error",
       };
       return false;
     }
@@ -53,39 +59,40 @@ export class TandoorService implements IntegrationService {
   async testConnection(): Promise<boolean> {
     try {
       const response = await fetch(`${this.baseUrl}/api/shopping-list-entry/`, {
-        method: 'GET',
+        method: "GET",
         headers: {
-          'Authorization': `Bearer ${this.apiKey}`,
-          'Content-Type': 'application/json',
-          'Host': 'localhost',
+          "Authorization": `Bearer ${this.apiKey}`,
+          "Content-Type": "application/json",
+          "Host": "localhost",
         },
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        consola.error('Tandoor API error:', response.status, response.statusText, errorText);
+        consola.error("Tandoor API error:", response.status, response.statusText, errorText);
         this.status = {
           isConnected: false,
           lastChecked: new Date(),
-          error: `API error: ${response.status} ${response.statusText}`
+          error: `API error: ${response.status} ${response.statusText}`,
         };
         return false;
       }
 
-      const data = await response.json();
-      
+      await response.json();
+
       this.status = {
         isConnected: true,
-        lastChecked: new Date()
+        lastChecked: new Date(),
       };
-      
+
       return true;
-    } catch (error) {
-      consola.error('Tandoor connection test error:', error);
+    }
+    catch (error) {
+      consola.error("Tandoor connection test error:", error);
       this.status = {
         isConnected: false,
         lastChecked: new Date(),
-        error: error instanceof Error ? error.message : "Unknown error"
+        error: error instanceof Error ? error.message : "Unknown error",
       };
       return false;
     }
@@ -99,12 +106,12 @@ export class TandoorService implements IntegrationService {
   async getShoppingLists(): Promise<ShoppingList[]> {
     try {
       const entries = await this.serverService.getShoppingListEntries();
-      
+
       if (!entries || !Array.isArray(entries)) {
-        consola.warn('Tandoor service returned invalid entries:', entries);
+        consola.warn("Tandoor service returned invalid entries:", entries);
         return [];
       }
-      
+
       const items: ShoppingListItem[] = entries.map((entry, index) => ({
         id: entry.id.toString(),
         name: entry.food?.name || "Unknown",
@@ -115,7 +122,7 @@ export class TandoorService implements IntegrationService {
         unit: entry.unit?.name || null,
         label: null,
         food: null,
-        integrationData: entry as unknown as JsonObject
+        integrationData: entry as unknown as JsonObject,
       }));
 
       return [{
@@ -126,11 +133,12 @@ export class TandoorService implements IntegrationService {
         updatedAt: new Date(),
         items,
         _count: {
-          items: items.length
-        }
+          items: items.length,
+        },
       }];
-    } catch (error) {
-      consola.error('Error fetching Tandoor shopping lists:', error);
+    }
+    catch (error) {
+      consola.error("Error fetching Tandoor shopping lists:", error);
       throw error;
     }
   }
@@ -138,11 +146,11 @@ export class TandoorService implements IntegrationService {
   async getShoppingList(id: string): Promise<ShoppingList> {
     const lists = await this.getShoppingLists();
     const list = lists.find(l => l.id === id);
-    
+
     if (!list) {
       throw new Error(`Shopping list with id ${id} not found`);
     }
-    
+
     return list;
   }
 
@@ -156,11 +164,11 @@ export class TandoorService implements IntegrationService {
       food: { name: item.name },
       unit: item.unit ? { name: item.unit } : undefined,
       amount: item.quantity.toString(),
-      list_recipe: undefined
+      list_recipe: undefined,
     };
 
     const createdEntry = await this.serverService.createShoppingListEntry(tandoorItem);
-    
+
     return {
       id: createdEntry.id.toString(),
       name: createdEntry.food.name,
@@ -171,14 +179,14 @@ export class TandoorService implements IntegrationService {
       unit: createdEntry.unit?.name || null,
       label: null,
       food: null,
-      integrationData: createdEntry as unknown as JsonObject
+      integrationData: createdEntry as unknown as JsonObject,
     };
   }
 
   async updateShoppingListItem(itemId: string, updates: UpdateShoppingListItemInput): Promise<ShoppingListItem> {
     try {
       const tandoorUpdates: Record<string, unknown> = {};
-      
+
       if (updates.name !== undefined) {
         tandoorUpdates.food = { name: updates.name };
       }
@@ -191,9 +199,9 @@ export class TandoorService implements IntegrationService {
       if (updates.order !== undefined) {
         tandoorUpdates.order = updates.order;
       }
-      
-      const updatedEntry = await this.serverService.updateShoppingListEntry(parseInt(itemId), tandoorUpdates);
-      
+
+      const updatedEntry = await this.serverService.updateShoppingListEntry(Number.parseInt(itemId), tandoorUpdates);
+
       return {
         id: updatedEntry.id.toString(),
         name: updatedEntry.food.name,
@@ -204,20 +212,21 @@ export class TandoorService implements IntegrationService {
         unit: updatedEntry.unit?.name || null,
         label: null,
         food: null,
-        integrationData: updatedEntry as unknown as JsonObject
+        integrationData: updatedEntry as unknown as JsonObject,
       };
-    } catch (error) {
+    }
+    catch (error) {
       consola.error(`Error updating item ${itemId}:`, error);
-      throw new Error(`Failed to update item: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to update item: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   }
 
   async toggleItem(itemId: string, checked: boolean): Promise<ShoppingListItem> {
     try {
-      const updatedEntry = await this.serverService.updateShoppingListEntry(parseInt(itemId), {
-        checked: checked
+      const updatedEntry = await this.serverService.updateShoppingListEntry(Number.parseInt(itemId), {
+        checked,
       });
-      
+
       return {
         id: updatedEntry.id.toString(),
         name: updatedEntry.food.name,
@@ -228,22 +237,23 @@ export class TandoorService implements IntegrationService {
         unit: updatedEntry.unit?.name || null,
         label: null,
         food: null,
-        integrationData: updatedEntry as unknown as JsonObject
+        integrationData: updatedEntry as unknown as JsonObject,
       };
-    } catch (error) {
+    }
+    catch (error) {
       consola.error(`Error toggling item ${itemId}:`, error);
-      throw new Error(`Failed to toggle item: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      throw new Error(`Failed to toggle item: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   }
 }
 
-export const createTandoorService = (integrationId: string, apiKey: string, baseUrl: string): TandoorService => {
+export function createTandoorService(integrationId: string, apiKey: string, baseUrl: string): TandoorService {
   return new TandoorService(integrationId, apiKey, baseUrl);
-};
+}
 
-export const getTandoorFieldsForItem = (item: { unit?: unknown } | null | undefined, allFields: { key: string }[]): { key: string }[] => {
+export function getTandoorFieldsForItem(item: { unit?: unknown } | null | undefined, allFields: { key: string }[]): { key: string }[] {
   if (item?.unit === null || item === null || item === undefined) {
-    return allFields.filter(field => field.key !== 'unit');
+    return allFields.filter(field => field.key !== "unit");
   }
   return allFields;
-}; 
+}

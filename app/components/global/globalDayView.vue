@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { format, getHours, isSameDay, startOfDay, addHours, differenceInMinutes } from "date-fns";
+import { addHours, differenceInMinutes, format, getHours, isSameDay, startOfDay } from "date-fns";
 
 const props = defineProps<{
   currentDate: Date;
@@ -56,8 +56,10 @@ const positionedEvents = computed(() => {
       const bEnd = new Date(b.end);
 
       // First sort by start time
-      if (aStart < bStart) return -1;
-      if (aStart > bStart) return 1;
+      if (aStart < bStart)
+        return -1;
+      if (aStart > bStart)
+        return 1;
 
       // If start times are equal, sort by duration (longer events first)
       const aDuration = differenceInMinutes(aEnd, aStart);
@@ -108,19 +110,21 @@ const positionedEvents = computed(() => {
       if (col.length === 0) {
         columns[columnIndex] = col;
         placed = true;
-      } else {
+      }
+      else {
         const overlaps = col.some((c: { event: CalendarEvent; end: Date }) => {
           const colStart = new Date(c.event.start);
           const colEnd = new Date(c.event.end);
           return (
-            (adjustedStart >= colStart && adjustedStart < colEnd) ||
-            (adjustedEnd > colStart && adjustedEnd <= colEnd) ||
-            (adjustedStart <= colStart && adjustedEnd >= colEnd)
+            (adjustedStart >= colStart && adjustedStart < colEnd)
+            || (adjustedEnd > colStart && adjustedEnd <= colEnd)
+            || (adjustedStart <= colStart && adjustedEnd >= colEnd)
           );
         });
         if (!overlaps) {
           placed = true;
-        } else {
+        }
+        else {
           columnIndex++;
         }
       }

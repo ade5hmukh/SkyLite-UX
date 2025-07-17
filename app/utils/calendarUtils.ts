@@ -1,4 +1,5 @@
 import { isSameDay } from "date-fns";
+
 import type { CalendarEvent, EventColor } from "~/utils/calendarTypes";
 
 export function getEventColorClasses(color?: EventColor | string): string {

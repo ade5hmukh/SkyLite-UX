@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { CreateTodoInput, Priority, UpdateTodoInput, TodoColumnBasic, TodoListItem } from "~/types/database";
+import type { CreateTodoInput, Priority, TodoColumnBasic, TodoListItem, UpdateTodoInput } from "~/types/database";
 
 const props = defineProps<{
   todo: TodoListItem | null;

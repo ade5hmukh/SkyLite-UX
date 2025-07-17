@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import type { CalendarDate, DateValue } from "@internationalized/date";
+
+import { DateFormatter, getLocalTimeZone, parseDate } from "@internationalized/date";
+
 import type { Priority, TodoColumnBasic, TodoListItem } from "~/types/database";
-import type { DateValue } from "@internationalized/date";
-import { CalendarDate, DateFormatter, getLocalTimeZone, parseDate } from "@internationalized/date";
 
 const props = defineProps<{
   isOpen: boolean;
@@ -78,14 +80,16 @@ function handleSave() {
     name: todoTitle.value.trim(),
     description: todoDescription.value.trim() || null,
     priority: todoPriority.value,
-    dueDate: todoDueDate.value ? (() => {
-      const date = todoDueDate.value!.toDate(getLocalTimeZone());
-      date.setHours(23, 59, 59, 999);
-      return date;
-    })() : null,
+    dueDate: todoDueDate.value
+      ? (() => {
+          const date = todoDueDate.value!.toDate(getLocalTimeZone());
+          date.setHours(23, 59, 59, 999);
+          return date;
+        })()
+      : null,
     todoColumnId: todoColumnId.value || (props.todoColumns.length > 0 ? props.todoColumns[0]?.id ?? undefined : undefined),
     checked: props.todo?.checked || false,
-    order: props.todo?.order || 0
+    order: props.todo?.order || 0,
   };
 
   emit("save", todoData as unknown as TodoListItem);
@@ -191,8 +195,8 @@ function handleDelete() {
                   </UButton>
                   <UCalendar
                     :model-value="todoDueDate as unknown as DateValue"
-                    @update:model-value="todoDueDate = $event as CalendarDate"
                     class="p-2"
+                    @update:model-value="todoDueDate = $event as CalendarDate"
                   />
                 </div>
               </template>

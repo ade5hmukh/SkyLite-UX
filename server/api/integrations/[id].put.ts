@@ -1,6 +1,7 @@
 import { PrismaClient } from "@prisma/client";
-import { createError, defineEventHandler, readBody } from "h3";
 import { consola } from "consola";
+import { createError, defineEventHandler, readBody } from "h3";
+
 import { integrationRegistry } from "~/types/integrations";
 
 const prisma = new PrismaClient();
@@ -20,7 +21,7 @@ export default defineEventHandler(async (event) => {
 
     if (apiKey || baseUrl) {
       const currentIntegration = await prisma.integration.findUnique({
-        where: { id }
+        where: { id },
       });
 
       if (!currentIntegration) {
@@ -45,16 +46,21 @@ export default defineEventHandler(async (event) => {
       if (type || service) {
         const integrationKey = `${updatedData.type}:${updatedData.service}`;
         const integrationConfig = integrationRegistry.get(integrationKey);
-        
+
         if (integrationConfig) {
           const missingFields = integrationConfig.settingsFields
             .filter(field => field.required)
-            .filter(field => {
-              if (field.key === 'apiKey') return !updatedData.apiKey;
-              if (field.key === 'baseUrl') return !updatedData.baseUrl;
-              if (field.key === 'name') return !updatedData.name;
-              if (field.key === 'type') return !updatedData.type;
-              if (field.key === 'service') return !updatedData.service;
+            .filter((field) => {
+              if (field.key === "apiKey")
+                return !updatedData.apiKey;
+              if (field.key === "baseUrl")
+                return !updatedData.baseUrl;
+              if (field.key === "name")
+                return !updatedData.name;
+              if (field.key === "type")
+                return !updatedData.type;
+              if (field.key === "service")
+                return !updatedData.service;
               return false;
             })
             .map(field => field.label);
@@ -62,7 +68,7 @@ export default defineEventHandler(async (event) => {
           if (missingFields.length > 0) {
             throw createError({
               statusCode: 400,
-              message: `Missing required fields: ${missingFields.join(', ')}`,
+              message: `Missing required fields: ${missingFields.join(", ")}`,
             });
           }
         }
@@ -80,9 +86,9 @@ export default defineEventHandler(async (event) => {
         icon: updatedData.icon || null,
         settings: updatedData.settings || {},
         createdAt: new Date(),
-        updatedAt: new Date()
+        updatedAt: new Date(),
       };
-      
+
       const integrationService = await createIntegrationService(tempIntegration);
       if (!integrationService) {
         throw createError({
@@ -90,13 +96,13 @@ export default defineEventHandler(async (event) => {
           message: `Unsupported integration type: ${updatedData.type}:${updatedData.service}`,
         });
       }
-      
+
       const connectionSuccess = await integrationService.testConnection?.();
       if (!connectionSuccess) {
         const status = await integrationService.getStatus();
         throw createError({
           statusCode: 400,
-          message: `Connection test failed: ${status.error || 'Unknown error'}`,
+          message: `Connection test failed: ${status.error || "Unknown error"}`,
         });
       }
     }
@@ -119,13 +125,11 @@ export default defineEventHandler(async (event) => {
   }
   catch (error: unknown) {
     consola.error("Error updating integration:", error);
-    const statusCode = error && typeof error === 'object' && 'statusCode' in error ? Number(error.statusCode) : 500;
-    const message = error && typeof error === 'object' && 'message' in error ? String(error.message) : "Failed to update integration";
+    const statusCode = error && typeof error === "object" && "statusCode" in error ? Number(error.statusCode) : 500;
+    const message = error && typeof error === "object" && "message" in error ? String(error.message) : "Failed to update integration";
     throw createError({
       statusCode,
       message,
-      });
-    }
+    });
+  }
 });
-
-

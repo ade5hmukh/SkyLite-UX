@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import type { CreateShoppingListItemInput, ShoppingListItem } from "~/types/database";
 import type { DialogField } from "~/integrations/integrationConfig";
+import type { CreateShoppingListItemInput, ShoppingListItem } from "~/types/database";
 
 const props = defineProps<{
   isOpen: boolean;
@@ -15,26 +15,24 @@ const emit = defineEmits<{
   (e: "delete", itemId: string): void;
 }>();
 
-
-
 const formData = ref<Record<string, any>>({});
 
-const initializeFormData = () => {
+function initializeFormData() {
   const initialData: Record<string, any> = {};
   props.fields.forEach((field: DialogField) => {
     switch (field.type) {
-      case 'number':
+      case "number":
         initialData[field.key] = 0;
         break;
-      case 'textarea':
-      case 'text':
+      case "textarea":
+      case "text":
       default:
         initialData[field.key] = "";
         break;
     }
   });
   formData.value = initialData;
-};
+}
 const error = ref<string | null>(null);
 
 const fields = computed(() => {
@@ -45,16 +43,17 @@ const fields = computed(() => {
 });
 
 const canDelete = computed(() => {
-  if (!props.integrationCapabilities) return true;
-  
-  return props.integrationCapabilities.includes('delete_items');
+  if (!props.integrationCapabilities)
+    return true;
+
+  return props.integrationCapabilities.includes("delete_items");
 });
 
 watch(() => [props.isOpen, props.item], ([isOpen, item]) => {
   if (isOpen) {
     resetForm();
     if (item && typeof item === "object") {
-      props.fields.forEach(field => {
+      props.fields.forEach((field) => {
         const fieldKey = field.key;
         if ((item as unknown as Record<string, unknown>)[fieldKey] !== undefined) {
           formData.value[fieldKey] = (item as unknown as Record<string, unknown>)[fieldKey];
@@ -63,8 +62,6 @@ watch(() => [props.isOpen, props.item], ([isOpen, item]) => {
     }
   }
 }, { immediate: true });
-
-
 
 function resetForm() {
   initializeFormData();
@@ -132,7 +129,11 @@ function handleDelete() {
             <div class="w-1/2 space-y-2">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-1">
                 {{ field.label }}
-                <UIcon v-if="field.disabled" name="i-lucide-lock" class="h-3 w-3 text-gray-400" />
+                <UIcon
+                  v-if="field.disabled"
+                  name="i-lucide-lock"
+                  class="h-3 w-3 text-gray-400"
+                />
               </label>
               <UInput
                 v-model.number="formData[field.key]"
@@ -147,7 +148,11 @@ function handleDelete() {
             <div v-if="fields.find((f: DialogField) => f.key === 'unit')" class="w-1/2 space-y-2">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-1">
                 Unit
-                <UIcon v-if="fields.find((f: DialogField) => f.key === 'unit')?.disabled" name="i-lucide-lock" class="h-3 w-3 text-gray-400" />
+                <UIcon
+                  v-if="fields.find((f: DialogField) => f.key === 'unit')?.disabled"
+                  name="i-lucide-lock"
+                  class="h-3 w-3 text-gray-400"
+                />
               </label>
               <UInput
                 v-model="formData.unit"
@@ -161,9 +166,13 @@ function handleDelete() {
           <div v-else-if="field.key !== 'unit'" class="space-y-2">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-1">
               {{ field.label }}
-              <UIcon v-if="field.disabled" name="i-lucide-lock" class="h-3 w-3 text-gray-400" />
+              <UIcon
+                v-if="field.disabled"
+                name="i-lucide-lock"
+                class="h-3 w-3 text-gray-400"
+              />
             </label>
-            
+
             <UInput
               v-if="field.type === 'text'"
               v-model="formData[field.key]"
@@ -172,7 +181,7 @@ function handleDelete() {
               class="w-full"
               :ui="{ base: 'w-full' }"
             />
-            
+
             <UInput
               v-else-if="field.type === 'number'"
               v-model.number="formData[field.key]"
@@ -182,7 +191,7 @@ function handleDelete() {
               class="w-full"
               :ui="{ base: 'w-full' }"
             />
-            
+
             <UTextarea
               v-else-if="field.type === 'textarea'"
               v-model="formData[field.key]"

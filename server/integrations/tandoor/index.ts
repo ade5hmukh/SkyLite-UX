@@ -1,2 +1,2 @@
-export * from './types'
-export { TandoorService } from './client' 
+export { TandoorService } from "./client";
+export * from "./types";

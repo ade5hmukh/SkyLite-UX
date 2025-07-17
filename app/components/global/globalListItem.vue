@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import type { BaseListItem, ShoppingListItem, TodoListItem, Priority } from "~/types/database";
+import type { BaseListItem, Priority, ShoppingListItem, TodoListItem } from "~/types/database";
 
 type ToggleEvent = {
   itemId: string;
@@ -11,7 +11,7 @@ type ReorderEvent = {
   direction: "up" | "down";
 };
 
-const props = defineProps<{
+defineProps<{
   item: BaseListItem;
   index: number;
   totalItems: number;
@@ -27,13 +27,13 @@ const emit = defineEmits<{
   (e: "reorder", payload: ReorderEvent): void;
 }>();
 
-const isShoppingItem = (item: BaseListItem): item is ShoppingListItem => {
-  return 'quantity' in item && 'unit' in item;
-};
+function isShoppingItem(item: BaseListItem): item is ShoppingListItem {
+  return "quantity" in item && "unit" in item;
+}
 
-const isTodoItem = (item: BaseListItem): item is TodoListItem & { priority?: Priority; dueDate?: Date | null } => {
-  return 'shoppingListId' in item;
-};
+function isTodoItem(item: BaseListItem): item is TodoListItem & { priority?: Priority; dueDate?: Date | null } {
+  return "shoppingListId" in item;
+}
 
 function getPriorityColor(priority: Priority) {
   switch (priority) {

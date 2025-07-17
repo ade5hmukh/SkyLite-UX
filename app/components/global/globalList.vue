@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { ShoppingList, TodoList, BaseListItem } from "../../types/database";
+import type { BaseListItem, ShoppingList, TodoList } from "../../types/database";
 
 // Extended list type with integration properties
 type ListWithIntegration = (ShoppingList | TodoList) & {
-  source?: 'native' | 'integration';
+  source?: "native" | "integration";
   integrationIcon?: string;
   integrationName?: string;
   integrationId?: string;
@@ -68,7 +68,7 @@ function getProgressColor(percentage: number) {
 }
 
 const showItemEdit = computed(() => {
-  if (typeof props.showEditItem === 'function') {
+  if (typeof props.showEditItem === "function") {
     return (item: BaseListItem) => {
       const list = props.lists.find(l => l.items?.some(i => i.id === item.id));
       return list ? (props.showEditItem as (list: ListWithIntegration) => boolean)(list) : false;
@@ -78,8 +78,8 @@ const showItemEdit = computed(() => {
 });
 
 // Helper function to check if list has integration properties
-function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIntegration & { source: 'integration' | 'native' } {
-  return 'source' in list && (list.source === 'integration' || list.source === 'native');
+function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIntegration & { source: "integration" | "native" } {
+  return "source" in list && (list.source === "integration" || list.source === "native");
 }
 </script>
 
@@ -134,7 +134,7 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
                           class="h-4 w-4"
                           style="object-fit: contain"
                           @error="(event) => { const target = event.target as HTMLImageElement; if (target) target.style.display = 'none'; }"
-                        />
+                        >
                       </div>
                       <div
                         v-else-if="showIntegrationIcons && hasIntegrationProperties(list) && list.source === 'native'"
@@ -146,14 +146,18 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
                           class="h-5 w-5"
                           style="object-fit: contain"
                           @error="(event) => { const target = event.target as HTMLImageElement; if (target) target.style.display = 'none'; }"
-                        />
+                        >
                       </div>
                       <h2 class="text-lg font-semibold text-gray-900 dark:text-white truncate">
                         {{ list.name }}
                       </h2>
                     </div>
                     <div class="flex gap-1">
-                      <div v-if="showReorder" class="flex flex-col gap-1 items-center justify-center" style="height: 64px;">
+                      <div
+                        v-if="showReorder"
+                        class="flex flex-col gap-1 items-center justify-center"
+                        style="height: 64px;"
+                      >
                         <template v-if="listIndex > 0 && listIndex < sortedLists.length - 1">
                           <UButton
                             icon="i-lucide-chevron-left"
@@ -171,7 +175,7 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
                           />
                         </template>
                         <template v-else-if="listIndex > 0">
-                          <div style="height: 16px;"></div>
+                          <div style="height: 16px;" />
                           <UButton
                             icon="i-lucide-chevron-left"
                             size="xs"
@@ -179,10 +183,10 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
                             color="neutral"
                             @click="_emit('reorderList', list.id, 'up')"
                           />
-                          <div style="height: 16px;"></div>
+                          <div style="height: 16px;" />
                         </template>
                         <template v-else-if="listIndex < sortedLists.length - 1">
-                          <div style="height: 16px;"></div>
+                          <div style="height: 16px;" />
                           <UButton
                             icon="i-lucide-chevron-right"
                             size="xs"
@@ -190,7 +194,7 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
                             color="neutral"
                             @click="_emit('reorderList', list.id, 'down')"
                           />
-                          <div style="height: 16px;"></div>
+                          <div style="height: 16px;" />
                         </template>
                       </div>
                       <UButton
@@ -222,8 +226,7 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
                       />
                     </div>
                   </div>
-                  <div v-else-if="!list.items || list.items.length === 0 && showProgress" class="text-sm text-gray-500 dark:text-gray-400 py-4.5">
-                  </div>
+                  <div v-else-if="!list.items || list.items.length === 0 && showProgress" class="text-sm text-gray-500 dark:text-gray-400 py-4.5" />
                 </div>
 
                 <div class="flex-1 p-4 overflow-y-auto">

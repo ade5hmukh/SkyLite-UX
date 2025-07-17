@@ -1,32 +1,31 @@
-// Shared integrations configuration
-// This file contains all integration configurations that are used by both client and server
-import { createMealieService } from "./mealie/mealieShoppingLists";
-import { createTandoorService } from "./tandoor/tandoorShoppingLists";
-import { getMealieFieldsForItem } from "./mealie/mealieShoppingLists";
-import { getTandoorFieldsForItem } from "./tandoor/tandoorShoppingLists";
 import type { JsonObject } from "type-fest";
 
-export interface DialogField {
+// Shared integrations configuration
+// This file contains all integration configurations that are used by both client and server
+import { createMealieService, getMealieFieldsForItem } from "./mealie/mealieShoppingLists";
+import { createTandoorService, getTandoorFieldsForItem } from "./tandoor/tandoorShoppingLists";
+
+export type DialogField = {
   key: string;
   label: string;
-  type: 'text' | 'number' | 'textarea';
+  type: "text" | "number" | "textarea";
   placeholder?: string;
   min?: number;
   required?: boolean;
   disabled?: boolean;
   canEdit: boolean;
-}
+};
 
-export interface IntegrationSettingsField {
+export type IntegrationSettingsField = {
   key: string;
   label: string;
-  type: 'text' | 'password' | 'url';
+  type: "text" | "password" | "url";
   placeholder?: string;
   required?: boolean;
   description?: string;
-}
+};
 
-export interface IntegrationConfig {
+export type IntegrationConfig = {
   type: string;
   service: string;
   settingsFields: IntegrationSettingsField[];
@@ -34,7 +33,7 @@ export interface IntegrationConfig {
   icon: string;
   files: string[];
   dialogFields: DialogField[];
-}
+};
 
 export const integrationConfigs: IntegrationConfig[] = [
   // ================================================
@@ -45,7 +44,7 @@ export const integrationConfigs: IntegrationConfig[] = [
   // Shopping integration configs can support the following list-level capabilities:
   // - add_items: Can add new items to lists
   // - clear_items: Can clear completed items from lists
-  // - edit_items: Can edit existing items in lists  
+  // - edit_items: Can edit existing items in lists
   // - delete_items: Can delete items from lists
   // ================================================
   // Meal integration configs can support the following list-level capabilities:
@@ -55,111 +54,111 @@ export const integrationConfigs: IntegrationConfig[] = [
     service: "tandoor",
     settingsFields: [
       {
-        key: 'apiKey',
-        label: 'API Key',
-        type: 'password' as const,
-        placeholder: 'Scope needs to be "read write"',
+        key: "apiKey",
+        label: "API Key",
+        type: "password" as const,
+        placeholder: "Scope needs to be \"read write\"",
         required: true,
-        description: 'Your Tandoor API key for authentication'
+        description: "Your Tandoor API key for authentication",
       },
       {
-        key: 'baseUrl',
-        label: 'Base URL',
-        type: 'url' as const,
-        placeholder: 'http://your-tandoor-instance:port',
+        key: "baseUrl",
+        label: "Base URL",
+        type: "url" as const,
+        placeholder: "http://your-tandoor-instance:port",
         required: true,
-        description: 'The base URL of your Tandoor instance'
-      }
+        description: "The base URL of your Tandoor instance",
+      },
     ],
     capabilities: ["add_items", "edit_items"],
     icon: "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/tandoor-recipes.svg",
     files: [
-      "/integrations/tandoor/tandoorShoppingLists.ts", 
+      "/integrations/tandoor/tandoorShoppingLists.ts",
       "/server/api/integrations/tandoor/[...path].ts",
-      "/server/integrations/tandoor/"
+      "/server/integrations/tandoor/",
     ],
     dialogFields: [
       {
-        key: 'name',
-        label: 'Item Name',
-        type: 'text' as const,
-        placeholder: 'Milk, Bread, Apples, etc.',
+        key: "name",
+        label: "Item Name",
+        type: "text" as const,
+        placeholder: "Milk, Bread, Apples, etc.",
         required: true,
         canEdit: true,
       },
       {
-        key: 'quantity',
-        label: 'Quantity',
-        type: 'number' as const,
+        key: "quantity",
+        label: "Quantity",
+        type: "number" as const,
         min: 0,
         canEdit: true,
       },
       {
-        key: 'unit',
-        label: 'Unit',
-        type: 'text' as const,
-        placeholder: 'Disabled for Tandoor',
+        key: "unit",
+        label: "Unit",
+        type: "text" as const,
+        placeholder: "Disabled for Tandoor",
         canEdit: false,
       },
     ],
   },
-  
+
   {
     type: "shopping",
     service: "mealie",
     settingsFields: [
       {
-        key: 'apiKey',
-        label: 'API Key',
-        type: 'password' as const,
-        placeholder: 'Enter your Mealie API key',
+        key: "apiKey",
+        label: "API Key",
+        type: "password" as const,
+        placeholder: "Enter your Mealie API key",
         required: true,
-        description: 'Your Mealie API key for authentication'
+        description: "Your Mealie API key for authentication",
       },
       {
-        key: 'baseUrl',
-        label: 'Base URL',
-        type: 'url' as const,
-        placeholder: 'http://your-mealie-instance:port',
+        key: "baseUrl",
+        label: "Base URL",
+        type: "url" as const,
+        placeholder: "http://your-mealie-instance:port",
         required: true,
-        description: 'The base URL of your Mealie instance'
-      }
+        description: "The base URL of your Mealie instance",
+      },
     ],
     capabilities: ["add_items", "clear_items", "edit_items"],
     icon: "https://cdn.jsdelivr.net/gh/selfhst/icons/svg/mealie.svg",
     files: [
-      "/integrations/mealie/mealieShoppingLists.ts", 
+      "/integrations/mealie/mealieShoppingLists.ts",
       "/server/api/integrations/mealie/[...path].ts",
-      "/server/integrations/mealie/"
+      "/server/integrations/mealie/",
     ],
     dialogFields: [
       {
-        key: 'quantity',
-        label: 'Quantity',
-        type: 'number' as const,
+        key: "quantity",
+        label: "Quantity",
+        type: "number" as const,
         min: 0,
         canEdit: true,
       },
       {
-        key: 'unit',
-        label: 'Unit',
-        type: 'text' as const,
-        placeholder: 'Disabled for Mealie',
+        key: "unit",
+        label: "Unit",
+        type: "text" as const,
+        placeholder: "Disabled for Mealie",
         canEdit: false,
       },
       {
-        key: 'notes',
-        label: 'Notes',
-        type: 'textarea' as const,
-        placeholder: 'Note...',
+        key: "notes",
+        label: "Notes",
+        type: "textarea" as const,
+        placeholder: "Note...",
         canEdit: true,
       },
       {
-        key: 'food',
-        label: 'Food Item',
-        type: 'text' as const,
-        placeholder: 'Disabled for Mealie',
-        canEdit: false, 
+        key: "food",
+        label: "Food Item",
+        type: "text" as const,
+        placeholder: "Disabled for Mealie",
+        canEdit: false,
       },
     ],
   },
@@ -172,25 +171,25 @@ const serviceFactoryMap = {
 
 const fieldFilters = {
   mealie: getMealieFieldsForItem,
-  tandoor: getTandoorFieldsForItem
+  tandoor: getTandoorFieldsForItem,
 };
 
-export const getIntegrationFields = (integrationType: string): DialogField[] => {
+export function getIntegrationFields(integrationType: string): DialogField[] {
   const config = integrationConfigs.find(c => c.service === integrationType);
   return config?.dialogFields || [];
-};
+}
 
-export const getFieldsForItem = (item: unknown, integrationType: string | undefined, allFields: { key: string }[]): { key: string }[] => {
+export function getFieldsForItem(item: unknown, integrationType: string | undefined, allFields: { key: string }[]): { key: string }[] {
   if (!integrationType || !fieldFilters[integrationType as keyof typeof fieldFilters]) {
     return allFields;
   }
-  
-  return fieldFilters[integrationType as keyof typeof fieldFilters](item as unknown as JsonObject, allFields);
-};
 
-export const getServiceFactories = () => {
+  return fieldFilters[integrationType as keyof typeof fieldFilters](item as unknown as JsonObject, allFields);
+}
+
+export function getServiceFactories() {
   return integrationConfigs.map(config => ({
     key: `${config.type}:${config.service}`,
-    factory: serviceFactoryMap[`${config.type}:${config.service}` as keyof typeof serviceFactoryMap]
+    factory: serviceFactoryMap[`${config.type}:${config.service}` as keyof typeof serviceFactoryMap],
   }));
-}; 
+}
