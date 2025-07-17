@@ -19,7 +19,6 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Delete all completed todos for this column
     await prisma.todo.deleteMany({
       where: {
         todoColumnId: columnId,

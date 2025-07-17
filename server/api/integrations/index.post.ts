@@ -10,7 +10,6 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event);
     const { name, type, service, apiKey, baseUrl, icon, enabled, settings } = body;
 
-    // Validate required fields based on integration registry
     const integrationKey = `${type}:${service}`;
     
     const integrationConfig = integrationRegistry.get(integrationKey);
@@ -22,7 +21,6 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Check required fields from registry
     const missingFields = integrationConfig.settingsFields
       .filter(field => field.required)
       .filter(field => {
@@ -42,7 +40,6 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Test connection before creating the integration
     const { createIntegrationService } = await import("~/types/integrations");
     const tempIntegration = {
       id: "temp",
@@ -75,7 +72,6 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Create the integration
     const integration = await prisma.integration.create({
       data: {
         name,
@@ -90,11 +86,14 @@ export default defineEventHandler(async (event) => {
     });
 
     return integration;
-  } catch (error: any) {
+  }
+  catch (error: unknown) {
     consola.error("Error creating integration:", error);
+    const statusCode = error && typeof error === 'object' && 'statusCode' in error ? Number(error.statusCode) : 500;
+    const message = error && typeof error === 'object' && 'message' in error ? String(error.message) : "Failed to create integration";
     throw createError({
-      statusCode: error.statusCode || 500,
-      message: error.message || "Failed to create integration",
+      statusCode,
+      message,
     });
   }
 });

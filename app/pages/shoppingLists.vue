@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import type { CreateShoppingListInput, CreateShoppingListItemInput } from "~/types/database";
+import type { CreateShoppingListInput, CreateShoppingListItemInput, ShoppingList, ShoppingListItem, Integration } from "~/types/database";
 import { consola } from "consola";
 import { useAlertToast } from "~/composables/useAlertToast";
 import { integrationRegistry } from "~/types/integrations";
-import { getIntegrationFields, getFieldsForItem, type ShoppingListItemField } from "~/integrations/integrationConfig";
-
+import { getIntegrationFields, getFieldsForItem, type DialogField } from "~/integrations/integrationConfig";
 
 import GlobalList from "~/components/global/globalList.vue";
 import ShoppingListDialog from "~/components/shopping/shoppingListDialog.vue";
@@ -28,7 +27,6 @@ const {
   shoppingLists: integrationLists,
   shoppingIntegrations,
   loading: integrationLoading,
-  getShoppingLists: fetchIntegrationLists,
   addItemToList: addItemToIntegrationList,
   updateShoppingListItem: updateIntegrationItem,
   toggleItem: toggleIntegrationItem,
@@ -37,13 +35,13 @@ const {
   initialFetchError,
 } = useShoppingIntegrations();
 
-const { fetchIntegrations, getEnabledIntegrations, getIntegrationsByType } = useIntegrations();
+const { fetchIntegrations, getIntegrationsByType } = useIntegrations();
 
 const listDialog = ref(false);
 const itemDialog = ref(false);
 const selectedListId = ref<string>("");
-const editingList = ref<any>(null);
-const editingItem = ref<any>(null);
+const editingList = ref<ShoppingList | null>(null);
+const editingItem = ref<ShoppingListItem | null>(null);
 
 const { showError, showWarning, showSuccess } = useAlertToast();
 
@@ -51,27 +49,85 @@ const enabledIntegrationsByType = computed(() => {
   return getIntegrationsByType("shopping");
 });
 
-const allShoppingLists = computed(() => {
-  const nativeLists = nativeShoppingLists.value || [];
-  const integrationListsData = integrationLists.value || [];
+type RawIntegrationList = {
+  readonly id: string;
+  readonly name: string;
+  readonly order: number;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+  readonly items: readonly RawIntegrationItem[];
+  integrationId?: string;
+  integrationName?: string;
+  integrationIcon?: string | null;
+};
+
+function normalizeIntegrationList(list: RawIntegrationList): ShoppingList {
+  const integration = (shoppingIntegrations.value as readonly Integration[]).find((i) => i.id === list.integrationId);
   
-  const integrationListsWithSource = integrationListsData.map((list: any) => {
-    const integration = shoppingIntegrations.value.find((i: any) => i.id === list.integrationId);
-    return {
-      ...list,
-      source: 'integration',
-      integrationId: list.integrationId,
-      integrationName: integration?.name || 'Integration',
-      integrationIcon: integration ? getIntegrationIconUrl(integration) : null
-    };
-  });
+  // Check if this integration supports clearing completed items
+  const hasClearCapability = integration && getIntegrationCapabilities(integration.id).includes('clear_items');
   
-  const nativeListsWithSource = nativeLists.map((list: any) => ({
+  // Filter out completed items if the integration doesn't support clearing them
+  const filteredItems = Array.isArray(list.items)
+    ? list.items
+        .map(normalizeIntegrationItem)
+        .filter(item => hasClearCapability || !item.checked)
+    : [];
+  
+  return {
+    id: String(list.id),
+    name: String(list.name ?? ""),
+    order: Number(list.order ?? 0),
+    createdAt: list.createdAt ? new Date(list.createdAt) : new Date(),
+    updatedAt: list.updatedAt ? new Date(list.updatedAt) : new Date(),
+    items: filteredItems,
+    source: "integration",
+    integrationId: list.integrationId ?? undefined,
+    integrationName: integration?.name || list.integrationName || 'Integration',
+    integrationIcon: integration ? getIntegrationIconUrl(integration) : list.integrationIcon ?? null,
+  };
+}
+
+type RawIntegrationItem = {
+  id: string;
+  name: string;
+  checked: boolean;
+  order: number;
+  notes: string | null;
+  quantity: number;
+  unit: string | null;
+};
+
+function normalizeIntegrationItem(item: RawIntegrationItem): ShoppingListItem {
+  return {
+    id: String(item.id),
+    name: String(item.name ?? ""),
+    checked: Boolean(item.checked),
+    order: Number(item.order ?? 0),
+    notes: item.notes ?? null,
+    quantity: Number(item.quantity ?? 1),
+    unit: item.unit ?? null,
+    label: null,
+    food: null,
+    integrationData: undefined,
+    source: "integration",
+    integrationId: undefined,
+  };
+}
+
+const nativeListsWithSource = computed(() => {
+  return nativeShoppingLists.value.map((list) => ({
     ...list,
-    source: 'native'
+    source: 'native' as const
   }));
-  
-  return [...nativeListsWithSource, ...integrationListsWithSource];
+});
+
+const integrationListsWithSource = computed(() => {
+  return (integrationLists.value ?? []).map(normalizeIntegrationList) as ShoppingList[];
+});
+
+const allShoppingLists = computed(() => {
+  return [...nativeListsWithSource.value, ...integrationListsWithSource.value] as ShoppingList[];
 });
 
 const isLoading = computed(() => {
@@ -91,7 +147,7 @@ const transformedShoppingLists = computed(() => {
     integrationId: list.integrationId,
     integrationName: list.integrationName,
     integrationIcon: list.integrationIcon
-  })) as any;
+  })) as (ShoppingList & { source?: 'native' | 'integration'; integrationIcon?: string; integrationName?: string; integrationId?: string })[];
 });
 
 onMounted(async () => {
@@ -109,10 +165,10 @@ watch(initialFetchError, (error) => {
     consola.error("Initial integration fetch failed:", error);
     let errorMessage = "There was an error while trying to sync your shopping lists. Please check your connection and try again.";
     
-    if (error?.cause?.statusMessage) {
-      errorMessage = error.cause.statusMessage;
-    } else if (error?.cause?.detail) {
-      errorMessage = error.cause.detail;
+    if (error?.cause && typeof error.cause === 'object' && 'statusMessage' in error.cause) {
+      errorMessage = (error.cause as { statusMessage: string }).statusMessage;
+    } else if (error?.cause && typeof error.cause === 'object' && 'detail' in error.cause) {
+      errorMessage = (error.cause as { detail: string }).detail;
     } else if (error?.message) {
       errorMessage = error.message;
     }
@@ -132,7 +188,7 @@ function openAddItem(listId: string) {
   itemDialog.value = true;
 }
 
-function openEditItem(item: any) {
+function openEditItem(item: ShoppingListItem) {
   const list = findItemList(item.id);
   if (list?.source === 'integration') {
     editingItem.value = { 
@@ -186,6 +242,9 @@ async function handleItemSave(itemData: CreateShoppingListItemInput) {
   try {
     if (editingItem.value?.id) {
       if (editingItem.value.source === 'integration') {
+        if (!editingItem.value.integrationId) {
+          throw new Error("Integration ID is required for integration items");
+        }
         await updateIntegrationItem(editingItem.value.integrationId, editingItem.value.id, itemData);
       } else {
         await updateShoppingListItem(editingItem.value.id, itemData);
@@ -198,6 +257,9 @@ async function handleItemSave(itemData: CreateShoppingListItemInput) {
       }
 
       if (selectedList.source === 'integration') {
+        if (!selectedList.integrationId) {
+          throw new Error("Integration ID is required");
+        }
         await addItemToIntegrationList(selectedList.integrationId, selectedListId.value, itemData);
       } else {
         await addItemToList(selectedListId.value, itemData);
@@ -242,6 +304,9 @@ async function handleToggleItem(itemId: string, checked: boolean) {
     }
 
     if (list.source === 'integration') {
+      if (!list.integrationId) {
+        throw new Error("Integration ID is required");
+      }
       await toggleIntegrationItem(list.integrationId, itemId, checked);
     } else {
       await updateShoppingListItem(itemId, { checked });
@@ -333,6 +398,9 @@ async function handleClearCompleted(listId: string) {
     }
 
     if (list.source === 'integration') {
+      if (!list.integrationId) {
+        throw new Error("Integration ID is required");
+      }
       await clearIntegrationCompletedItems(list.integrationId, listId);
     } else {
       await deleteCompletedItems(listId);
@@ -346,11 +414,11 @@ async function handleClearCompleted(listId: string) {
 
 function findItemList(itemId: string) {
   return allShoppingLists.value.find(list => 
-    list.items?.some((item: any) => item.id === itemId)
+    list.items?.some((item: ShoppingListItem) => item.id === itemId)
   );
 }
 
-function getIntegrationIconUrl(integration: any) {
+function getIntegrationIconUrl(integration: { icon?: string | null; type: string; service: string }) {
   if (integration.icon) {
     return integration.icon;
   }
@@ -360,8 +428,8 @@ function getIntegrationIconUrl(integration: any) {
 }
 
 function getIntegrationCapabilities(integrationId: string): string[] {
-  const integrations = shoppingIntegrations.value;
-  const integration = integrations.find((i: any) => i.id === integrationId);
+  const integrations = shoppingIntegrations.value as Integration[];
+  const integration = integrations.find((i) => i.id === integrationId);
   if (!integration) return [];
   
   const config = integrationRegistry.get(`${integration.type}:${integration.service}`);
@@ -375,14 +443,16 @@ function hasCapability(integrationId: string, capability: string): boolean {
 
 function getIntegrationType(): string | undefined {
   if (editingItem.value?.source === 'integration') {
-    const integration = shoppingIntegrations.value.find((i: any) => i.id === editingItem.value.integrationId);
+    const integrations: Integration[] = shoppingIntegrations.value as Integration[];
+    const integration = integrations.find((i) => i.id === editingItem.value?.integrationId);
     return integration?.service;
   }
   
   if (selectedListId.value) {
     const selectedList = allShoppingLists.value.find(list => list.id === selectedListId.value);
     if (selectedList?.source === 'integration') {
-      const integration = shoppingIntegrations.value.find((i: any) => i.id === selectedList.integrationId);
+      const integrations: Integration[] = shoppingIntegrations.value as Integration[];
+      const integration = integrations.find((i) => i.id === selectedList.integrationId);
       return integration?.service;
     }
   }
@@ -392,12 +462,18 @@ function getIntegrationType(): string | undefined {
 
 function getItemIntegrationCapabilities(): string[] | undefined {
   if (editingItem.value?.source === 'integration') {
+    if (!editingItem.value.integrationId) {
+      return undefined;
+    }
     return getIntegrationCapabilities(editingItem.value.integrationId);
   }
   
   if (selectedListId.value) {
     const selectedList = allShoppingLists.value.find(list => list.id === selectedListId.value);
     if (selectedList?.source === 'integration') {
+      if (!selectedList.integrationId) {
+        return undefined;
+      }
       return getIntegrationCapabilities(selectedList.integrationId);
     }
   }
@@ -405,8 +481,8 @@ function getItemIntegrationCapabilities(): string[] | undefined {
   return undefined;
 }
 
-function getFilteredFieldsForItem(item: any, integrationType: string | undefined): ShoppingListItemField[] {
-  const baseFields: ShoppingListItemField[] = integrationType 
+function getFilteredFieldsForItem(item: ShoppingListItem, integrationType: string | undefined): DialogField[] {
+  const baseFields: DialogField[] = integrationType 
     ? getIntegrationFields(integrationType)
     : [
         {
@@ -440,23 +516,23 @@ function getFilteredFieldsForItem(item: any, integrationType: string | undefined
         },
       ];
   
-  return getFieldsForItem(item, integrationType, baseFields);
+  return getFieldsForItem(item, integrationType, baseFields) as DialogField[];
 }
 
 async function handleSyncIntegrationLists() {
   try {
     await syncShoppingLists();
     showSuccess("Sync Complete", "Your shopping lists have been successfully synchronized with all integrations.");
-  } catch (error: any) {
+  } catch (error: unknown) {
     consola.error("Failed to sync integration lists:", error);
     
     let errorMessage = "There was an error while trying to sync your shopping lists. Please check your connection and try again.";
     
-    if (error?.cause?.statusMessage) {
-      errorMessage = error.cause.statusMessage;
-    } else if (error?.cause?.detail) {
-      errorMessage = error.cause.detail;
-    } else if (error?.message) {
+    if (error && typeof error === 'object' && 'cause' in error && error.cause && typeof error.cause === 'object' && 'statusMessage' in error.cause) {
+      errorMessage = (error.cause as { statusMessage: string }).statusMessage;
+    } else if (error && typeof error === 'object' && 'cause' in error && error.cause && typeof error.cause === 'object' && 'detail' in error.cause) {
+      errorMessage = (error.cause as { detail: string }).detail;
+    } else if (error && typeof error === 'object' && 'message' in error && typeof error.message === 'string') {
       errorMessage = error.message;
     }
     
@@ -494,16 +570,28 @@ async function handleSyncIntegrationLists() {
         show-quantity
         :show-notes="true"
         show-reorder
-        :show-edit="(list) => (list as any).source === 'native'"
-        :show-add="(list) => (list as any).source === 'native' || hasCapability((list as any).integrationId, 'add_items')"
-        :show-edit-item="(list: any) => list.source === 'native' || hasCapability(list.integrationId, 'edit_items')"
-        :show-completed="(list: any) => list.source === 'native' || hasCapability(list.integrationId, 'clear_items')"
+        :show-edit="(list) => {
+          const shoppingList = list as ShoppingList;
+          return shoppingList.source === 'native';
+        }"
+        :show-add="(list) => {
+          const shoppingList = list as ShoppingList;
+          return shoppingList.source === 'native' || (shoppingList.integrationId ? hasCapability(shoppingList.integrationId!, 'add_items') : false);
+        }"
+        :show-edit-item="(list) => {
+          const shoppingList = list as ShoppingList;
+          return shoppingList.source === 'native' || (shoppingList.integrationId ? hasCapability(shoppingList.integrationId!, 'edit_items') : false);
+        }"
+        :show-completed="(list) => {
+          const shoppingList = list as ShoppingList;
+          return shoppingList.source === 'native' || (shoppingList.integrationId ? hasCapability(shoppingList.integrationId!, 'clear_items') : false);
+        }"
         show-integration-icons
         @create="openCreateList"
-        @edit="editingList = $event; listDialog = true"
+        @edit="editingList = $event as ShoppingList; listDialog = true"
         @delete="handleDeleteList"
         @add-item="openAddItem"
-        @edit-item="openEditItem"
+        @edit-item="(item) => openEditItem(item as ShoppingListItem)"
         @toggle-item="handleToggleItem"
         @reorder-item="handleReorderItem"
         @reorder-list="handleReorderList"
@@ -522,7 +610,7 @@ async function handleSyncIntegrationLists() {
     <ShoppingListDialog
       :is-open="listDialog"
       :list="editingList"
-      :integration-capabilities="editingList?.source === 'integration' ? getIntegrationCapabilities(editingList.integrationId) : undefined"
+      :integration-capabilities="editingList?.source === 'integration' && editingList.integrationId ? getIntegrationCapabilities(editingList.integrationId) : undefined"
       @close="listDialog = false; editingList = null"
       @save="handleListSave"
       @delete="handleListDelete"
@@ -531,7 +619,7 @@ async function handleSyncIntegrationLists() {
     <ShoppingListItemDialog
       :is-open="itemDialog"
       :item="editingItem"
-      :fields="getFilteredFieldsForItem(editingItem, getIntegrationType())"
+      :fields="getFilteredFieldsForItem({} as ShoppingListItem, getIntegrationType())"
       :integration-capabilities="getItemIntegrationCapabilities()"
       @close="itemDialog = false; selectedListId = ''; editingItem = null"
       @save="handleItemSave"

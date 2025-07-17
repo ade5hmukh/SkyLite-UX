@@ -1,7 +1,7 @@
 export interface MealieShoppingList {
   id: string
   name: string
-  extras: Record<string, any>
+  extras: Record<string, unknown>
   createdAt: string
   updatedAt: string
   groupId: string
@@ -9,11 +9,11 @@ export interface MealieShoppingList {
   householdId: string
   listItems: MealieShoppingListItem[]
   labelSettings: MealieLabelSetting[]
-  recipeReferences: any[]
+  recipeReferences: unknown[]
 }
 
 export interface MealieShoppingListItem {
-  createdItems: any
+  createdItems: MealieShoppingListItem[]
   id: string | null
   quantity: number
   unit: MealieUnit | null
@@ -28,11 +28,11 @@ export interface MealieShoppingListItem {
   foodId: string | null
   labelId: string | null
   unitId: string | null
-  extras: Record<string, any>
+  extras: Record<string, unknown>
   groupId: string
   householdId: string
   label: MealieLabel | null
-  recipeReferences: any[]
+  recipeReferences: unknown[]
   createdAt: string
   updatedAt: string
 }
@@ -42,7 +42,7 @@ export interface MealieUnit {
   name: string
   pluralName: string
   description: string
-  extras: Record<string, any>
+  extras: Record<string, unknown>
   fraction: boolean
   abbreviation: string
   pluralAbbreviation: string | null
@@ -57,10 +57,10 @@ export interface MealieFood {
   name: string
   pluralName: string | null
   description: string
-  extras: Record<string, any>
+  extras: Record<string, unknown>
   labelId: string | null
   aliases: string[]
-  householdsWithIngredientFood: any[]
+  householdsWithIngredientFood: unknown[]
   label: MealieLabel | null
   createdAt: string
   updatedAt: string

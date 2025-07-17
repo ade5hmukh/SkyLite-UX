@@ -24,9 +24,6 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-
-
-  // Get integration ID from query parameter
   const integrationId = query.integrationId as string;
   if (!integrationId) {
     throw createError({
@@ -35,7 +32,6 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // Find the specific integration
   const integration = await prisma.integration.findFirst({
     where: {
       id: integrationId,
@@ -51,7 +47,6 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // Verify that this is a Mealie integration
   if (integration.type !== "shopping") {
     throw createError({
       statusCode: 400,
@@ -62,14 +57,12 @@ export default defineEventHandler(async (event) => {
   const baseUrl = integration.baseUrl.endsWith("/") ? integration.baseUrl : `${integration.baseUrl}/`;
   const path = Array.isArray(pathParts) ? pathParts.join("/") : pathParts;
 
-  // Remove integrationId from query params before forwarding to Mealie
   const { integrationId: _, ...restQuery } = query;
   const queryString = new URLSearchParams();
 
-  // Handle array parameters (like ids) correctly, excluding integrationId
   Object.entries(restQuery).forEach(([key, value]) => {
     if (key === "integrationId")
-      return; // Skip integrationId
+      return;
     if (Array.isArray(value)) {
       value.forEach(v => queryString.append(key, v as string));
     }
@@ -100,11 +93,13 @@ export default defineEventHandler(async (event) => {
     const data = await response.json();
     return data;
   }
-  catch (error: any) {
+  catch (error: unknown) {
     consola.error("Error proxying to Mealie:", error);
+    const statusCode = error && typeof error === 'object' && 'statusCode' in error ? Number(error.statusCode) : 500;
+    const message = error && typeof error === 'object' && 'message' in error ? String(error.message) : "Failed to proxy request to Mealie";
     throw createError({
-      statusCode: error.statusCode || 500,
-      message: error.message || "Failed to proxy request to Mealie",
+      statusCode,
+      message,
     });
   }
 });

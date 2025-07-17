@@ -3,6 +3,13 @@ import type { CreateIntegrationInput, Integration } from "~/types/database";
 import type { IntegrationSettingsField } from "~/integrations/integrationConfig";
 import { integrationRegistry } from "~/types/integrations";
 
+// Type for connection test result
+type ConnectionTestResult = {
+  success: boolean;
+  message?: string;
+  error?: string;
+} | null;
+
 const show = ref(false);
 
 const props = defineProps<{
@@ -10,14 +17,14 @@ const props = defineProps<{
   isOpen: boolean;
   activeType: string;
   existingIntegrations: Integration[];
-  connectionTestResult: any;
+  connectionTestResult: ConnectionTestResult;
 }>();
 
 const emit = defineEmits<{
   (e: "close"): void;
   (e: "save", integration: CreateIntegrationInput): void;
   (e: "delete", integrationId: string): void;
-  (e: "test-connection", integration: any): void;
+  (e: "test-connection", integration: CreateIntegrationInput): void;
 }>();
 
 const name = ref("");
@@ -27,7 +34,7 @@ const enabled = ref(true);
 const error = ref<string | null>(null);
 const isSaving = ref(false);
 
-const settingsData = ref<Record<string, any>>({});
+const settingsData = ref<Record<string, string>>({});
 
 const isTestingConnection = computed(() => {
   return isSaving.value && !props.connectionTestResult;
@@ -71,7 +78,7 @@ const availableServices = computed(() => {
 });
 
 const initializeSettingsData = () => {
-  const initialData: Record<string, any> = {};
+  const initialData: Record<string, string> = {};
   settingsFields.value.forEach((field: IntegrationSettingsField) => {
     switch (field.type) {
       case 'text':

@@ -1,8 +1,9 @@
 import type { IntegrationService, IntegrationStatus } from "~/types/integrations";
 import { integrationRegistry } from "~/types/integrations";
 import { TandoorService as ServerTandoorService } from "../../../server/integrations/tandoor";
-import type { ShoppingList, ShoppingListItem } from "~/types/database";
+import type { ShoppingList, ShoppingListItem, UpdateShoppingListItemInput } from "~/types/database";
 import { consola } from "consola";
+import type { JsonObject } from "type-fest";
 
 export class TandoorService implements IntegrationService {
   private apiKey: string;
@@ -114,7 +115,7 @@ export class TandoorService implements IntegrationService {
         unit: entry.unit?.name || null,
         label: null,
         food: null,
-        integrationData: entry as any
+        integrationData: entry as unknown as JsonObject
       }));
 
       return [{
@@ -170,13 +171,13 @@ export class TandoorService implements IntegrationService {
       unit: createdEntry.unit?.name || null,
       label: null,
       food: null,
-      integrationData: createdEntry as any
+      integrationData: createdEntry as unknown as JsonObject
     };
   }
 
-  async updateShoppingListItem(itemId: string, updates: any): Promise<ShoppingListItem> {
+  async updateShoppingListItem(itemId: string, updates: UpdateShoppingListItemInput): Promise<ShoppingListItem> {
     try {
-      const tandoorUpdates: any = {};
+      const tandoorUpdates: Record<string, unknown> = {};
       
       if (updates.name !== undefined) {
         tandoorUpdates.food = { name: updates.name };
@@ -203,7 +204,7 @@ export class TandoorService implements IntegrationService {
         unit: updatedEntry.unit?.name || null,
         label: null,
         food: null,
-        integrationData: updatedEntry as any
+        integrationData: updatedEntry as unknown as JsonObject
       };
     } catch (error) {
       consola.error(`Error updating item ${itemId}:`, error);
@@ -227,7 +228,7 @@ export class TandoorService implements IntegrationService {
         unit: updatedEntry.unit?.name || null,
         label: null,
         food: null,
-        integrationData: updatedEntry as any
+        integrationData: updatedEntry as unknown as JsonObject
       };
     } catch (error) {
       consola.error(`Error toggling item ${itemId}:`, error);
@@ -240,7 +241,7 @@ export const createTandoorService = (integrationId: string, apiKey: string, base
   return new TandoorService(integrationId, apiKey, baseUrl);
 };
 
-export const getTandoorFieldsForItem = (item: any, allFields: any[]): any[] => {
+export const getTandoorFieldsForItem = (item: { unit?: unknown } | null | undefined, allFields: { key: string }[]): { key: string }[] => {
   if (item?.unit === null || item === null || item === undefined) {
     return allFields.filter(field => field.key !== 'unit');
   }

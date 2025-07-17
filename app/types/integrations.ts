@@ -1,15 +1,13 @@
 import type { Integration } from "./database";
-import type { IntegrationSettingsField } from "~/integrations/integrationConfig";
+import type { DialogField, IntegrationSettingsField } from "~/integrations/integrationConfig";
 import { integrationConfigs, getServiceFactories } from "~/integrations/integrationConfig";
 import { consola } from "consola";
 
 export interface IntegrationService {
-  // Core service methods
   initialize(): Promise<void>;
   validate(): Promise<boolean>;
   getStatus(): Promise<IntegrationStatus>;
   
-  // Optional methods that integrations can implement
   testConnection?(): Promise<boolean>;
   getCapabilities?(): Promise<string[]>;
 }
@@ -27,25 +25,21 @@ export interface IntegrationConfig {
   capabilities: string[];
   icon: string;
   files: string[];
-  dialogFields: any[];
+  dialogFields: DialogField[];
 }
 
-// Registry to store all available integration configurations
 export const integrationRegistry = new Map<string, IntegrationConfig>();
 
-// Simple registration function
 export function registerIntegration(config: IntegrationConfig) {
   const key = `${config.type}:${config.service}`;
   integrationRegistry.set(key, config);
 }
 
-// Register all integration configurations
 for (const config of integrationConfigs) {
   const key = `${config.type}:${config.service}`;
   integrationRegistry.set(key, config);
 }
 
-// Factory to create integration service instances
 export async function createIntegrationService(integration: Integration): Promise<IntegrationService | null> {
   try {
     const key = `${integration.type}:${integration.service}`;

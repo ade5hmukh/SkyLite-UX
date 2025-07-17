@@ -4,8 +4,9 @@ import { createMealieService } from "./mealie/mealieShoppingLists";
 import { createTandoorService } from "./tandoor/tandoorShoppingLists";
 import { getMealieFieldsForItem } from "./mealie/mealieShoppingLists";
 import { getTandoorFieldsForItem } from "./tandoor/tandoorShoppingLists";
+import type { JsonObject } from "type-fest";
 
-export interface ShoppingListItemField {
+export interface DialogField {
   key: string;
   label: string;
   type: 'text' | 'number' | 'textarea';
@@ -32,7 +33,7 @@ export interface IntegrationConfig {
   capabilities: string[];
   icon: string;
   files: string[];
-  dialogFields: ShoppingListItemField[];
+  dialogFields: DialogField[];
 }
 
 export const integrationConfigs: IntegrationConfig[] = [
@@ -174,17 +175,17 @@ const fieldFilters = {
   tandoor: getTandoorFieldsForItem
 };
 
-export const getIntegrationFields = (integrationType: string): ShoppingListItemField[] => {
+export const getIntegrationFields = (integrationType: string): DialogField[] => {
   const config = integrationConfigs.find(c => c.service === integrationType);
   return config?.dialogFields || [];
 };
 
-export const getFieldsForItem = (item: any, integrationType: string | undefined, allFields: any[]): any[] => {
+export const getFieldsForItem = (item: unknown, integrationType: string | undefined, allFields: { key: string }[]): { key: string }[] => {
   if (!integrationType || !fieldFilters[integrationType as keyof typeof fieldFilters]) {
     return allFields;
   }
   
-  return fieldFilters[integrationType as keyof typeof fieldFilters](item, allFields);
+  return fieldFilters[integrationType as keyof typeof fieldFilters](item as unknown as JsonObject, allFields);
 };
 
 export const getServiceFactories = () => {

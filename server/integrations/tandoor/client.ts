@@ -13,7 +13,6 @@ export class TandoorService {
   }
 
   private async request<T>(path: string, options: RequestInit = {}): Promise<T> {
-    // Ensure endpoint starts with a slash and ends with a slash
     const formattedEndpoint = path.startsWith('/') ? path : `/${path}`
     const url = `/api/integrations/tandoor${formattedEndpoint}?integrationId=${this.integrationId}`
     
@@ -38,7 +37,6 @@ export class TandoorService {
 
   async getShoppingListEntries(): Promise<TandoorShoppingListEntry[]> {
     const response = await this.request<TandoorShoppingListEntry[]>('/shopping-list-entry/')
-    // The response is already an array of entries
     return response
   }
 
@@ -59,7 +57,6 @@ export class TandoorService {
       },
       body: JSON.stringify(data)
     })
-    // The response is already a single entry, no need to access any properties
     return response
   }
 

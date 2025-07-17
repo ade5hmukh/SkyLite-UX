@@ -12,7 +12,6 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Get the highest order for this shopping list's items
     const maxOrder = await prisma.shoppingListItem.aggregate({
       where: {
         shoppingListId: listId,

@@ -1,19 +1,23 @@
 import type { CreateUserInput, User } from "~/types/database";
 import { consola } from "consola";
+
+// Extended type to include todoOrder property for users
+type UserWithOrder = User & { todoOrder: number };
+
 export function useUsers() {
-  const users = ref<User[]>([]);
+  const users = ref<UserWithOrder[]>([]);
   const currentUser = ref<User | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
   // Server-side data fetching
-  const { data: serverUsers } = useNuxtData<User[]>('users');
+  const { data: serverUsers } = useNuxtData<UserWithOrder[]>('users');
 
   const fetchUsers = async () => {
     loading.value = true;
     error.value = null;
     try {
-      const data = await $fetch<User[]>("/api/users");
+      const data = await $fetch<UserWithOrder[]>("/api/users");
       users.value = data || [];
       return users.value;
     }
@@ -36,7 +40,7 @@ export function useUsers() {
 
   const createUser = async (userData: CreateUserInput) => {
     try {
-      const newUser = await $fetch<User>("/api/users", {
+      const newUser = await $fetch<UserWithOrder>("/api/users", {
         method: "POST",
         body: userData,
       });
@@ -100,7 +104,7 @@ export function useUsers() {
     const originalUsers = [...users.value];
 
     try {
-      const sortedUsers = [...users.value].sort((a, b) => ((a as any).todoOrder || 0) - ((b as any).todoOrder || 0));
+      const sortedUsers = [...users.value].sort((a, b) => (a.todoOrder || 0) - (b.todoOrder || 0));
       const currentIndex = sortedUsers.findIndex(user => user.id === userId);
 
       if (currentIndex === -1)
@@ -125,23 +129,23 @@ export function useUsers() {
         return;
 
       // Optimistically update the todoOrder values
-      const currentOrder = (currentUser as any).todoOrder || 0;
-      const targetOrder = (targetUser as any).todoOrder || 0;
+      const currentOrder = currentUser.todoOrder || 0;
+      const targetOrder = targetUser.todoOrder || 0;
 
       // Update the users
       users.value = users.value.map((user) => {
         if (user.id === currentUser.id) {
-          return { ...user, todoOrder: targetOrder } as any;
+          return { ...user, todoOrder: targetOrder };
         }
         if (user.id === targetUser.id) {
-          return { ...user, todoOrder: currentOrder } as any;
+          return { ...user, todoOrder: currentOrder };
         }
         return user;
       });
 
       // Make API call with the new order
       const newOrder = users.value
-        .sort((a, b) => ((a as any).todoOrder || 0) - ((b as any).todoOrder || 0))
+        .sort((a, b) => (a.todoOrder || 0) - (b.todoOrder || 0))
         .map(user => user.id);
 
       await $fetch("/api/users/reorder", {

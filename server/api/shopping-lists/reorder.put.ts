@@ -5,7 +5,6 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event);
     const { listIds } = body;
 
-    // Update the order for each list
     const updatePromises = listIds.map((id: string, index: number) =>
       prisma.shoppingList.update({
         where: { id },

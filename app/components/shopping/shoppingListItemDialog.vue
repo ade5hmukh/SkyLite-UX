@@ -1,11 +1,11 @@
 <script setup lang="ts">
-import type { CreateShoppingListItemInput } from "~/types/database";
-import type { ShoppingListItemField } from "~/integrations/integrationConfig";
+import type { CreateShoppingListItemInput, ShoppingListItem } from "~/types/database";
+import type { DialogField } from "~/integrations/integrationConfig";
 
 const props = defineProps<{
   isOpen: boolean;
-  item?: any | null;
-  fields: ShoppingListItemField[];
+  item?: ShoppingListItem | null;
+  fields: DialogField[];
   integrationCapabilities?: string[];
 }>();
 
@@ -21,7 +21,7 @@ const formData = ref<Record<string, any>>({});
 
 const initializeFormData = () => {
   const initialData: Record<string, any> = {};
-  props.fields.forEach((field: ShoppingListItemField) => {
+  props.fields.forEach((field: DialogField) => {
     switch (field.type) {
       case 'number':
         initialData[field.key] = 0;
@@ -38,7 +38,7 @@ const initializeFormData = () => {
 const error = ref<string | null>(null);
 
 const fields = computed(() => {
-  return props.fields.map((field: ShoppingListItemField) => ({
+  return props.fields.map((field: DialogField) => ({
     ...field,
     disabled: !field.canEdit,
   }));
@@ -53,11 +53,11 @@ const canDelete = computed(() => {
 watch(() => [props.isOpen, props.item], ([isOpen, item]) => {
   if (isOpen) {
     resetForm();
-    if (item) {
+    if (item && typeof item === "object") {
       props.fields.forEach(field => {
         const fieldKey = field.key;
-        if (item[fieldKey] !== undefined) {
-          formData.value[fieldKey] = item[fieldKey];
+        if ((item as unknown as Record<string, unknown>)[fieldKey] !== undefined) {
+          formData.value[fieldKey] = (item as unknown as Record<string, unknown>)[fieldKey];
         }
       });
     }
@@ -72,7 +72,7 @@ function resetForm() {
 }
 
 function handleSave() {
-  const requiredField = props.fields.find((f: ShoppingListItemField) => f.required && f.canEdit);
+  const requiredField = props.fields.find((f: DialogField) => f.required && f.canEdit);
   if (requiredField && !formData.value[requiredField.key]?.toString().trim()) {
     error.value = `${requiredField.label} is required`;
     return;
@@ -144,15 +144,14 @@ function handleDelete() {
               />
             </div>
 
-            <div v-if="fields.find((f: ShoppingListItemField) => f.key === 'unit')" class="w-1/2 space-y-2">
+            <div v-if="fields.find((f: DialogField) => f.key === 'unit')" class="w-1/2 space-y-2">
               <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-1">
                 Unit
-                <UIcon v-if="fields.find((f: ShoppingListItemField) => f.key === 'unit')?.disabled" name="i-lucide-lock" class="h-3 w-3 text-gray-400" />
+                <UIcon v-if="fields.find((f: DialogField) => f.key === 'unit')?.disabled" name="i-lucide-lock" class="h-3 w-3 text-gray-400" />
               </label>
               <UInput
                 v-model="formData.unit"
-                :placeholder="fields.find((f: ShoppingListItemField) => f.key === 'unit')?.placeholder || 'Unit'"
-                :disabled="fields.find((f: ShoppingListItemField) => f.key === 'unit')?.disabled"
+                :placeholder="fields.find((f: DialogField) => f.key === 'unit')?.placeholder || 'Unit'"
                 class="w-full"
                 :ui="{ base: 'w-full' }"
               />

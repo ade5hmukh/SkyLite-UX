@@ -1,9 +1,10 @@
 <script setup lang="ts">
 import type { CreateShoppingListInput } from "~/types/database";
+import type { ShoppingList } from "~/types/database";
 
 const props = defineProps<{
   isOpen: boolean;
-  list?: any | null;
+  list?: ShoppingList | null;
 }>();
 
 const emit = defineEmits<{
@@ -18,7 +19,7 @@ const error = ref<string | null>(null);
 watch(() => [props.isOpen, props.list], ([isOpen, list]) => {
   if (isOpen) {
     resetForm();
-    if (list) {
+    if (list && typeof list === "object" && "name" in list) {
       name.value = list.name || "";
     }
   }

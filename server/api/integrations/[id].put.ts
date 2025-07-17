@@ -18,9 +18,7 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event);
     const { name, type, service, apiKey, baseUrl, icon, enabled, settings } = body;
 
-    // Check if API key or base URL is being updated
     if (apiKey || baseUrl) {
-      // Get current integration to merge with updates
       const currentIntegration = await prisma.integration.findUnique({
         where: { id }
       });
@@ -32,7 +30,6 @@ export default defineEventHandler(async (event) => {
         });
       }
 
-      // Merge current data with updates
       const updatedData = {
         ...currentIntegration,
         ...(name && { name }),
@@ -45,7 +42,6 @@ export default defineEventHandler(async (event) => {
         ...(settings && { settings }),
       };
 
-      // Validate required fields if type or service is being updated
       if (type || service) {
         const integrationKey = `${updatedData.type}:${updatedData.service}`;
         const integrationConfig = integrationRegistry.get(integrationKey);
@@ -72,7 +68,6 @@ export default defineEventHandler(async (event) => {
         }
       }
 
-      // Test connection before updating
       const { createIntegrationService } = await import("~/types/integrations");
       const tempIntegration = {
         id: "temp",
@@ -106,7 +101,6 @@ export default defineEventHandler(async (event) => {
       }
     }
 
-    // Update the integration
     const integration = await prisma.integration.update({
       where: { id },
       data: {
@@ -122,13 +116,16 @@ export default defineEventHandler(async (event) => {
     });
 
     return integration;
-  } catch (error: any) {
-    consola.error("Error updating integration:", error);
-    throw createError({
-      statusCode: error.statusCode || 500,
-      message: error.message || "Failed to update integration",
-    });
   }
+  catch (error: unknown) {
+    consola.error("Error updating integration:", error);
+    const statusCode = error && typeof error === 'object' && 'statusCode' in error ? Number(error.statusCode) : 500;
+    const message = error && typeof error === 'object' && 'message' in error ? String(error.message) : "Failed to update integration";
+    throw createError({
+      statusCode,
+      message,
+      });
+    }
 });
 
 

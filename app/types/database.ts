@@ -82,6 +82,10 @@ export type ShoppingList = {
   _count?: {
     items: number;
   };
+  source?: "native" | "integration";
+  integrationId?: string;
+  integrationName?: string;
+  integrationIcon?: string | null;
 };
 
 export type ShoppingListItem = BaseListItem & {
@@ -90,6 +94,8 @@ export type ShoppingListItem = BaseListItem & {
   label: string | null;
   food: string | null;
   integrationData?: JsonObject;
+  source?: "native" | "integration";
+  integrationId?: string;
 };
 
 export type ShoppingListWithItems = Prisma.ShoppingListGetPayload<{
@@ -145,6 +151,10 @@ export type TodoList = {
 };
 
 export type TodoListItem = BaseListItem & {
+  description: string;
+  priority: Priority;
+  dueDate: Date | null;
+  todoColumnId: string;
   shoppingListId: string;
 };
 

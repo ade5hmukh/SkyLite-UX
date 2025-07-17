@@ -1,8 +1,16 @@
 <script setup lang="ts">
 import type { ShoppingList, TodoList, BaseListItem } from "../../types/database";
 
+// Extended list type with integration properties
+type ListWithIntegration = (ShoppingList | TodoList) & {
+  source?: 'native' | 'integration';
+  integrationIcon?: string;
+  integrationName?: string;
+  integrationId?: string;
+};
+
 const props = defineProps<{
-  lists: readonly (ShoppingList | TodoList)[];
+  lists: readonly ListWithIntegration[];
   loading?: boolean;
   emptyStateIcon?: string;
   emptyStateTitle?: string;
@@ -11,16 +19,16 @@ const props = defineProps<{
   showQuantity?: boolean;
   showNotes?: boolean;
   showReorder?: boolean;
-  showEdit?: boolean | ((list: ShoppingList | TodoList) => boolean);
-  showAdd?: boolean | ((list: ShoppingList | TodoList) => boolean);
-  showEditItem?: boolean | ((list: ShoppingList | TodoList) => boolean);
-  showCompleted?: boolean | ((list: ShoppingList | TodoList) => boolean);
+  showEdit?: boolean | ((list: ListWithIntegration) => boolean);
+  showAdd?: boolean | ((list: ListWithIntegration) => boolean);
+  showEditItem?: boolean | ((list: ListWithIntegration) => boolean);
+  showCompleted?: boolean | ((list: ListWithIntegration) => boolean);
   showIntegrationIcons?: boolean;
 }>();
 
 const _emit = defineEmits<{
   (e: "create"): void;
-  (e: "edit", list: ShoppingList | TodoList): void;
+  (e: "edit", list: ListWithIntegration): void;
   (e: "addItem", listId: string): void;
   (e: "editItem", item: BaseListItem): void;
   (e: "toggleItem", itemId: string, checked: boolean): void;
@@ -40,7 +48,7 @@ const sortedLists = computed(() => {
     }));
 });
 
-function getProgressPercentage(list: ShoppingList | TodoList) {
+function getProgressPercentage(list: ListWithIntegration) {
   if (!list.items || list.items.length === 0)
     return 0;
   const checkedItems = list.items.filter((item: BaseListItem) => item.checked).length;
@@ -63,17 +71,22 @@ const showItemEdit = computed(() => {
   if (typeof props.showEditItem === 'function') {
     return (item: BaseListItem) => {
       const list = props.lists.find(l => l.items?.some(i => i.id === item.id));
-      return list ? (props.showEditItem as (list: ShoppingList | TodoList) => boolean)(list) : false;
+      return list ? (props.showEditItem as (list: ListWithIntegration) => boolean)(list) : false;
     };
   }
   return props.showEditItem;
 });
+
+// Helper function to check if list has integration properties
+function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIntegration & { source: 'integration' | 'native' } {
+  return 'source' in list && (list.source === 'integration' || list.source === 'native');
+}
 </script>
 
 <template>
-  <div class="flex h-[calc(100vh-2rem)] w-full flex-col rounded-lg">
-    <div class="flex-1 overflow-hidden">
-      <div class="flex-1 overflow-y-auto p-4">
+  <div class="flex w-full flex-col rounded-lg">
+    <div class="flex-1">
+      <div class="p-4">
         <div v-if="loading" class="flex items-center justify-center h-full">
           <div class="text-center">
             <UIcon name="i-lucide-loader-2" class="h-8 w-8 animate-spin text-primary-500" />
@@ -112,19 +125,19 @@ const showItemEdit = computed(() => {
                   <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2 flex-1 min-w-0">
                       <div
-                        v-if="showIntegrationIcons && (list as any).source === 'integration' && (list as any).integrationIcon"
+                        v-if="showIntegrationIcons && hasIntegrationProperties(list) && list.source === 'integration' && list.integrationIcon"
                         class="w-5 h-5 rounded-sm flex items-center justify-center flex-shrink-0"
                       >
                         <img
-                          :src="(list as any).integrationIcon"
-                          :alt="(list as any).integrationName || 'Integration'"
+                          :src="list.integrationIcon"
+                          :alt="list.integrationName || 'Integration'"
                           class="h-4 w-4"
                           style="object-fit: contain"
                           @error="(event) => { const target = event.target as HTMLImageElement; if (target) target.style.display = 'none'; }"
                         />
                       </div>
                       <div
-                        v-else-if="showIntegrationIcons && (list as any).source === 'native'"
+                        v-else-if="showIntegrationIcons && hasIntegrationProperties(list) && list.source === 'native'"
                         class="w-5 h-5 rounded-sm flex items-center justify-center flex-shrink-0"
                       >
                         <img
@@ -245,7 +258,7 @@ const showItemEdit = computed(() => {
                         :total-items="list.activeItems.length"
                         :show-quantity="showQuantity"
                         :show-notes="showNotes"
-                        :show-reorder="(list as any).source === 'integration' ? false : showReorder"
+                        :show-reorder="(list as ListWithIntegration).source === 'integration' ? false : showReorder"
                         :show-edit="showItemEdit"
                         @edit="_emit('editItem', $event)"
                         @toggle="(payload) => _emit('toggleItem', payload.itemId, payload.checked)"
@@ -276,7 +289,7 @@ const showItemEdit = computed(() => {
                         :total-items="list.completedItems.length"
                         :show-quantity="showQuantity"
                         :show-notes="showNotes"
-                        :show-reorder="(list as any).source === 'integration' ? false : showReorder"
+                        :show-reorder="(list as ListWithIntegration).source === 'integration' ? false : showReorder"
                         :show-edit="showItemEdit"
                         @edit="_emit('editItem', $event)"
                         @toggle="(payload) => _emit('toggleItem', payload.itemId, payload.checked)"

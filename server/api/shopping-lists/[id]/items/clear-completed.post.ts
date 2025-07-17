@@ -19,7 +19,6 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Delete all completed items for this list
     await prisma.shoppingListItem.deleteMany({
       where: {
         shoppingListId: listId,

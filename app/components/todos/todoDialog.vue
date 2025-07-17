@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import type { CreateTodoInput, Priority, UpdateTodoInput, TodoColumnBasic } from "~/types/database";
+import type { CreateTodoInput, Priority, UpdateTodoInput, TodoColumnBasic, TodoListItem } from "~/types/database";
 
 const props = defineProps<{
-  todo: any | null;
+  todo: TodoListItem | null;
   isOpen: boolean;
   todoColumns: TodoColumnBasic[];
 }>();
@@ -13,7 +13,6 @@ const emit = defineEmits<{
   (e: "delete", todoId: string): void;
 }>();
 
-// Form state
 const title = ref("");
 const description = ref("");
 const priority = ref<Priority>("MEDIUM");
@@ -28,10 +27,9 @@ const priorityOptions = [
   { label: "Urgent", value: "URGENT" },
 ];
 
-// Watch for todo changes
 watch(() => props.todo, (newTodo) => {
   if (newTodo) {
-    title.value = newTodo.title || "";
+    title.value = newTodo.name || "";
     description.value = newTodo.description || "";
     priority.value = newTodo.priority || "MEDIUM";
     dueDate.value = newTodo.dueDate ? new Date(newTodo.dueDate).toISOString().slice(0, 16) : "";

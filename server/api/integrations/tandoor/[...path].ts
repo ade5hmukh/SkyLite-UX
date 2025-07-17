@@ -24,9 +24,6 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-
-
-  // Get integration ID from query parameter
   const integrationId = query.integrationId as string;
   if (!integrationId) {
     throw createError({
@@ -35,7 +32,6 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // Find the specific integration
   const integration = await prisma.integration.findFirst({
     where: {
       id: integrationId,
@@ -51,7 +47,6 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // Verify that this is a Tandoor integration
   if (integration.type !== "shopping" || integration.service !== "tandoor") {
     throw createError({
       statusCode: 400,
@@ -62,9 +57,8 @@ export default defineEventHandler(async (event) => {
   const baseUrl = integration.baseUrl.endsWith("/") ? integration.baseUrl.slice(0, -1) : integration.baseUrl;
   const path = Array.isArray(pathParts) ? pathParts.join("/") : pathParts;
 
-  // Remove integrationId from query params before forwarding to Tandoor
   const { integrationId: _, ...restQuery } = query;
-  const url = `${baseUrl}/api/${path}${Object.keys(restQuery).length ? `?${new URLSearchParams(restQuery as any).toString()}` : ""}`;
+  const url = `${baseUrl}/api/${path}${Object.keys(restQuery).length ? `?${new URLSearchParams(restQuery as Record<string, string>).toString()}` : ""}`;
 
 
 
@@ -99,11 +93,13 @@ export default defineEventHandler(async (event) => {
 
     return await response.json();
   }
-  catch (error: any) {
+  catch (error: unknown) {
     consola.error("Error proxying request to Tandoor:", error);
+    const statusCode = error && typeof error === 'object' && 'statusCode' in error ? Number(error.statusCode) : 500;
+    const message = error && typeof error === 'object' && 'message' in error ? String(error.message) : "Failed to proxy request to Tandoor";
     throw createError({
-      statusCode: error.statusCode || 500,
-      statusMessage: error.message || "Failed to proxy request to Tandoor",
+      statusCode,
+      statusMessage: message,
     });
   }
 });

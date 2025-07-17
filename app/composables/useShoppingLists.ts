@@ -1,18 +1,21 @@
 import type { CreateShoppingListInput, CreateShoppingListItemInput, ShoppingListItem, ShoppingListWithItemsAndCount, UpdateShoppingListItemInput } from "~/types/database";
 import { consola } from "consola";
 
+// Extended type to include order property for shopping lists
+type ShoppingListWithOrder = ShoppingListWithItemsAndCount & { order: number };
+
 export function useShoppingLists() {
-  const shoppingLists = ref<ShoppingListWithItemsAndCount[]>([]);
+  const shoppingLists = ref<ShoppingListWithOrder[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  const { data: serverShoppingLists } = useNuxtData<ShoppingListWithItemsAndCount[]>("native-shopping-lists");
+  const { data: serverShoppingLists } = useNuxtData<ShoppingListWithOrder[]>("native-shopping-lists");
 
   const getShoppingLists = async () => {
     loading.value = true;
     error.value = null;
     try {
-      const data = await $fetch<ShoppingListWithItemsAndCount[]>("/api/shopping-lists");
+      const data = await $fetch<ShoppingListWithOrder[]>("/api/shopping-lists");
       shoppingLists.value = data || [];
     }
     catch (err) {
@@ -32,7 +35,7 @@ export function useShoppingLists() {
 
   const createShoppingList = async (listData: CreateShoppingListInput) => {
     try {
-      const newList = await $fetch<ShoppingListWithItemsAndCount>("/api/shopping-lists", {
+      const newList = await $fetch<ShoppingListWithOrder>("/api/shopping-lists", {
         method: "POST",
         body: listData,
       });
@@ -48,7 +51,7 @@ export function useShoppingLists() {
 
   const updateShoppingList = async (listId: string, updates: { name?: string }) => {
     try {
-      const updatedList = await $fetch<ShoppingListWithItemsAndCount>(`/api/shopping-lists/${listId}`, {
+      const updatedList = await $fetch<ShoppingListWithOrder>(`/api/shopping-lists/${listId}`, {
         method: "PUT",
         body: updates,
       });
@@ -136,7 +139,7 @@ export function useShoppingLists() {
     const originalShoppingLists = [...shoppingLists.value];
 
     try {
-      const sortedLists = [...shoppingLists.value].sort((a, b) => ((a as any).order || 0) - ((b as any).order || 0));
+      const sortedLists = [...shoppingLists.value].sort((a, b) => (a.order || 0) - (b.order || 0));
       const currentIndex = sortedLists.findIndex(list => list.id === listId);
 
       if (currentIndex === -1)
@@ -159,21 +162,21 @@ export function useShoppingLists() {
       if (!currentList || !targetList)
         return;
 
-      const currentOrder = (currentList as any).order || 0;
-      const targetOrder = (targetList as any).order || 0;
+      const currentOrder = currentList.order || 0;
+      const targetOrder = targetList.order || 0;
 
       shoppingLists.value = shoppingLists.value.map((list) => {
         if (list.id === currentList.id) {
-          return { ...list, order: targetOrder } as any;
+          return { ...list, order: targetOrder };
         }
         if (list.id === targetList.id) {
-          return { ...list, order: currentOrder } as any;
+          return { ...list, order: currentOrder };
         }
         return list;
       });
 
       const newOrder = shoppingLists.value
-        .sort((a, b) => ((a as any).order || 0) - ((b as any).order || 0))
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
         .map(list => list.id);
 
       await $fetch("/api/shopping-lists/reorder", {
@@ -204,7 +207,7 @@ export function useShoppingLists() {
       if (!list?.items)
         return;
 
-      const sortedItems = [...list.items].sort((a, b) => ((a as any).order || 0) - ((b as any).order || 0));
+      const sortedItems = [...list.items].sort((a, b) => (a.order || 0) - (b.order || 0));
       const currentIndex = sortedItems.findIndex(item => item.id === itemId);
 
       if (currentIndex === -1)
@@ -227,15 +230,15 @@ export function useShoppingLists() {
       if (!currentItem || !targetItem)
         return;
 
-      const currentOrder = (currentItem as any).order || 0;
-      const targetOrder = (targetItem as any).order || 0;
+      const currentOrder = currentItem.order || 0;
+      const targetOrder = targetItem.order || 0;
 
       const updatedItems = list.items.map((item) => {
         if (item.id === currentItem.id) {
-          return { ...item, order: targetOrder } as any;
+          return { ...item, order: targetOrder };
         }
         if (item.id === targetItem.id) {
-          return { ...item, order: currentOrder } as any;
+          return { ...item, order: currentOrder };
         }
         return item;
       });
@@ -252,7 +255,7 @@ export function useShoppingLists() {
       ];
 
       const newOrder = updatedItems
-        .sort((a, b) => ((a as any).order || 0) - ((b as any).order || 0))
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
         .map(item => item.id);
 
       await $fetch("/api/shopping-list-items/reorder", {

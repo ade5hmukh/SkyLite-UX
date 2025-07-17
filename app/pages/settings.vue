@@ -19,7 +19,6 @@ const isDark = computed({
   },
 });
 
-// Initialize color mode from system preference if not set
 onMounted(() => {
   if (!colorMode.value) {
     const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
@@ -27,40 +26,32 @@ onMounted(() => {
   }
 });
 
-// Form state
 const selectedUser = ref<User | null>(null);
 const isUserDialogOpen = ref(false);
-
-// Integration state
 const selectedIntegration = ref<Integration | null>(null);
 const isIntegrationDialogOpen = ref(false);
 const connectionTestResult = ref<any>(null);
 
-// Add active tab state
 const activeIntegrationTab = ref<string>("");
 
-// Computed property to get available integration types
 const availableIntegrationTypes = computed(() => {
   const types = new Set<string>();
   integrationRegistry.forEach((config) => types.add(config.type));
   return Array.from(types);
 });
 
-// Set initial active tab
 onMounted(() => {
   if (availableIntegrationTypes.value.length > 0) {
     activeIntegrationTab.value = availableIntegrationTypes.value[0] || "";
   }
 });
 
-// Add computed property to filter integrations by type
 const filteredIntegrations = computed(() => {
   return integrations.value.filter(integration => integration.type === activeIntegrationTab.value);
 });
 
 function handleUserSave(userData: CreateUserInput) {
   if (selectedUser.value?.id) {
-    // TODO: Implement user update
     consola.warn("Update user:", userData);
   }
   else {
@@ -83,52 +74,44 @@ function openUserDialog(user: User | null = null) {
 
 async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
   try {
-    // Clear any previous connection test result
     connectionTestResult.value = null;
     
     if (selectedIntegration.value?.id) {
-      // Update existing integration
       const updatedIntegration = await updateIntegration(selectedIntegration.value.id, {
         ...integrationData,
         createdAt: selectedIntegration.value.createdAt,
         updatedAt: new Date(),
       });
       
-      // Manually update the integrations array
       const index = integrations.value.findIndex(i => i.id === selectedIntegration.value?.id);
       if (index !== -1) {
         integrations.value[index] = updatedIntegration;
       }
       
-      // Show success result
       connectionTestResult.value = {
         success: true,
         message: "Integration updated successfully!"
       };
     }
     else {
-      // Create new integration
       const newIntegration = await createIntegration({
         ...integrationData,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
       
-      // Manually add to the integrations array
       integrations.value.push(newIntegration);
       
-      // Show success result
       connectionTestResult.value = {
         success: true,
         message: "Integration created successfully!"
       };
     }
     
-    // Close dialog after a short delay to show the success message
     setTimeout(() => {
       isIntegrationDialogOpen.value = false;
       selectedIntegration.value = null;
-      connectionTestResult.value = null; // Clear the result
+      connectionTestResult.value = null;
     }, 1500);
   } catch (error) {
     consola.error('Failed to save integration:', error);
@@ -142,7 +125,6 @@ async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
 async function handleIntegrationDelete(integrationId: string) {
   try {
     await deleteIntegration(integrationId);
-    // Refresh the integrations list
     await fetchIntegrations();
     isIntegrationDialogOpen.value = false;
     selectedIntegration.value = null;
@@ -152,7 +134,6 @@ async function handleIntegrationDelete(integrationId: string) {
 }
 
 function openIntegrationDialog(integration: Integration | null = null) {
-  // Set active tab if not already set
   if (!activeIntegrationTab.value && availableIntegrationTypes.value.length > 0) {
     activeIntegrationTab.value = availableIntegrationTypes.value[0] || "";
   }
@@ -170,7 +151,6 @@ async function handleToggleIntegration(integrationId: string, enabled: boolean) 
   }
 }
 
-// Load data on mount
 onMounted(async () => {
   await Promise.all([
     fetchUsers(),
@@ -178,7 +158,6 @@ onMounted(async () => {
   ]);
 });
 
-// Add this function before the return statement in the script setup
 function getIntegrationIcon(type: string) {
   switch (type) {
     case "calendar":
@@ -198,7 +177,6 @@ function getIntegrationTypeLabel(type: string) {
   return type.charAt(0).toUpperCase() + type.slice(1);
 }
 
-// Function to get integration icon from registry or fallback
 function getIntegrationIconUrl(integration: Integration) {
   if (integration.icon) {
     return integration.icon;
@@ -210,11 +188,13 @@ function getIntegrationIconUrl(integration: Integration) {
 </script>
 
 <template>
-  <div>
-    <div class="min-h-screen bg-gray-50 dark:bg-gray-900 p-6">
+  <div class="flex w-full flex-col rounded-lg">
+    <div class="py-5 sm:px-4 sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+      <GlobalDateHeader />
+    </div>
+
+    <div class="flex-1 bg-gray-50 dark:bg-gray-900 p-6">
       <div class="max-w-4xl mx-auto">
-        <GlobalDateHeader />
-        <!-- User Management -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
           <div class="flex items-center justify-between mb-6">
             <div>
@@ -230,7 +210,6 @@ function getIntegrationIconUrl(integration: Integration) {
             </UButton>
           </div>
 
-          <!-- Users List -->
           <div v-if="loading" class="text-center py-8">
             <UIcon name="i-lucide-loader-2" class="animate-spin h-8 w-8 mx-auto" />
             <p class="text-gray-500 dark:text-gray-400 mt-2">
@@ -291,7 +270,6 @@ function getIntegrationIconUrl(integration: Integration) {
           </div>
         </div>
 
-        <!-- Integrations -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
           <div class="flex items-center justify-between mb-6">
             <div>
@@ -307,7 +285,6 @@ function getIntegrationIconUrl(integration: Integration) {
             </UButton>
           </div>
 
-          <!-- Integration Type Tabs -->
           <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
             <nav class="-mb-px flex space-x-8">
               <button
@@ -326,7 +303,6 @@ function getIntegrationIconUrl(integration: Integration) {
             </nav>
           </div>
 
-          <!-- Integrations List -->
           <div v-if="integrationsLoading" class="text-center py-8">
             <UIcon name="i-lucide-loader-2" class="animate-spin h-8 w-8 mx-auto" />
             <p class="text-gray-500 dark:text-gray-400 mt-2">
@@ -416,7 +392,6 @@ function getIntegrationIconUrl(integration: Integration) {
           </div>
         </div>
 
-        <!-- App Settings -->
         <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
           <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
             Application Settings
@@ -460,7 +435,6 @@ function getIntegrationIconUrl(integration: Integration) {
       </div>
     </div>
 
-    <!-- User Dialog -->
     <SettingsUserDialog
       :user="selectedUser"
       :is-open="isUserDialogOpen"
@@ -469,7 +443,6 @@ function getIntegrationIconUrl(integration: Integration) {
       @delete="handleUserDelete"
     />
 
-    <!-- Integration Dialog -->
     <SettingsIntegrationDialog
       :integration="selectedIntegration"
       :is-open="isIntegrationDialogOpen"

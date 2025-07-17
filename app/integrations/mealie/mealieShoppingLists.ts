@@ -1,8 +1,9 @@
 import type { IntegrationService, IntegrationStatus } from "~/types/integrations";
 import { integrationRegistry } from "~/types/integrations";
-import { MealieService as ServerMealieService } from "../../../server/integrations/mealie";
-import type { ShoppingList, ShoppingListItem } from "~/types/database";
+import { MealieService as ServerMealieService, type MealieShoppingListItem } from "../../../server/integrations/mealie";
+import type { ShoppingList, ShoppingListItem, UpdateShoppingListItemInput } from "~/types/database";
 import { consola } from "consola";
+import type { JsonObject } from "type-fest";
 
 export class MealieService implements IntegrationService {
   private apiKey: string;
@@ -125,7 +126,7 @@ export class MealieService implements IntegrationService {
               unit: mealieItem.unit?.name || null,
               label: mealieItem.label?.name || null,
               food: mealieItem.food?.name || null,
-              integrationData: mealieItem as any
+              integrationData: mealieItem as unknown as JsonObject
             } as ShoppingListItem)) || [],
             _count: {
               items: fullList.listItems?.length || 0
@@ -162,7 +163,7 @@ export class MealieService implements IntegrationService {
         unit: mealieItem.unit?.name || null,
         label: mealieItem.label?.name || null,
         food: mealieItem.food?.name || null,
-        integrationData: mealieItem as any
+        integrationData: mealieItem as unknown as JsonObject
       } as ShoppingListItem)),
       _count: {
         items: mealieList.listItems.length
@@ -212,14 +213,14 @@ export class MealieService implements IntegrationService {
       unit: createdItem.unit?.name || null,
       label: createdItem.label?.name || null,
       food: createdItem.food?.name || null,
-      integrationData: createdItem as any
+      integrationData: createdItem as unknown as JsonObject
     };
   }
 
-  async updateShoppingListItem(itemId: string, updates: any): Promise<ShoppingListItem> {
+  async updateShoppingListItem(itemId: string, updates: UpdateShoppingListItemInput): Promise<ShoppingListItem> {
     try {
       const lists = await this.getShoppingLists();
-      let targetItem: any = null;
+      let targetItem: ShoppingListItem | null = null;
       
       for (const list of lists) {
         const item = list.items?.find(i => i.id === itemId);
@@ -238,7 +239,7 @@ export class MealieService implements IntegrationService {
         throw new Error(`No integration data found for item ${itemId}`);
       }
       
-      const mealieUpdates: any = {};
+      const mealieUpdates: Record<string, unknown> = {};
       
       if (updates.quantity !== undefined) {
         mealieUpdates.quantity = updates.quantity;
@@ -273,7 +274,7 @@ export class MealieService implements IntegrationService {
         unit: updatedItem.unit?.name || null,
         label: updatedItem.label?.name || null,
         food: updatedItem.food?.name || null,
-        integrationData: updatedItem as any
+        integrationData: updatedItem as unknown as JsonObject
       };
     } catch (error) {
       consola.error(`Error updating item ${itemId}:`, error);
@@ -284,7 +285,7 @@ export class MealieService implements IntegrationService {
   async toggleItem(itemId: string, checked: boolean): Promise<ShoppingListItem> {
     try {
       const lists = await this.getShoppingLists();
-      let targetItem: any = null;
+      let targetItem: ShoppingListItem | null = null;
       
       for (const list of lists) {
         const item = list.items?.find(i => i.id === itemId);
@@ -320,7 +321,7 @@ export class MealieService implements IntegrationService {
         unit: updatedItem.unit?.name || null,
         label: updatedItem.label?.name || null,
         food: updatedItem.food?.name || null,
-        integrationData: updatedItem as any
+        integrationData: updatedItem as unknown as JsonObject
       };
     } catch (error) {
       consola.error(`Error toggling item ${itemId}:`, error);
@@ -337,7 +338,7 @@ export const createMealieService = (integrationId: string, apiKey: string, baseU
   return new MealieService(integrationId, apiKey, baseUrl);
 };
 
-export const getMealieFieldsForItem = (item: any, allFields: any[]): any[] => {
+export const getMealieFieldsForItem = (item: { integrationData?: JsonObject }, allFields: { key: string }[]): { key: string }[] => {
   if (item?.integrationData?.isFood) {
     return allFields.filter(field => 
       ['notes', 'quantity', 'unit', 'food'].includes(field.key)
