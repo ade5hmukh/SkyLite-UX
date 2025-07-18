@@ -31,7 +31,13 @@ const selectedUser = ref<User | null>(null);
 const isUserDialogOpen = ref(false);
 const selectedIntegration = ref<Integration | null>(null);
 const isIntegrationDialogOpen = ref(false);
-const connectionTestResult = ref<any>(null);
+type ConnectionTestResult = {
+  success: boolean;
+  message?: string;
+  error?: string;
+} | null;
+
+const connectionTestResult = ref<ConnectionTestResult>(null);
 
 const activeIntegrationTab = ref<string>("");
 
