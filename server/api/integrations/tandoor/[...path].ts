@@ -61,7 +61,7 @@ export default defineEventHandler(async (event) => {
   const url = `${baseUrl}/api/${path}${Object.keys(restQuery).length ? `?${new URLSearchParams(restQuery as Record<string, string>).toString()}` : ""}`;
 
   try {
-    const fixedUrl = url.charAt(url.length) === "/" ? url : `${url}/`;
+    const fixedUrl = url.charAt(url.length - 1) === "/" ? url : `${url}/`;
 
     const headers: Record<string, string> = {
       "Content-Type": "application/json",

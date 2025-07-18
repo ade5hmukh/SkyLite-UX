@@ -42,16 +42,14 @@ services:
       - web_recipes
     volumes:
       # Do not make this a bind mount, see https://docs.tandoor.dev/install/docker/#volumes-vs-bind-mounts
-      - nginx_config:/etc/nginx/conf.d:ro
+      - nginx_config:/etc/nginx/conf.d:rw
       - staticfiles:/static:ro
       - ./mediafiles:/media:ro
-      # Mount our local conf for copying
-      - ./nginx/conf.d:/tmp/nginx/conf.d:ro
-    # Copy the custom conf to the container
+    # Update nginx config for local development
     command: >
       sh -c "
-        cp /tmp/nginx/conf.d/Recipes.conf /etc/nginx/conf.d/ &&
-        cp -r /tmp/nginx/conf.d/errorpages /etc/nginx/conf.d/ 2>/dev/null || true &&
+        sed -i 's/server_name .*/server_name _;/' /etc/nginx/conf.d/Recipes.conf &&
+        sed -i 's/proxy_set_header .*/proxy_set_header Host localhost;/' /etc/nginx/conf.d/Recipes.conf &&
         nginx -g 'daemon off;'
       "
     networks:

@@ -58,18 +58,28 @@ export class TandoorService implements IntegrationService {
 
   async testConnection(): Promise<boolean> {
     try {
-      const response = await fetch(`${this.baseUrl}/api/shopping-list-entry/`, {
+      const url = `${this.baseUrl}/api/shopping-list-entry/`;
+      const headers = {
+        "Authorization": `Bearer ${this.apiKey}`,
+        "Content-Type": "application/json",
+      };
+      consola.info("Tandoor testConnection: URL:", url);
+      consola.info("Tandoor testConnection: Headers:", headers);
+      consola.info("Tandoor testConnection: API Key length:", this.apiKey.length);
+
+      const response = await fetch(url, {
         method: "GET",
-        headers: {
-          "Authorization": `Bearer ${this.apiKey}`,
-          "Content-Type": "application/json",
-          "Host": "localhost",
-        },
+        headers,
       });
 
+      consola.info("Tandoor testConnection: Response status:", response.status);
+      consola.info("Tandoor testConnection: Response ok:", response.ok);
+
+      const responseText = await response.text();
+      consola.info("Tandoor testConnection: Response body:", responseText);
+
       if (!response.ok) {
-        const errorText = await response.text();
-        consola.error("Tandoor API error:", response.status, response.statusText, errorText);
+        consola.error("Tandoor API error:", response.status, response.statusText, responseText);
         this.status = {
           isConnected: false,
           lastChecked: new Date(),
@@ -78,13 +88,12 @@ export class TandoorService implements IntegrationService {
         return false;
       }
 
-      await response.json();
-
       this.status = {
         isConnected: true,
         lastChecked: new Date(),
       };
 
+      consola.info("Tandoor testConnection: Connection test successful");
       return true;
     }
     catch (error) {
