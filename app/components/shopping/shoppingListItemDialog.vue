@@ -15,10 +15,13 @@ const emit = defineEmits<{
   (e: "delete", itemId: string): void;
 }>();
 
-const formData = ref<Record<string, any>>({});
+// Type for form data - can be string or number based on field type
+type FormData = Record<string, string | number>;
+
+const formData = ref<FormData>({});
 
 function initializeFormData() {
-  const initialData: Record<string, any> = {};
+  const initialData: FormData = {};
   props.fields.forEach((field: DialogField) => {
     switch (field.type) {
       case "number":
@@ -55,8 +58,14 @@ watch(() => [props.isOpen, props.item], ([isOpen, item]) => {
     if (item && typeof item === "object") {
       props.fields.forEach((field) => {
         const fieldKey = field.key;
-        if ((item as unknown as Record<string, unknown>)[fieldKey] !== undefined) {
-          formData.value[fieldKey] = (item as unknown as Record<string, unknown>)[fieldKey];
+        const fieldValue = (item as unknown as Record<string, unknown>)[fieldKey];
+        if (fieldValue !== undefined) {
+          if (field.type === "number") {
+            formData.value[fieldKey] = Number(fieldValue);
+          }
+          else {
+            formData.value[fieldKey] = String(fieldValue);
+          }
         }
       });
     }
@@ -77,7 +86,7 @@ function handleSave() {
 
   const saveData: CreateShoppingListItemInput = {
     name: formData.value.name?.toString().trim() || formData.value.notes?.toString().trim() || "Unknown",
-    quantity: formData.value.quantity ?? 0,
+    quantity: Number(formData.value.quantity) || 0,
     unit: formData.value.unit?.toString().trim() || null,
     notes: formData.value.notes?.toString().trim() || null,
     food: formData.value.food?.toString().trim() || null,

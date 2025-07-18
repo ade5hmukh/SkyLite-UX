@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import type { JsonObject } from "type-fest";
+
 import { consola } from "consola";
 
 import type { DialogField } from "~/integrations/integrationConfig";
@@ -66,10 +68,8 @@ type RawIntegrationList = {
 function normalizeIntegrationList(list: RawIntegrationList): ShoppingList {
   const integration = (shoppingIntegrations.value as readonly Integration[]).find(i => i.id === list.integrationId);
 
-  // Check if this integration supports clearing completed items
   const hasClearCapability = integration && getIntegrationCapabilities(integration.id).includes("clear_items");
 
-  // Filter out completed items if the integration doesn't support clearing them
   const filteredItems = Array.isArray(list.items)
     ? list.items
         .map(normalizeIntegrationItem)
@@ -98,6 +98,8 @@ type RawIntegrationItem = {
   notes: string | null;
   quantity: number;
   unit: string | null;
+  food: string | null;
+  integrationData?: unknown;
 };
 
 function normalizeIntegrationItem(item: RawIntegrationItem): ShoppingListItem {
@@ -110,8 +112,8 @@ function normalizeIntegrationItem(item: RawIntegrationItem): ShoppingListItem {
     quantity: Number(item.quantity ?? 1),
     unit: item.unit ?? null,
     label: null,
-    food: null,
-    integrationData: undefined,
+    food: item.food ?? null,
+    integrationData: item.integrationData as JsonObject | undefined,
     source: "integration",
     integrationId: undefined,
   };
@@ -637,7 +639,7 @@ async function handleSyncIntegrationLists() {
     <ShoppingListItemDialog
       :is-open="itemDialog"
       :item="editingItem"
-      :fields="getFilteredFieldsForItem({} as ShoppingListItem, getIntegrationType())"
+      :fields="getFilteredFieldsForItem(editingItem ?? { integrationData: {} } as ShoppingListItem, getIntegrationType())"
       :integration-capabilities="getItemIntegrationCapabilities()"
       @close="itemDialog = false; selectedListId = ''; editingItem = null"
       @save="handleItemSave"

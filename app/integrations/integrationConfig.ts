@@ -1,5 +1,3 @@
-import type { JsonObject } from "type-fest";
-
 // Shared integrations configuration
 // This file contains all integration configurations that are used by both client and server
 import { createMealieService, getMealieFieldsForItem } from "./mealie/mealieShoppingLists";
@@ -184,7 +182,16 @@ export function getFieldsForItem(item: unknown, integrationType: string | undefi
     return allFields;
   }
 
-  return fieldFilters[integrationType as keyof typeof fieldFilters](item as unknown as JsonObject, allFields);
+  const filterFunction = fieldFilters[integrationType as keyof typeof fieldFilters];
+
+  if (integrationType === "mealie") {
+    return (filterFunction as typeof getMealieFieldsForItem)(item as { integrationData?: { isFood?: boolean } } | null | undefined, allFields);
+  }
+  else if (integrationType === "tandoor") {
+    return (filterFunction as typeof getTandoorFieldsForItem)(item as { unit?: unknown } | null | undefined, allFields);
+  }
+
+  return allFields;
 }
 
 export function getServiceFactories() {

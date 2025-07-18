@@ -349,8 +349,14 @@ export function createMealieService(integrationId: string, apiKey: string, baseU
   return new MealieService(integrationId, apiKey, baseUrl);
 }
 
-export function getMealieFieldsForItem(item: { integrationData?: JsonObject }, allFields: { key: string }[]): { key: string }[] {
-  if (item?.integrationData?.isFood) {
+export function getMealieFieldsForItem(item: { integrationData?: { isFood?: boolean } } | null | undefined, allFields: { key: string }[]): { key: string }[] {
+  if (!item || !item.integrationData || item.integrationData.isFood === null || item.integrationData.isFood === undefined) {
+    return allFields.filter(field =>
+      ["notes", "quantity"].includes(field.key),
+    );
+  }
+
+  if (item.integrationData.isFood) {
     return allFields.filter(field =>
       ["notes", "quantity", "unit", "food"].includes(field.key),
     );

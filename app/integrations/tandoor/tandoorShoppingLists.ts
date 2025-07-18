@@ -63,23 +63,11 @@ export class TandoorService implements IntegrationService {
         "Authorization": `Bearer ${this.apiKey}`,
         "Content-Type": "application/json",
       };
-      consola.info("Tandoor testConnection: URL:", url);
-      consola.info("Tandoor testConnection: Headers:", headers);
-      consola.info("Tandoor testConnection: API Key length:", this.apiKey.length);
-
       const response = await fetch(url, {
         method: "GET",
         headers,
       });
-
-      consola.info("Tandoor testConnection: Response status:", response.status);
-      consola.info("Tandoor testConnection: Response ok:", response.ok);
-
-      const responseText = await response.text();
-      consola.info("Tandoor testConnection: Response body:", responseText);
-
       if (!response.ok) {
-        consola.error("Tandoor API error:", response.status, response.statusText, responseText);
         this.status = {
           isConnected: false,
           lastChecked: new Date(),
@@ -87,17 +75,13 @@ export class TandoorService implements IntegrationService {
         };
         return false;
       }
-
       this.status = {
         isConnected: true,
         lastChecked: new Date(),
       };
-
-      consola.info("Tandoor testConnection: Connection test successful");
       return true;
     }
     catch (error) {
-      consola.error("Tandoor connection test error:", error);
       this.status = {
         isConnected: false,
         lastChecked: new Date(),
@@ -261,7 +245,7 @@ export function createTandoorService(integrationId: string, apiKey: string, base
 }
 
 export function getTandoorFieldsForItem(item: { unit?: unknown } | null | undefined, allFields: { key: string }[]): { key: string }[] {
-  if (item?.unit === null || item === null || item === undefined) {
+  if (!item || item.unit === null || item.unit === undefined) {
     return allFields.filter(field => field.key !== "unit");
   }
   return allFields;
