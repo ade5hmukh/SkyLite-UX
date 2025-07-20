@@ -1,14 +1,15 @@
 <script setup lang="ts">
-import type { Priority, TodoList, TodoColumn } from "~/types/database";
+import { consola } from "consola";
 
-import TodoItemDialog from "~/components/todos/todoItemDialog.vue";
-import TodoColumnDialog from "~/components/todos/todoColumnDialog.vue";
+import type { BaseListItem, TodoList, TodoListItem } from "~/types/database";
+
 import GlobalList from "~/components/global/globalList.vue";
+import TodoColumnDialog from "~/components/todos/todoColumnDialog.vue";
+import TodoItemDialog from "~/components/todos/todoItemDialog.vue";
 
-const { todos, loading: todosLoading, error: todosError, fetchTodos, createTodo, updateTodo, toggleTodo, deleteTodo, reorderTodo, clearCompleted } = useTodos();
+const { todos, loading: todosLoading, fetchTodos, createTodo, updateTodo, toggleTodo, deleteTodo, reorderTodo, clearCompleted } = useTodos();
 const { todoColumns, loading: columnsLoading, fetchTodoColumns, createTodoColumn, updateTodoColumn, deleteTodoColumn, reorderTodoColumns } = useTodoColumns();
 
-// Create mutable copy of todoColumns
 const mutableTodoColumns = computed(() => todoColumns.value.map(col => ({
   ...col,
   user: col.user === null
@@ -16,19 +17,21 @@ const mutableTodoColumns = computed(() => todoColumns.value.map(col => ({
     : {
         id: col.user.id,
         name: col.user.name,
-        avatar: col.user.avatar
-      }
+        avatar: col.user.avatar,
+      },
 })));
 
-// Modal state
 const todoItemDialog = ref(false);
 const todoColumnDialog = ref(false);
-const editingTodo = ref<any>(null);
-const editingColumn = ref<any>(null);
+const editingTodo = ref<TodoListItem | null>(null);
+const editingColumn = ref<TodoList | null>(null);
 
-// Map todoColumns and todos to List/ListItem structure for GlobalList
+const editingTodoTyped = computed<TodoListItem | undefined>(() =>
+  editingTodo.value as TodoListItem | undefined,
+);
+
 const todoLists = computed<TodoList[]>(() => {
-  return todoColumns.value.map((column) => ({
+  return todoColumns.value.map(column => ({
     id: column.id,
     name: column.name,
     order: column.order,
@@ -36,8 +39,9 @@ const todoLists = computed<TodoList[]>(() => {
     updatedAt: new Date(column.updatedAt),
     isDefault: column.isDefault,
     items: todos.value
-      .filter((todo) => todo.todoColumnId === column.id)
-      .map((todo) => ({
+      .filter(todo => todo.todoColumnId === column.id)
+      .sort((a, b) => (a.order || 0) - (b.order || 0))
+      .map(todo => ({
         id: todo.id,
         name: todo.title,
         checked: todo.completed,
@@ -46,58 +50,69 @@ const todoLists = computed<TodoList[]>(() => {
         shoppingListId: todo.todoColumnId || "",
         priority: todo.priority,
         dueDate: todo.dueDate,
+        description: todo.description ?? "",
+        todoColumnId: todo.todoColumnId || "",
       })),
     _count: column._count ? { items: column._count.todos } : undefined,
   }));
 });
 
-function getPriorityColor(priority: Priority) {
-  switch (priority) {
-    case "LOW": return "text-green-600 bg-green-50 dark:bg-green-950";
-    case "MEDIUM": return "text-yellow-600 bg-yellow-50 dark:bg-yellow-950";
-    case "HIGH": return "text-orange-600 bg-orange-50 dark:bg-orange-950";
-    case "URGENT": return "text-red-600 bg-red-50 dark:bg-red-950";
-    default: return "text-gray-600 bg-gray-50 dark:bg-gray-950";
-  }
-}
-
 function openCreateTodo(todoColumnId?: string) {
-  editingTodo.value = { todoColumnId: todoColumnId || null };
+  editingTodo.value = { todoColumnId: todoColumnId ?? "" } as TodoListItem;
   todoItemDialog.value = true;
 }
 
-function openEditTodo(todo: any) {
+function openEditTodo(item: BaseListItem) {
+  const todo = todos.value.find(t => t.id === item.id);
+  if (!todo)
+    return;
+
   editingTodo.value = {
     id: todo.id,
-    title: todo.name,
-    description: todo.notes,
+    name: todo.title,
+    description: todo.description ?? "",
     priority: todo.priority,
-    dueDate: todo.dueDate,
-    todoColumnId: todo.shoppingListId,
-    completed: todo.checked,
-    order: todo.order
+    dueDate: todo.dueDate ?? new Date(),
+    todoColumnId: todo.todoColumnId ?? "",
+    checked: todo.completed,
+    order: todo.order,
+    shoppingListId: todo.todoColumnId || "",
+    notes: todo.description,
   };
   todoItemDialog.value = true;
 }
 
-async function handleTodoSave(todoData: any) {
+async function handleTodoSave(todoData: TodoListItem) {
   try {
     if (editingTodo.value?.id) {
-      // Update existing todo
       await updateTodo(editingTodo.value.id, {
-        ...todoData,
-        id: editingTodo.value.id
+        title: todoData.name,
+        description: todoData.description,
+        completed: todoData.checked,
+        priority: todoData.priority,
+        dueDate: todoData.dueDate,
+        todoColumnId: todoData.todoColumnId,
+        order: todoData.order,
       });
     }
     else {
-      // Create new todo
-      await createTodo(todoData);
+      const createData = {
+        title: todoData.name,
+        description: todoData.description,
+        priority: todoData.priority,
+        dueDate: todoData.dueDate,
+        todoColumnId: todoData.todoColumnId || null,
+        completed: todoData.checked,
+        order: todoData.order,
+      };
+      consola.log("Creating todo with data:", createData);
+      await createTodo(createData);
     }
     todoItemDialog.value = false;
     editingTodo.value = null;
   }
   catch (error) {
-    console.error("Failed to save todo:", error);
+    consola.error("Failed to save todo:", error);
   }
 }
 
@@ -108,7 +123,7 @@ async function handleTodoDelete(todoId: string) {
     editingTodo.value = null;
   }
   catch (error) {
-    console.error("Failed to delete todo:", error);
+    consola.error("Failed to delete todo:", error);
   }
 }
 
@@ -124,11 +139,11 @@ async function handleColumnSave(columnData: { name: string }) {
     editingColumn.value = null;
   }
   catch (error) {
-    console.error("Failed to save column:", error);
+    consola.error("Failed to save column:", error);
   }
 }
 
-function openEditColumn(column: any) {
+function openEditColumn(column: TodoList) {
   editingColumn.value = { ...column };
   todoColumnDialog.value = true;
 }
@@ -136,14 +151,14 @@ function openEditColumn(column: any) {
 async function handleColumnDelete() {
   if (!editingColumn.value?.id)
     return;
-  
+
   try {
     await deleteTodoColumn(editingColumn.value.id);
     todoColumnDialog.value = false;
     editingColumn.value = null;
   }
   catch (error) {
-    console.error("Failed to delete column:", error);
+    consola.error("Failed to delete column:", error);
   }
 }
 
@@ -152,7 +167,7 @@ async function handleToggleTodo(todoId: string, completed: boolean) {
     await toggleTodo(todoId, completed);
   }
   catch (error) {
-    console.error("Failed to toggle todo:", error);
+    consola.error("Failed to toggle todo:", error);
   }
 }
 
@@ -164,13 +179,11 @@ async function handleReorderColumn(columnIndex: number, direction: "left" | "rig
   if (!column)
     return;
 
-  // Prevent multiple simultaneous reorders of the same column
   if (reorderingColumns.value.has(column.id))
     return;
 
   const targetIndex = direction === "left" ? columnIndex - 1 : columnIndex + 1;
 
-  // Check bounds
   if (targetIndex < 0 || targetIndex >= todoColumns.value.length)
     return;
 
@@ -180,30 +193,31 @@ async function handleReorderColumn(columnIndex: number, direction: "left" | "rig
     await reorderTodoColumns(columnIndex, targetIndex);
   }
   catch (error) {
-    console.error("Failed to reorder column:", error);
-    alert("Failed to reorder column. Please try again.");
+    consola.error("Failed to reorder column:", error);
+    useAlertToast().showError("Failed to reorder column. Please try again.");
   }
   finally {
     reorderingColumns.value.delete(column.id);
   }
 }
 
-async function handleReorderTodo(todoId: string, direction: "up" | "down", todoColumnId: string | null) {
-  // Prevent multiple simultaneous reorders of the same todo
-  if (reorderingTodos.value.has(todoId))
+async function handleReorderTodo(itemId: string, direction: "up" | "down") {
+  if (reorderingTodos.value.has(itemId))
     return;
-
-  reorderingTodos.value.add(todoId);
+  reorderingTodos.value.add(itemId);
 
   try {
-    await reorderTodo(todoId, direction, todoColumnId);
+    const item = todos.value.find(t => t.id === itemId);
+    if (!item)
+      throw new Error("Todo not found");
+    await reorderTodo(itemId, direction, item.todoColumnId ?? null);
   }
   catch (error) {
-    console.error("Failed to reorder todo:", error);
-    alert("Failed to reorder todo. Please try again.");
+    consola.error("Failed to reorder todo:", error);
+    useAlertToast().showError("Failed to reorder todo. Please try again.");
   }
   finally {
-    reorderingTodos.value.delete(todoId);
+    reorderingTodos.value.delete(itemId);
   }
 }
 
@@ -212,11 +226,10 @@ async function handleClearCompleted(columnId: string) {
     await clearCompleted(columnId);
   }
   catch (error) {
-    console.error("Failed to clear completed todos:", error);
+    consola.error("Failed to clear completed todos:", error);
   }
 }
 
-// Load data on mount
 onMounted(async () => {
   await fetchTodoColumns();
   await fetchTodos();
@@ -225,12 +238,10 @@ onMounted(async () => {
 
 <template>
   <div class="flex h-[calc(100vh-2rem)] w-full flex-col rounded-lg">
-    <!-- Header -->
     <div class="py-5 sm:px-4 sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
       <GlobalDateHeader />
     </div>
 
-    <!-- Todos Content -->
     <div class="flex flex-1 flex-col min-h-0 p-4">
       <GlobalList
         :lists="todoLists"
@@ -239,45 +250,43 @@ onMounted(async () => {
         empty-state-title="No todo lists found"
         empty-state-description="Create your first todo column to get started"
         show-reorder
-        :show-edit="(column: TodoList) => !column.isDefault"
+        :show-edit="(list) => 'isDefault' in list ? !list.isDefault : true"
         show-add
+        show-edit-item
         show-completed
         show-progress
-        @create="todoColumnDialog = true; editingColumn = { name: '' }"
-        @edit="openEditColumn($event)"
-        @addItem="openCreateTodo($event)"
-        @editItem="openEditTodo($event)"
-        @toggleItem="handleToggleTodo"
-        @reorderItem="(itemId, direction) => { const item = (todos as any[]).find((t: any) => t.id === itemId); handleReorderTodo(itemId, direction, item ? item.todoColumnId : null); }"
-        @reorderList="(listId, direction) => handleReorderColumn(todoLists.findIndex(l => l.id === listId), direction === 'up' ? 'left' : 'right')"
-        @clearCompleted="handleClearCompleted"
+        @create="todoColumnDialog = true; editingColumn = null"
+        @edit="openEditColumn($event as TodoList)"
+        @add-item="openCreateTodo($event)"
+        @edit-item="openEditTodo($event)"
+        @toggle-item="handleToggleTodo"
+        @reorder-item="handleReorderTodo"
+        @reorder-list="(listId, direction) => handleReorderColumn(todoLists.findIndex(l => l.id === listId), direction === 'up' ? 'left' : 'right')"
+        @clear-completed="handleClearCompleted"
       />
     </div>
 
-    <!-- Floating Action Button -->
     <UButton
       class="fixed bottom-8 right-8 rounded-full shadow-lg z-50 p-4"
       color="primary"
       size="xl"
       icon="i-lucide-plus"
       aria-label="Add Item"
-      @click="todoColumnDialog = true; editingColumn = { name: '' }"
+      @click="todoColumnDialog = true; editingColumn = null"
     />
 
-    <!-- Todo Item Dialog -->
     <TodoItemDialog
       :is-open="todoItemDialog"
       :todo-columns="mutableTodoColumns"
-      :todo="editingTodo"
+      :todo="editingTodoTyped"
       @close="todoItemDialog = false; editingTodo = null"
       @save="handleTodoSave"
       @delete="handleTodoDelete"
     />
 
-    <!-- Todo Column Dialog -->
     <TodoColumnDialog
       :is-open="todoColumnDialog"
-      :column="editingColumn"
+      :column="editingColumn ?? undefined"
       @close="todoColumnDialog = false; editingColumn = null"
       @save="handleColumnSave"
       @delete="handleColumnDelete"

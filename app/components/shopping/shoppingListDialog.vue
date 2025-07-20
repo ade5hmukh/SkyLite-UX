@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import type { CreateShoppingListInput } from "~/types/database";
+import type { CreateShoppingListInput, ShoppingList } from "~/types/database";
 
 const props = defineProps<{
   isOpen: boolean;
-  list?: any | null;
+  list?: ShoppingList | null;
 }>();
 
 const emit = defineEmits<{
@@ -12,15 +12,13 @@ const emit = defineEmits<{
   (e: "delete"): void;
 }>();
 
-// Form state
 const name = ref("");
 const error = ref<string | null>(null);
 
-// Watch for modal open/close and list changes
 watch(() => [props.isOpen, props.list], ([isOpen, list]) => {
   if (isOpen) {
     resetForm();
-    if (list) {
+    if (list && typeof list === "object" && "name" in list) {
       name.value = list.name || "";
     }
   }

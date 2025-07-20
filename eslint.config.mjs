@@ -13,7 +13,7 @@ export default withNuxt(antfu({
     semi: true,
     quotes: "double",
   },
-  ignores: [".pnpm-store/**", "**/migrations/*"],
+  ignores: [".pnpm-store/**", "**/migrations/*", ".gitignore"],
 }, {
   rules: {
     "vue/max-attributes-per-line": ["error", {
@@ -37,7 +37,9 @@ export default withNuxt(antfu({
       case: "camelCase",
       ignore: [
         "README.md",
-        "server/**/*",
+        /docker-compose\.yml$/i,
+        /-docker-compose\.yml$/i,
+        /clear-completed\.post\.ts$/i,
       ],
     }],
   },

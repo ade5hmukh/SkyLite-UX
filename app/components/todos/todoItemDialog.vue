@@ -1,21 +1,22 @@
 <script setup lang="ts">
-import type { Priority, TodoColumnBasic } from "~/types/database";
-import type { DateValue } from "@internationalized/date";
-import { CalendarDate, DateFormatter, getLocalTimeZone, parseDate } from "@internationalized/date";
+import type { CalendarDate, DateValue } from "@internationalized/date";
+
+import { DateFormatter, getLocalTimeZone, parseDate } from "@internationalized/date";
+
+import type { Priority, TodoColumnBasic, TodoListItem } from "~/types/database";
 
 const props = defineProps<{
   isOpen: boolean;
   todoColumns: TodoColumnBasic[];
-  todo?: any;
+  todo?: TodoListItem;
 }>();
 
 const emit = defineEmits<{
   (e: "close"): void;
-  (e: "save", todo: any): void;
+  (e: "save", todo: TodoListItem): void;
   (e: "delete", todoId: string): void;
 }>();
 
-// Todo form state
 const todoTitle = ref("");
 const todoDescription = ref("");
 const todoPriority = ref<Priority>("MEDIUM");
@@ -23,7 +24,6 @@ const todoDueDate = ref<DateValue | null>(null);
 const todoColumnId = ref<string | undefined>(undefined);
 const todoError = ref<string | null>(null);
 
-// Date formatter
 const df = new DateFormatter("en-US", {
   dateStyle: "medium",
 });
@@ -35,19 +35,22 @@ const priorityOptions = [
   { label: "Urgent", value: "URGENT" },
 ];
 
-// Watch for modal open/close and todo changes
 watch(() => [props.isOpen, props.todo], ([isOpen, todo]) => {
   if (isOpen) {
     resetForm();
-    if (todo) {
-      todoTitle.value = todo.title || "";
-      todoDescription.value = todo.description || "";
-      todoPriority.value = todo.priority || "MEDIUM";
-      if (todo.dueDate) {
-        const date = new Date(todo.dueDate);
-        todoDueDate.value = parseDate(date.toISOString().split("T")[0]!);
+    if (todo && typeof todo === "object") {
+      if ("name" in todo) {
+        todoTitle.value = todo.name || "";
+        todoDescription.value = todo.description || "";
+        todoPriority.value = todo.priority || "MEDIUM";
+        if (todo.dueDate) {
+          const date = new Date(todo.dueDate);
+          todoDueDate.value = parseDate(date.toISOString().split("T")[0]!);
+        }
       }
-      todoColumnId.value = todo.todoColumnId;
+      if ("todoColumnId" in todo) {
+        todoColumnId.value = todo.todoColumnId || undefined;
+      }
     }
   }
 }, { immediate: true });
@@ -74,20 +77,22 @@ function handleSave() {
 
   const todoData = {
     id: props.todo?.id,
-    title: todoTitle.value.trim(),
+    name: todoTitle.value.trim(),
     description: todoDescription.value.trim() || null,
     priority: todoPriority.value,
-    dueDate: todoDueDate.value ? (() => {
-      const date = todoDueDate.value!.toDate(getLocalTimeZone());
-      date.setHours(23, 59, 59, 999);
-      return date;
-    })() : null,
+    dueDate: todoDueDate.value
+      ? (() => {
+          const date = todoDueDate.value!.toDate(getLocalTimeZone());
+          date.setHours(23, 59, 59, 999);
+          return date;
+        })()
+      : null,
     todoColumnId: todoColumnId.value || (props.todoColumns.length > 0 ? props.todoColumns[0]?.id ?? undefined : undefined),
-    completed: props.todo?.completed || false,
-    order: props.todo?.order || 0
+    checked: props.todo?.checked || false,
+    order: props.todo?.order || 0,
   };
 
-  emit("save", todoData);
+  emit("save", todoData as unknown as TodoListItem);
   resetForm();
   emit("close");
 }
@@ -190,8 +195,8 @@ function handleDelete() {
                   </UButton>
                   <UCalendar
                     :model-value="todoDueDate as unknown as DateValue"
-                    @update:model-value="todoDueDate = $event as CalendarDate"
                     class="p-2"
+                    @update:model-value="todoDueDate = $event as CalendarDate"
                   />
                 </div>
               </template>

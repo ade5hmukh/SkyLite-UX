@@ -9,7 +9,7 @@ const events = ref<CalendarEvent[]>([
     description: "Weekly team sync",
     start: new Date(new Date().setHours(10, 0, 0, 0)),
     end: new Date(new Date().setHours(11, 30, 0, 0)),
-    color: "blue",
+    color: "sky",
     location: "Conference Room A",
   },
   {

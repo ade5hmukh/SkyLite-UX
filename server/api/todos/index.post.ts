@@ -4,7 +4,6 @@ export default defineEventHandler(async (event) => {
   try {
     const body = await readBody(event);
 
-    // Get the highest order for this column's todos
     const maxOrder = await prisma.todo.aggregate({
       where: {
         todoColumnId: body.todoColumnId || null,

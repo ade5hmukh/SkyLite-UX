@@ -1,3 +1,5 @@
+import { consola } from "consola";
+
 import prisma from "~/lib/prisma";
 
 export default defineEventHandler(async (event) => {
@@ -18,10 +20,10 @@ export default defineEventHandler(async (event) => {
     return { success: true };
   }
   catch (error) {
-    console.error("Error deleting shopping list item:", error);
+    consola.error("Error deleting shopping list item:", error);
     throw createError({
       statusCode: 500,
       message: "Failed to delete shopping list item",
     });
   }
-}); 
+});

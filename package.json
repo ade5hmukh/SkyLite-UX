@@ -7,8 +7,8 @@
     "dev": "nuxt dev",
     "build": "nuxt build",
     "preview": "nuxt preview",
-    "type-check": "vue-tsc --noEmit -p tsconfig.app.json --composite false",
-    "lint": "eslint . --ext .vue,.js,.jsx,.cjs,.mjs,.ts,.tsx,.cts,.mts --fix --ignore-path .gitignore",
+    "type-check": "vue-tsc --noEmit -p tsconfig.json --composite false",
+    "lint": "eslint . --fix",
     "format": "prettier --write src/"
   },
   "dependencies": {
@@ -17,7 +17,9 @@
     "@nuxt/ui": "^3.1.2",
     "@prisma/client": "^6.9.0",
     "@vueuse/core": "^10.9.0",
+    "consola": "^3.4.2",
     "date-fns": "^3.3.1",
+    "node-fetch": "^2.7.0",
     "pinia": "^3.0.1",
     "prisma": "^6.9.0",
     "vue": "~3.5.13",

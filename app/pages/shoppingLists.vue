@@ -1,76 +1,187 @@
 <script setup lang="ts">
-import type { CreateShoppingListInput, CreateShoppingListItemInput } from "~/types/database";
+import type { JsonObject } from "type-fest";
 
-import GlobalAlert from "~/components/global/globalAlert.vue";
-import GlobalConfirm from "~/components/global/globalConfirm.vue";
+import { consola } from "consola";
+
+import type { DialogField } from "~/integrations/integrationConfig";
+import type { CreateShoppingListInput, CreateShoppingListItemInput, Integration, ShoppingList, ShoppingListItem } from "~/types/database";
+
 import GlobalList from "~/components/global/globalList.vue";
 import ShoppingListDialog from "~/components/shopping/shoppingListDialog.vue";
 import ShoppingListItemDialog from "~/components/shopping/shoppingListItemDialog.vue";
+import { useAlertToast } from "~/composables/useAlertToast";
+import { getFieldsForItem, getIntegrationFields } from "~/integrations/integrationConfig";
+import { integrationRegistry } from "~/types/integrations";
 
 const {
-  shoppingLists,
-  loading,
+  shoppingLists: nativeShoppingLists,
+  loading: nativeLoading,
   createShoppingList,
   updateShoppingList,
   deleteShoppingList,
   addItemToList,
   updateShoppingListItem,
-  deleteShoppingListItem,
-  fetchShoppingLists,
+  getShoppingLists: fetchNativeLists,
   reorderItem,
   reorderShoppingList,
   deleteCompletedItems,
 } = useShoppingLists();
 
-const { fetchIntegrations, getEnabledIntegrations, getIntegrationsByType } = useIntegrations();
+const {
+  shoppingLists: integrationLists,
+  shoppingIntegrations,
+  loading: integrationLoading,
+  addItemToList: addItemToIntegrationList,
+  updateShoppingListItem: updateIntegrationItem,
+  toggleItem: toggleIntegrationItem,
+  clearCompletedItems: clearIntegrationCompletedItems,
+  syncShoppingLists,
+  initialFetchError,
+} = useShoppingIntegrations();
 
-// Modal state
+const { fetchIntegrations, getIntegrationsByType } = useIntegrations();
+
 const listDialog = ref(false);
 const itemDialog = ref(false);
-const confirmDialog = ref(false);
-const alertDialog = ref(false);
-const alertMessage = ref("");
-const alertType = ref<"error" | "warning" | "success" | "info">("error");
-const confirmAction = ref<(() => Promise<void>) | null>(null);
 const selectedListId = ref<string>("");
-const editingList = ref<any>(null);
-const editingItem = ref<any>(null);
+const editingList = ref<ShoppingList | null>(null);
+const editingItem = ref<ShoppingListItem | null>(null);
 
-// Tab state
-const activeTab = ref<"native" | string>("native");
-const selectedIntegrationId = ref<string | null>(null);
+const { showError, showWarning, showSuccess } = useAlertToast();
 
-// Check if we have any enabled integrations to show tabs
-const hasEnabledIntegrations = computed(() => {
-  return getEnabledIntegrations.value.length > 0;
-});
-
-// Get enabled integrations by type
 const enabledIntegrationsByType = computed(() => {
   return getIntegrationsByType("shopping");
 });
 
-// Watch for integration changes
-watch([activeTab, selectedIntegrationId], async ([newTab, _newIntegrationId]) => {
-  if (newTab === "native") {
-    // Clear any integration-specific state
-    selectedListId.value = "";
-  }
+type RawIntegrationList = {
+  readonly id: string;
+  readonly name: string;
+  readonly order: number;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+  readonly items: readonly RawIntegrationItem[];
+  integrationId?: string;
+  integrationName?: string;
+  integrationIcon?: string | null;
+};
+
+function normalizeIntegrationList(list: RawIntegrationList): ShoppingList {
+  const integration = (shoppingIntegrations.value as readonly Integration[]).find(i => i.id === list.integrationId);
+
+  const hasClearCapability = integration && getIntegrationCapabilities(integration.id).includes("clear_items");
+
+  const filteredItems = Array.isArray(list.items)
+    ? list.items
+        .map(normalizeIntegrationItem)
+        .filter(item => hasClearCapability || !item.checked)
+    : [];
+
+  return {
+    id: String(list.id),
+    name: String(list.name ?? ""),
+    order: Number(list.order ?? 0),
+    createdAt: list.createdAt ? new Date(list.createdAt) : new Date(),
+    updatedAt: list.updatedAt ? new Date(list.updatedAt) : new Date(),
+    items: filteredItems,
+    source: "integration",
+    integrationId: list.integrationId ?? undefined,
+    integrationName: integration?.name || list.integrationName || "Integration",
+    integrationIcon: integration ? getIntegrationIconUrl(integration) : list.integrationIcon ?? null,
+  };
+}
+
+type RawIntegrationItem = {
+  id: string;
+  name: string;
+  checked: boolean;
+  order: number;
+  notes: string | null;
+  quantity: number;
+  unit: string | null;
+  food: string | null;
+  integrationData?: unknown;
+};
+
+function normalizeIntegrationItem(item: RawIntegrationItem): ShoppingListItem {
+  return {
+    id: String(item.id),
+    name: String(item.name ?? ""),
+    checked: Boolean(item.checked),
+    order: Number(item.order ?? 0),
+    notes: item.notes ?? null,
+    quantity: Number(item.quantity ?? 1),
+    unit: item.unit ?? null,
+    label: null,
+    food: item.food ?? null,
+    integrationData: item.integrationData as JsonObject | undefined,
+    source: "integration",
+    integrationId: undefined,
+  };
+}
+
+const nativeListsWithSource = computed(() => {
+  return nativeShoppingLists.value.map(list => ({
+    ...list,
+    source: "native" as const,
+  }));
 });
 
-// Load shopping lists and integrations on mount
+const integrationListsWithSource = computed(() => {
+  return (integrationLists.value ?? []).map(normalizeIntegrationList) as ShoppingList[];
+});
+
+const allShoppingLists = computed(() => {
+  return [...nativeListsWithSource.value, ...integrationListsWithSource.value] as ShoppingList[];
+});
+
+const isLoading = computed(() => {
+  return nativeLoading.value || integrationLoading.value;
+});
+
+const transformedShoppingLists = computed(() => {
+  return allShoppingLists.value.map(list => ({
+    id: list.id,
+    name: list.name,
+    order: list.order || 0,
+    createdAt: new Date(list.createdAt),
+    updatedAt: new Date(list.updatedAt),
+    items: list.items,
+    _count: list._count,
+    source: list.source,
+    integrationId: list.integrationId,
+    integrationName: list.integrationName,
+    integrationIcon: list.integrationIcon,
+  })) as (ShoppingList & { source?: "native" | "integration"; integrationIcon?: string; integrationName?: string; integrationId?: string })[];
+});
+
 onMounted(async () => {
   try {
-    // Fetch integrations first
     await fetchIntegrations();
-
-    // Then fetch shopping lists
-    await fetchShoppingLists();
+    await fetchNativeLists();
   }
   catch (error) {
-    console.error("Failed to initialize shopping lists:", error);
+    consola.error("Failed to initialize shopping lists:", error);
   }
 });
+
+watch(initialFetchError, (error) => {
+  if (error) {
+    consola.error("Initial integration fetch failed:", error);
+    let errorMessage = "There was an error while trying to sync your shopping lists. Please check your connection and try again.";
+
+    if (error?.cause && typeof error.cause === "object" && "statusMessage" in error.cause) {
+      errorMessage = (error.cause as { statusMessage: string }).statusMessage;
+    }
+    else if (error?.cause && typeof error.cause === "object" && "detail" in error.cause) {
+      errorMessage = (error.cause as { detail: string }).detail;
+    }
+    else if (error?.message) {
+      errorMessage = error.message;
+    }
+
+    showError("Integration Error", errorMessage);
+  }
+}, { immediate: true });
 
 function openCreateList() {
   editingList.value = null;
@@ -83,25 +194,40 @@ function openAddItem(listId: string) {
   itemDialog.value = true;
 }
 
-function openEditItem(item: any) {
-  editingItem.value = { ...item };
+function openEditItem(item: ShoppingListItem) {
+  const list = findItemList(item.id);
+  if (list?.source === "integration") {
+    editingItem.value = {
+      ...item,
+      integrationId: list.integrationId,
+      source: "integration",
+    };
+  }
+  else {
+    editingItem.value = { ...item };
+  }
   itemDialog.value = true;
 }
 
 async function handleListSave(listData: CreateShoppingListInput) {
   try {
-    if (editingList.value?.id) {
-      await updateShoppingList(editingList.value.id, listData);
+    if (editingList.value?.source === "native" || !editingList.value?.source) {
+      if (editingList.value?.id) {
+        await updateShoppingList(editingList.value.id, listData);
+      }
+      else {
+        await createShoppingList(listData);
+      }
     }
     else {
-      await createShoppingList(listData);
+      showWarning("Warning", "Creating/editing lists in integrations is not yet supported.");
     }
     listDialog.value = false;
     editingList.value = null;
   }
   catch (error) {
-    console.error("Failed to save shopping list:", error);
-    showAlert("Failed to save shopping list. Please try again.", "error");
+    consola.error("Failed to save shopping list:", error);
+    showError("Error", "Failed to save shopping list. Please try again.");
   }
 }
 
@@ -115,90 +241,134 @@ async function handleListDelete() {
     editingList.value = null;
   }
   catch (error) {
-    console.error("Failed to delete list:", error);
-    showAlert("Failed to delete shopping list. Please try again.", "error");
+    consola.error("Failed to delete list:", error);
+    showError("Delete Failed", "Failed to delete shopping list. Please try again.");
   }
 }
 
 async function handleItemSave(itemData: CreateShoppingListItemInput) {
   try {
     if (editingItem.value?.id) {
-      await updateShoppingListItem(editingItem.value.id, itemData);
+      if (editingItem.value.source === "integration") {
+        if (!editingItem.value.integrationId) {
+          throw new Error("Integration ID is required for integration items");
+        }
+        await updateIntegrationItem(editingItem.value.integrationId, editingItem.value.id, itemData);
+      }
+      else {
+        await updateShoppingListItem(editingItem.value.id, itemData);
+      }
     }
     else if (selectedListId.value) {
-      await addItemToList(selectedListId.value, itemData);
+      const selectedList = allShoppingLists.value.find(list => list.id === selectedListId.value);
+      if (!selectedList) {
+        throw new Error("Selected list not found");
+      }
+
+      if (selectedList.source === "integration") {
+        if (!selectedList.integrationId) {
+          throw new Error("Integration ID is required");
+        }
+        await addItemToIntegrationList(selectedList.integrationId, selectedListId.value, itemData);
+      }
+      else {
+        await addItemToList(selectedListId.value, itemData);
+      }
     }
     itemDialog.value = false;
     selectedListId.value = "";
     editingItem.value = null;
   }
   catch (error) {
-    console.error("Failed to save item:", error);
+    consola.error("Failed to save item:", error);
+    showError("Error", "Failed to save item. Please try again.");
   }
 }
 
 async function handleItemDelete(itemId: string) {
   try {
-    await deleteShoppingListItem(itemId);
+    const list = findItemList(itemId);
+    if (!list) {
+      throw new Error("Item not found in any list");
+    }
+
+    if (list.source === "integration") {
+      showWarning("Warning", "Deleting items in integrations is not yet supported.");
+    }
+    else {
+      showWarning("Warning", "Deleting individual items is not yet supported.");
+    }
     itemDialog.value = false;
     editingItem.value = null;
   }
   catch (error) {
-    console.error("Failed to delete item:", error);
-    showAlert("Failed to delete item. Please try again.", "error");
+    consola.error("Failed to delete item:", error);
+    showError("Error", "Failed to delete item. Please try again.");
   }
 }
 
 async function handleToggleItem(itemId: string, checked: boolean) {
   try {
-    await updateShoppingListItem(itemId, { checked });
+    const list = findItemList(itemId);
+    if (!list) {
+      throw new Error("Item not found in any list");
+    }
+
+    if (list.source === "integration") {
+      if (!list.integrationId) {
+        throw new Error("Integration ID is required");
+      }
+      await toggleIntegrationItem(list.integrationId, itemId, checked);
+    }
+    else {
+      await updateShoppingListItem(itemId, { checked });
+    }
   }
   catch (error) {
-    console.error("Failed to toggle item:", error);
+    consola.error("Failed to toggle item:", error);
+    showError("Error", "Failed to toggle item. Please try again.");
   }
 }
 
 async function handleDeleteList(listId: string) {
-  confirmAction.value = async () => {
-    try {
+  try {
+    if (editingList.value?.source === "native" || !editingList.value?.source) {
       await deleteShoppingList(listId);
     }
-    catch (error) {
-      console.error("Failed to delete list:", error);
+    else {
+      showWarning("Warning", "Deleting lists in integrations is not yet supported.");
     }
-  };
-  confirmDialog.value = true;
-}
-
-async function handleConfirm() {
-  if (confirmAction.value) {
-    await confirmAction.value();
-    confirmAction.value = null;
-    confirmDialog.value = false;
+  }
+  catch (error) {
+    consola.error("Failed to delete list:", error);
+    showError("Error", "Failed to delete list. Please try again.");
   }
 }
 
 const reorderingItems = ref(new Set<string>());
 
-function showAlert(message: string, type: "error" | "warning" | "success" | "info" = "error") {
-  alertMessage.value = message;
-  alertType.value = type;
-  alertDialog.value = true;
-}
-
 async function handleReorderItem(itemId: string, direction: "up" | "down") {
-  // Prevent multiple simultaneous reorders of the same item
   if (reorderingItems.value.has(itemId))
     return;
 
   reorderingItems.value.add(itemId);
 
   try {
-    await reorderItem(itemId, direction);
+    const list = findItemList(itemId);
+    if (!list) {
+      throw new Error("Item not found in any list");
+    }
+
+    if (list.source === "integration") {
+      showWarning("Reorder Not Supported", "Reordering items in integration lists is not currently supported.");
+    }
+    else {
+      await reorderItem(itemId, direction);
+    }
   }
   catch (error) {
-    console.error("Failed to reorder item:", error);
-    showAlert("Failed to reorder item. Please try again.");
+    consola.error("Failed to reorder item:", error);
+    showError("Reorder Failed", "Failed to reorder item. Please try again.");
   }
   finally {
     reorderingItems.value.delete(itemId);
@@ -208,18 +378,27 @@ async function handleReorderItem(itemId: string, direction: "up" | "down") {
 const reorderingLists = ref(new Set<string>());
 
 async function handleReorderList(listId: string, direction: "up" | "down") {
-  // Prevent multiple simultaneous reorders of the same list
   if (reorderingLists.value.has(listId))
     return;
 
   reorderingLists.value.add(listId);
 
   try {
-    await reorderShoppingList(listId, direction);
+    const list = allShoppingLists.value.find(l => l.id === listId);
+    if (!list) {
+      throw new Error("List not found");
+    }
+
+    if (list.source === "integration") {
+      showWarning("Reorder Not Supported", "Reordering integration lists is not currently supported.");
+    }
+    else {
+      await reorderShoppingList(listId, direction);
+    }
   }
   catch (error) {
-    console.error("Failed to reorder shopping list:", error);
-    showAlert("Failed to reorder shopping list. Please try again.");
+    consola.error("Failed to reorder shopping list:", error);
+    showError("Reorder Failed", "Failed to reorder shopping list. Please try again.");
   }
   finally {
     reorderingLists.value.delete(listId);
@@ -228,94 +407,219 @@ async function handleReorderList(listId: string, direction: "up" | "down") {
 
 async function handleClearCompleted(listId: string) {
   try {
-    await deleteCompletedItems(listId);
+    const list = allShoppingLists.value.find(l => l.id === listId);
+    if (!list) {
+      throw new Error("List not found");
+    }
+
+    if (list.source === "integration") {
+      if (!list.integrationId) {
+        throw new Error("Integration ID is required");
+      }
+      await clearIntegrationCompletedItems(list.integrationId, listId);
+    }
+    else {
+      await deleteCompletedItems(listId);
+    }
   }
   catch (error) {
-    console.error("Failed to clear completed items:", error);
-    showAlert("Failed to clear completed items. Please try again.", "error");
+    consola.error("Failed to clear completed items:", error);
+    showError("Clear Failed", "Failed to clear completed items. Please try again.");
   }
 }
 
-function getIntegrationIcon(_service: string) {
-  return "i-lucide-plug";
+function findItemList(itemId: string) {
+  return allShoppingLists.value.find(list =>
+    list.items?.some((item: ShoppingListItem) => item.id === itemId),
+  );
+}
+
+function getIntegrationIconUrl(integration: { icon?: string | null; type: string; service: string }) {
+  if (integration.icon) {
+    return integration.icon;
+  }
+
+  const config = integrationRegistry.get(`${integration.type}:${integration.service}`);
+  return config?.icon || null;
+}
+
+function getIntegrationCapabilities(integrationId: string): string[] {
+  const integrations = shoppingIntegrations.value as Integration[];
+  const integration = integrations.find(i => i.id === integrationId);
+  if (!integration)
+    return [];
+
+  const config = integrationRegistry.get(`${integration.type}:${integration.service}`);
+  return config?.capabilities || [];
+}
+
+function hasCapability(integrationId: string, capability: string): boolean {
+  const capabilities = getIntegrationCapabilities(integrationId);
+  return capabilities.includes(capability);
+}
+
+function getIntegrationType(): string | undefined {
+  if (editingItem.value?.source === "integration") {
+    const integrations: Integration[] = shoppingIntegrations.value as Integration[];
+    const integration = integrations.find(i => i.id === editingItem.value?.integrationId);
+    return integration?.service;
+  }
+
+  if (selectedListId.value) {
+    const selectedList = allShoppingLists.value.find(list => list.id === selectedListId.value);
+    if (selectedList?.source === "integration") {
+      const integrations: Integration[] = shoppingIntegrations.value as Integration[];
+      const integration = integrations.find(i => i.id === selectedList.integrationId);
+      return integration?.service;
+    }
+  }
+
+  return undefined;
+}
+
+function getItemIntegrationCapabilities(): string[] | undefined {
+  if (editingItem.value?.source === "integration") {
+    if (!editingItem.value.integrationId) {
+      return undefined;
+    }
+    return getIntegrationCapabilities(editingItem.value.integrationId);
+  }
+
+  if (selectedListId.value) {
+    const selectedList = allShoppingLists.value.find(list => list.id === selectedListId.value);
+    if (selectedList?.source === "integration") {
+      if (!selectedList.integrationId) {
+        return undefined;
+      }
+      return getIntegrationCapabilities(selectedList.integrationId);
+    }
+  }
+
+  return undefined;
+}
+
+function getFilteredFieldsForItem(item: ShoppingListItem, integrationType: string | undefined): DialogField[] {
+  const baseFields: DialogField[] = integrationType
+    ? getIntegrationFields(integrationType)
+    : [
+        {
+          key: "name",
+          label: "Item Name",
+          type: "text" as const,
+          placeholder: "Milk, Bread, Apples, etc.",
+          required: true,
+          canEdit: true,
+        },
+        {
+          key: "quantity",
+          label: "Quantity",
+          type: "number" as const,
+          min: 0,
+          canEdit: true,
+        },
+        {
+          key: "unit",
+          label: "Unit",
+          type: "text" as const,
+          placeholder: "Can, Box, etc.",
+          canEdit: true,
+        },
+        {
+          key: "notes",
+          label: "Notes",
+          type: "textarea" as const,
+          placeholder: "Additional notes (optional)",
+          canEdit: true,
+        },
+      ];
+
+  return getFieldsForItem(item, integrationType, baseFields) as DialogField[];
+}
+
+async function handleSyncIntegrationLists() {
+  try {
+    await syncShoppingLists();
+    showSuccess("Sync Complete", "Your shopping lists have been successfully synchronized with all integrations.");
+  }
+  catch (error: unknown) {
+    consola.error("Failed to sync integration lists:", error);
+
+    let errorMessage = "There was an error while trying to sync your shopping lists. Please check your connection and try again.";
+
+    if (error && typeof error === "object" && "cause" in error && error.cause && typeof error.cause === "object" && "statusMessage" in error.cause) {
+      errorMessage = (error.cause as { statusMessage: string }).statusMessage;
+    }
+    else if (error && typeof error === "object" && "cause" in error && error.cause && typeof error.cause === "object" && "detail" in error.cause) {
+      errorMessage = (error.cause as { detail: string }).detail;
+    }
+    else if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
+      errorMessage = error.message;
+    }
+
+    showError("Sync Failed", errorMessage);
+  }
 }
 </script>
 
 <template>
   <div class="flex h-[calc(100vh-2rem)] w-full flex-col rounded-lg">
-    <!-- Header -->
     <div class="py-5 sm:px-4 sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
       <GlobalDateHeader />
 
-      <!-- Tabs (only show if integrations are enabled) -->
-      <div v-if="hasEnabledIntegrations" class="mt-4">
-        <div class="border-b border-gray-200 dark:border-gray-700">
-          <nav class="-mb-px flex space-x-8">
-            <button
-              class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm"
-              :class="[
-                activeTab === 'native'
-                  ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-                  : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300',
-              ]"
-              @click="activeTab = 'native'; selectedIntegrationId = null"
-            >
-              Native Lists
-            </button>
-            <template v-for="integration in enabledIntegrationsByType" :key="integration.id">
-              <button
-                class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm flex items-center gap-2"
-                :class="[
-                  activeTab === integration.service && selectedIntegrationId === integration.id
-                    ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300',
-                ]"
-                @click="activeTab = integration.service; selectedIntegrationId = integration.id"
-              >
-                <UIcon
-                  :name="getIntegrationIcon(integration.service)"
-                  class="h-4 w-4"
-                />
-                {{ integration.name }}
-              </button>
-            </template>
-          </nav>
-        </div>
+      <div v-if="enabledIntegrationsByType.length > 0" class="mt-4 flex justify-end">
+        <UButton
+          color="primary"
+          variant="outline"
+          size="sm"
+          :loading="integrationLoading"
+          @click="handleSyncIntegrationLists"
+        >
+          <UIcon name="i-lucide-refresh-cw" class="h-4 w-4 mr-1" />
+          Sync Integrations
+        </UButton>
       </div>
     </div>
 
-    <!-- Shopping Lists Content -->
-    <div class="flex-1 overflow-hidden">
-      <!-- Native Lists -->
-      <div v-if="activeTab === 'native'" class="flex-1 overflow-y-auto">
-        <GlobalList
-          :lists="shoppingLists"
-          :loading="loading"
-          empty-state-icon="i-lucide-shopping-cart"
-          empty-state-title="No shopping lists found"
-          empty-state-description="Create your first shopping list to get started"
-          show-quantity
-          show-notes
-          show-reorder
-          show-edit
-          show-add
-          show-completed
-          @create="openCreateList"
-          @edit="editingList = $event; listDialog = true"
-          @delete="handleDeleteList"
-          @add-item="openAddItem"
-          @edit-item="openEditItem"
-          @toggle-item="handleToggleItem"
-          @reorder-item="handleReorderItem"
-          @reorder-list="handleReorderList"
-          @clear-completed="handleClearCompleted"
-        />
-      </div>
+    <div class="flex-1 overflow-y-auto">
+      <GlobalList
+        :lists="transformedShoppingLists"
+        :loading="isLoading"
+        empty-state-icon="i-lucide-shopping-cart"
+        empty-state-title="No shopping lists found"
+        empty-state-description="Create your first shopping list to get started"
+        show-quantity
+        :show-notes="true"
+        show-reorder
+        :show-edit="(list) => {
+          const shoppingList = list as ShoppingList;
+          return shoppingList.source === 'native';
+        }"
+        :show-add="(list) => {
+          const shoppingList = list as ShoppingList;
+          return shoppingList.source === 'native' || (shoppingList.integrationId ? hasCapability(shoppingList.integrationId!, 'add_items') : false);
+        }"
+        :show-edit-item="(list) => {
+          const shoppingList = list as ShoppingList;
+          return shoppingList.source === 'native' || (shoppingList.integrationId ? hasCapability(shoppingList.integrationId!, 'edit_items') : false);
+        }"
+        :show-completed="(list) => {
+          const shoppingList = list as ShoppingList;
+          return shoppingList.source === 'native' || (shoppingList.integrationId ? hasCapability(shoppingList.integrationId!, 'clear_items') : false);
+        }"
+        show-integration-icons
+        @create="openCreateList"
+        @edit="editingList = $event as ShoppingList; listDialog = true"
+        @delete="handleDeleteList"
+        @add-item="openAddItem"
+        @edit-item="(item) => openEditItem(item as ShoppingListItem)"
+        @toggle-item="handleToggleItem"
+        @reorder-item="handleReorderItem"
+        @reorder-list="handleReorderList"
+        @clear-completed="handleClearCompleted"
+      />
     </div>
 
-    <!-- Floating Action Button -->
     <UButton
-      v-if="activeTab === 'native'"
       class="fixed bottom-6 right-6 h-12 w-12 rounded-full shadow-lg"
       color="primary"
       @click="openCreateList"
@@ -323,10 +627,10 @@ function getIntegrationIcon(_service: string) {
       <UIcon name="i-lucide-plus" class="h-6 w-6" />
     </UButton>
 
-    <!-- Dialogs -->
     <ShoppingListDialog
       :is-open="listDialog"
       :list="editingList"
+      :integration-capabilities="editingList?.source === 'integration' && editingList.integrationId ? getIntegrationCapabilities(editingList.integrationId) : undefined"
       @close="listDialog = false; editingList = null"
       @save="handleListSave"
       @delete="handleListDelete"
@@ -335,26 +639,11 @@ function getIntegrationIcon(_service: string) {
     <ShoppingListItemDialog
       :is-open="itemDialog"
       :item="editingItem"
+      :fields="getFilteredFieldsForItem(editingItem ?? { integrationData: {} } as ShoppingListItem, getIntegrationType())"
+      :integration-capabilities="getItemIntegrationCapabilities()"
       @close="itemDialog = false; selectedListId = ''; editingItem = null"
       @save="handleItemSave"
       @delete="handleItemDelete"
-    />
-
-    <GlobalConfirm
-      :is-open="confirmDialog"
-      title="Delete Shopping List"
-      message="Are you sure you want to delete this shopping list? This action cannot be undone."
-      confirm-text="Delete"
-      variant="danger"
-      @close="confirmDialog = false; confirmAction = null"
-      @confirm="handleConfirm"
-    />
-
-    <GlobalAlert
-      :is-open="alertDialog"
-      :message="alertMessage"
-      :type="alertType"
-      @close="alertDialog = false"
     />
   </div>
 </template>

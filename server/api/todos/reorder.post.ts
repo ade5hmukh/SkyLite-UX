@@ -12,7 +12,6 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Get the current todo
     const currentTodo = await prisma.todo.findUnique({
       where: { id: todoId },
     });
@@ -24,7 +23,6 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Get all todos for the same column in the same completion state
     const todos = await prisma.todo.findMany({
       where: {
         todoColumnId: todoColumnId || null,
@@ -33,12 +31,10 @@ export default defineEventHandler(async (event) => {
       orderBy: { order: "asc" },
     });
 
-    // Find current position
     const currentIndex = todos.findIndex(t => t.id === todoId);
     if (currentIndex === -1)
       return currentTodo;
 
-    // Calculate new position
     let targetIndex;
     if (direction === "up" && currentIndex > 0) {
       targetIndex = currentIndex - 1;
@@ -47,11 +43,13 @@ export default defineEventHandler(async (event) => {
       targetIndex = currentIndex + 1;
     }
     else {
-      return currentTodo; // No change needed
+      return currentTodo;
     }
 
-    // Simple swap: just exchange the order values of the two adjacent todos
     const targetTodo = todos[targetIndex];
+    if (!targetTodo) {
+      return currentTodo;
+    }
     const tempOrder = currentTodo.order;
 
     await prisma.$transaction([
@@ -65,7 +63,6 @@ export default defineEventHandler(async (event) => {
       }),
     ]);
 
-    // Return updated todo
     const updatedTodo = await prisma.todo.findUnique({
       where: { id: todoId },
       include: {

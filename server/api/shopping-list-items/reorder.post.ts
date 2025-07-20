@@ -12,7 +12,6 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Get the current item
     const currentItem = await prisma.shoppingListItem.findUnique({
       where: { id: itemId },
     });
@@ -24,7 +23,6 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Get all items for the same shopping list
     const items = await prisma.shoppingListItem.findMany({
       where: {
         shoppingListId: currentItem.shoppingListId,
@@ -32,12 +30,10 @@ export default defineEventHandler(async (event) => {
       orderBy: { order: "asc" },
     });
 
-    // Find current position
     const currentIndex = items.findIndex(item => item.id === itemId);
     if (currentIndex === -1)
       return currentItem;
 
-    // Calculate new position
     let targetIndex;
     if (direction === "up" && currentIndex > 0) {
       targetIndex = currentIndex - 1;
@@ -46,11 +42,13 @@ export default defineEventHandler(async (event) => {
       targetIndex = currentIndex + 1;
     }
     else {
-      return currentItem; // No change needed
+      return currentItem;
     }
 
-    // Simple swap: just exchange the order values of the two adjacent items
     const targetItem = items[targetIndex];
+    if (!targetItem) {
+      return currentItem;
+    }
     const tempOrder = currentItem.order;
 
     await prisma.$transaction([
@@ -64,7 +62,6 @@ export default defineEventHandler(async (event) => {
       }),
     ]);
 
-    // Return updated item
     const updatedItem = await prisma.shoppingListItem.findUnique({
       where: { id: itemId },
     });

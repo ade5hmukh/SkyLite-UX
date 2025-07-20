@@ -63,13 +63,13 @@ export type TodoColumnBasic = Pick<TodoColumn, "id" | "name"> & {
 };
 
 // Base types for lists
-export interface BaseListItem {
+export type BaseListItem = {
   id: string;
   name: string;
   checked: boolean;
   order: number;
   notes: string | null;
-}
+};
 
 // Shopping List types
 export type ShoppingList = {
@@ -82,12 +82,20 @@ export type ShoppingList = {
   _count?: {
     items: number;
   };
+  source?: "native" | "integration";
+  integrationId?: string;
+  integrationName?: string;
+  integrationIcon?: string | null;
 };
 
 export type ShoppingListItem = BaseListItem & {
   quantity: number;
   unit: string | null;
   label: string | null;
+  food: string | null;
+  integrationData?: JsonObject;
+  source?: "native" | "integration";
+  integrationId?: string;
 };
 
 export type ShoppingListWithItems = Prisma.ShoppingListGetPayload<{
@@ -108,6 +116,7 @@ export type Integration = {
   service: string;
   apiKey: string | null;
   baseUrl: string | null;
+  icon: string | null;
   enabled: boolean;
   settings: JsonObject | null;
   createdAt: Date;
@@ -142,6 +151,10 @@ export type TodoList = {
 };
 
 export type TodoListItem = BaseListItem & {
+  description: string;
+  priority: Priority;
+  dueDate: Date | null;
+  todoColumnId: string;
   shoppingListId: string;
 };
 

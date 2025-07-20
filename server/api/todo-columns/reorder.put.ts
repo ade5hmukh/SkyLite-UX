@@ -5,7 +5,6 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event);
     const { reorders } = body;
 
-    // Use a transaction to ensure all updates happen atomically
     await prisma.$transaction(
       reorders.map((reorder: { id: string; order: number }) =>
         prisma.todoColumn.update({
@@ -15,7 +14,6 @@ export default defineEventHandler(async (event) => {
       ),
     );
 
-    // Return updated todo columns
     const todoColumns = await prisma.todoColumn.findMany({
       include: {
         user: {

@@ -1,9 +1,12 @@
 <script setup lang="ts">
-import type { CreateShoppingListItemInput } from "~/types/database";
+import type { DialogField } from "~/integrations/integrationConfig";
+import type { CreateShoppingListItemInput, ShoppingListItem } from "~/types/database";
 
 const props = defineProps<{
   isOpen: boolean;
-  item?: any | null;
+  item?: ShoppingListItem | null;
+  fields: DialogField[];
+  integrationCapabilities?: string[];
 }>();
 
 const emit = defineEmits<{
@@ -12,49 +15,87 @@ const emit = defineEmits<{
   (e: "delete", itemId: string): void;
 }>();
 
-// Form state
-const name = ref("");
-const quantity = ref(1);
-const unit = ref("");
-const notes = ref("");
+// Type for form data - can be string or number based on field type
+type FormData = Record<string, string | number>;
+
+const formData = ref<FormData>({});
+
+function initializeFormData() {
+  const initialData: FormData = {};
+  props.fields.forEach((field: DialogField) => {
+    switch (field.type) {
+      case "number":
+        initialData[field.key] = 0;
+        break;
+      case "textarea":
+      case "text":
+      default:
+        initialData[field.key] = "";
+        break;
+    }
+  });
+  formData.value = initialData;
+}
 const error = ref<string | null>(null);
 
-// Watch for modal open/close and item changes
+const fields = computed(() => {
+  return props.fields.map((field: DialogField) => ({
+    ...field,
+    disabled: !field.canEdit,
+  }));
+});
+
+const canDelete = computed(() => {
+  if (!props.integrationCapabilities)
+    return true;
+
+  return props.integrationCapabilities.includes("delete_items");
+});
+
 watch(() => [props.isOpen, props.item], ([isOpen, item]) => {
   if (isOpen) {
     resetForm();
-    if (item) {
-      name.value = item.name || "";
-      quantity.value = item.quantity || 1;
-      unit.value = item.unit || "";
-      notes.value = item.notes || "";
+    if (item && typeof item === "object") {
+      props.fields.forEach((field) => {
+        const fieldKey = field.key;
+        const fieldValue = (item as unknown as Record<string, unknown>)[fieldKey];
+        if (fieldValue !== undefined) {
+          if (field.type === "number") {
+            formData.value[fieldKey] = Number(fieldValue);
+          }
+          else {
+            formData.value[fieldKey] = String(fieldValue);
+          }
+        }
+      });
     }
   }
 }, { immediate: true });
 
 function resetForm() {
-  name.value = "";
-  quantity.value = 1;
-  unit.value = "";
-  notes.value = "";
+  initializeFormData();
   error.value = null;
 }
 
 function handleSave() {
-  if (!name.value.trim()) {
-    error.value = "Item name is required";
+  const requiredField = props.fields.find((f: DialogField) => f.required && f.canEdit);
+  if (requiredField && !formData.value[requiredField.key]?.toString().trim()) {
+    error.value = `${requiredField.label} is required`;
     return;
   }
 
-  emit("save", {
-    name: name.value.trim(),
-    quantity: quantity.value,
-    unit: unit.value.trim() || null,
-    notes: notes.value.trim() || null,
+  const saveData: CreateShoppingListItemInput = {
+    name: formData.value.name?.toString().trim() || formData.value.notes?.toString().trim() || "Unknown",
+    quantity: Number(formData.value.quantity) || 0,
+    unit: formData.value.unit?.toString().trim() || null,
+    notes: formData.value.notes?.toString().trim() || null,
+    food: formData.value.food?.toString().trim() || null,
     checked: false,
     order: 0,
     label: null,
-  });
+  };
+
+  emit("save", saveData);
 }
 
 function handleDelete() {
@@ -92,54 +133,91 @@ function handleDelete() {
           {{ error }}
         </div>
 
-        <div class="space-y-2">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Item Name</label>
-          <UInput
-            v-model="name"
-            placeholder="Milk, Bread, Apples, etc."
-            class="w-full"
-            :ui="{ base: 'w-full' }"
-          />
-        </div>
+        <template v-for="field in fields" :key="field.key">
+          <div v-if="field.key === 'quantity'" class="flex gap-4">
+            <div class="w-1/2 space-y-2">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-1">
+                {{ field.label }}
+                <UIcon
+                  v-if="field.disabled"
+                  name="i-lucide-lock"
+                  class="h-3 w-3 text-gray-400"
+                />
+              </label>
+              <UInput
+                v-model.number="formData[field.key]"
+                type="number"
+                :min="field.min"
+                :disabled="field.disabled"
+                class="w-full"
+                :ui="{ base: 'w-full' }"
+              />
+            </div>
 
-        <div class="flex gap-4">
-          <div class="w-1/2 space-y-2">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Quantity</label>
+            <div v-if="fields.find((f: DialogField) => f.key === 'unit')" class="w-1/2 space-y-2">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-1">
+                Unit
+                <UIcon
+                  v-if="fields.find((f: DialogField) => f.key === 'unit')?.disabled"
+                  name="i-lucide-lock"
+                  class="h-3 w-3 text-gray-400"
+                />
+              </label>
+              <UInput
+                v-model="formData.unit"
+                :placeholder="fields.find((f: DialogField) => f.key === 'unit')?.placeholder || 'Unit'"
+                :disabled="fields.find((f: DialogField) => f.key === 'unit')?.disabled"
+                class="w-full"
+                :ui="{ base: 'w-full' }"
+              />
+            </div>
+          </div>
+
+          <div v-else-if="field.key !== 'unit'" class="space-y-2">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-1">
+              {{ field.label }}
+              <UIcon
+                v-if="field.disabled"
+                name="i-lucide-lock"
+                class="h-3 w-3 text-gray-400"
+              />
+            </label>
+
             <UInput
-              v-model.number="quantity"
+              v-if="field.type === 'text'"
+              v-model="formData[field.key]"
+              :placeholder="field.placeholder"
+              :disabled="field.disabled"
+              class="w-full"
+              :ui="{ base: 'w-full' }"
+            />
+
+            <UInput
+              v-else-if="field.type === 'number'"
+              v-model.number="formData[field.key]"
               type="number"
-              min="1"
+              :min="field.min"
+              :disabled="field.disabled"
+              class="w-full"
+              :ui="{ base: 'w-full' }"
+            />
+
+            <UTextarea
+              v-else-if="field.type === 'textarea'"
+              v-model="formData[field.key]"
+              :placeholder="field.placeholder"
+              :disabled="field.disabled"
+              :rows="2"
               class="w-full"
               :ui="{ base: 'w-full' }"
             />
           </div>
-
-          <div class="w-1/2 space-y-2">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Unit</label>
-            <UInput
-              v-model="unit"
-              placeholder="Can, Box, etc."
-              class="w-full"
-              :ui="{ base: 'w-full' }"
-            />
-          </div>
-        </div>
-
-        <div class="space-y-2">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Notes</label>
-          <UTextarea
-            v-model="notes"
-            placeholder="Additional notes (optional)"
-            :rows="2"
-            class="w-full"
-            :ui="{ base: 'w-full' }"
-          />
-        </div>
+        </template>
       </div>
 
       <div class="flex justify-between p-4 border-t border-gray-200 dark:border-gray-700">
         <UButton
-          v-if="item?.id"
+          v-if="item?.id && canDelete"
           color="error"
           variant="ghost"
           icon="i-lucide-trash"
@@ -147,7 +225,7 @@ function handleDelete() {
         >
           Delete
         </UButton>
-        <div class="flex gap-2" :class="{ 'ml-auto': !item?.id }">
+        <div class="flex gap-2" :class="{ 'ml-auto': !item?.id || !canDelete }">
           <UButton
             color="neutral"
             variant="ghost"

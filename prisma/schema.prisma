@@ -96,6 +96,7 @@ model Integration {
   service   String   // e.g., "tandoor", "mealie", "google"
   apiKey    String?
   baseUrl   String?
+  icon      String?  // URL to the integration icon
   enabled   Boolean  @default(true)
   settings  Json?    // Additional settings specific to the integration
   createdAt DateTime @default(now())

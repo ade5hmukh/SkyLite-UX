@@ -1,3 +1,5 @@
+import { consola } from "consola";
+
 import type { TodoColumn } from "~/types/database";
 
 export function useTodoColumns() {
@@ -12,7 +14,7 @@ export function useTodoColumns() {
   const fetchTodoColumns = async () => {
     loading.value = true;
     try {
-      const data = await $fetch<any[]>("/api/todo-columns");
+      const data = await $fetch<TodoColumn[]>("/api/todo-columns");
       todoColumns.value = data.map(item => ({
         ...item,
         createdAt: new Date(item.createdAt).toISOString(),
@@ -20,9 +22,9 @@ export function useTodoColumns() {
       }));
       error.value = null;
     }
-    catch (err: any) {
-      error.value = err?.message || "Failed to fetch todo columns";
-      console.error("Failed to fetch todo columns:", err);
+    catch (err) {
+      error.value = err instanceof Error ? err.message : "Failed to fetch todo columns";
+      consola.error("Failed to fetch todo columns:", err);
     }
     finally {
       loading.value = false;
@@ -53,9 +55,9 @@ export function useTodoColumns() {
       error.value = null;
       return newColumn;
     }
-    catch (err: any) {
-      error.value = err?.message || "Failed to create todo column";
-      console.error("Failed to create todo column:", err);
+    catch (err) {
+      error.value = err instanceof Error ? err.message : "Failed to create todo column";
+      consola.error("Failed to create todo column:", err);
       throw err;
     }
     finally {
@@ -80,9 +82,9 @@ export function useTodoColumns() {
       error.value = null;
       return updatedColumn;
     }
-    catch (err: any) {
-      error.value = err?.message || "Failed to update todo column";
-      console.error("Failed to update todo column:", err);
+    catch (err) {
+      error.value = err instanceof Error ? err.message : "Failed to update todo column";
+      consola.error("Failed to update todo column:", err);
       throw err;
     }
   };
@@ -103,9 +105,9 @@ export function useTodoColumns() {
       error.value = null;
       return true;
     }
-    catch (err: any) {
-      error.value = err?.message || "Failed to delete todo column";
-      console.error("Failed to delete todo column:", err);
+    catch (err) {
+      error.value = err instanceof Error ? err.message : "Failed to delete todo column";
+      consola.error("Failed to delete todo column:", err);
       throw err;
     }
   };
@@ -143,11 +145,11 @@ export function useTodoColumns() {
       todoColumns.value = updatedColumns;
       error.value = null;
     }
-    catch (err: any) {
+    catch (err) {
       // Rollback on error
       await fetchTodoColumns();
-      error.value = err?.message || "Failed to reorder todo columns";
-      console.error("Failed to reorder todo columns:", err);
+      error.value = err instanceof Error ? err.message : "Failed to reorder todo columns";
+      consola.error("Failed to reorder todo columns:", err);
       throw err;
     }
   };

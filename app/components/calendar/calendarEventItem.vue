@@ -73,7 +73,7 @@ function handleTouchStart(e: TouchEvent) {
     :class="[
       getEventColorClasses(event.color),
       className,
-      (view === 'week' || view === 'day') && 'h-full'
+      (view === 'week' || view === 'day') && 'h-full',
     ]"
     :data-past-event="isPast(new Date(event.end)) || undefined"
     @click="handleClick"

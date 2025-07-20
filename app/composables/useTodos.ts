@@ -1,25 +1,30 @@
+import { consola } from "consola";
+
 import type { CreateTodoInput, TodoWithUser, UpdateTodoInput } from "~/types/database";
 
+// Extended type to include order property for todos
+type TodoWithOrder = TodoWithUser & { order: number };
+
 export function useTodos() {
-  const todos = ref<TodoWithUser[]>([]);
+  const todos = ref<TodoWithOrder[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
   // Server-side data fetching
-  const { data: serverTodos } = useNuxtData<TodoWithUser[]>("todos");
+  const { data: serverTodos } = useNuxtData<TodoWithOrder[]>("todos");
 
   const fetchTodos = async (todoColumnId?: string) => {
     loading.value = true;
     error.value = null;
     try {
       const query = todoColumnId ? `?todoColumnId=${todoColumnId}` : "";
-      const data = await $fetch<TodoWithUser[]>(`/api/todos${query}`);
+      const data = await $fetch<TodoWithOrder[]>(`/api/todos${query}`);
       todos.value = data || [];
       return todos.value;
     }
     catch (err) {
       error.value = "Failed to fetch todos";
-      console.error("Error fetching todos:", err);
+      consola.error("Error fetching todos:", err);
       return [];
     }
     finally {
@@ -36,7 +41,7 @@ export function useTodos() {
 
   const createTodo = async (todoData: CreateTodoInput) => {
     try {
-      const newTodo = await $fetch<TodoWithUser>("/api/todos", {
+      const newTodo = await $fetch<TodoWithOrder>("/api/todos", {
         method: "POST",
         body: todoData,
       });
@@ -45,14 +50,14 @@ export function useTodos() {
     }
     catch (err) {
       error.value = "Failed to create todo";
-      console.error("Error creating todo:", err);
+      consola.error("Error creating todo:", err);
       throw err;
     }
   };
 
   const updateTodo = async (id: string, updates: UpdateTodoInput) => {
     try {
-      const updatedTodo = await $fetch<TodoWithUser>(`/api/todos/${id}`, {
+      const updatedTodo = await $fetch<TodoWithOrder>(`/api/todos/${id}`, {
         method: "PUT",
         body: updates,
       });
@@ -64,7 +69,7 @@ export function useTodos() {
     }
     catch (err) {
       error.value = "Failed to update todo";
-      console.error("Error updating todo:", err);
+      consola.error("Error updating todo:", err);
       throw err;
     }
   };
@@ -85,7 +90,7 @@ export function useTodos() {
     }
     catch (err) {
       error.value = "Failed to delete todo";
-      console.error("Error deleting todo:", err);
+      consola.error("Error deleting todo:", err);
       throw err;
     }
   };
@@ -106,7 +111,7 @@ export function useTodos() {
           t.todoColumnId === todoColumnId
           && t.completed === currentTodo.completed,
         )
-        .sort((a, b) => ((a as any).order || 0) - ((b as any).order || 0));
+        .sort((a, b) => (a.order || 0) - (b.order || 0));
 
       const currentIndex = sameSectionTodos.findIndex(t => t.id === todoId);
       if (currentIndex === -1)
@@ -128,8 +133,8 @@ export function useTodos() {
         return;
 
       // Optimistically update the order values
-      const currentOrder = (currentTodo as any).order;
-      const targetOrder = (targetTodo as any).order;
+      const currentOrder = currentTodo.order;
+      const targetOrder = targetTodo.order;
 
       // Find and update the todos in the main array
       todos.value = todos.value.map((todo) => {
@@ -152,7 +157,7 @@ export function useTodos() {
       // Revert on error
       todos.value = originalTodos;
       error.value = "Failed to reorder todo";
-      console.error("Error reordering todo:", err);
+      consola.error("Error reordering todo:", err);
       throw err;
     }
   };
@@ -161,7 +166,7 @@ export function useTodos() {
     try {
       // Find all completed todos for this column
       const completedTodos = todos.value.filter(t => t.todoColumnId === columnId && t.completed);
-      
+
       if (completedTodos.length === 0)
         return;
 
@@ -176,7 +181,7 @@ export function useTodos() {
     }
     catch (err) {
       error.value = "Failed to clear completed todos";
-      console.error("Error clearing completed todos:", err);
+      consola.error("Error clearing completed todos:", err);
       throw err;
     }
   };

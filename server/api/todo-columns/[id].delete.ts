@@ -11,7 +11,6 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Check if the column exists and get its details
     const existingColumn = await prisma.todoColumn.findUnique({
       where: { id },
       include: {
@@ -26,7 +25,6 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Prevent deletion of user columns
     if (existingColumn.userId) {
       throw createError({
         statusCode: 400,
@@ -34,14 +32,11 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Delete column and its todos in a transaction
     await prisma.$transaction(async (tx) => {
-      // Delete all todos in the column
       await tx.todo.deleteMany({
         where: { todoColumnId: id },
       });
 
-      // Delete the column
       await tx.todoColumn.delete({
         where: { id },
       });

@@ -1,30 +1,33 @@
+import { consola } from "consola";
+
 import type { CreateShoppingListInput, CreateShoppingListItemInput, ShoppingListItem, ShoppingListWithItemsAndCount, UpdateShoppingListItemInput } from "~/types/database";
 
+// Extended type to include order property for shopping lists
+type ShoppingListWithOrder = ShoppingListWithItemsAndCount & { order: number };
+
 export function useShoppingLists() {
-  const shoppingLists = ref<ShoppingListWithItemsAndCount[]>([]);
+  const shoppingLists = ref<ShoppingListWithOrder[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  // Server-side data fetching
-  const { data: serverShoppingLists } = useNuxtData<ShoppingListWithItemsAndCount[]>("shopping-lists");
+  const { data: serverShoppingLists } = useNuxtData<ShoppingListWithOrder[]>("native-shopping-lists");
 
-  const fetchShoppingLists = async () => {
+  const getShoppingLists = async () => {
     loading.value = true;
     error.value = null;
     try {
-      const data = await $fetch<ShoppingListWithItemsAndCount[]>("/api/shopping-lists");
+      const data = await $fetch<ShoppingListWithOrder[]>("/api/shopping-lists");
       shoppingLists.value = data || [];
     }
     catch (err) {
       error.value = "Failed to fetch shopping lists";
-      console.error("Error fetching shopping lists:", err);
+      consola.error("Error fetching shopping lists:", err);
     }
     finally {
       loading.value = false;
     }
   };
 
-  // Watch for server data changes
   watch(serverShoppingLists, (newLists) => {
     if (newLists) {
       shoppingLists.value = newLists;
@@ -33,7 +36,7 @@ export function useShoppingLists() {
 
   const createShoppingList = async (listData: CreateShoppingListInput) => {
     try {
-      const newList = await $fetch<ShoppingListWithItemsAndCount>("/api/shopping-lists", {
+      const newList = await $fetch<ShoppingListWithOrder>("/api/shopping-lists", {
         method: "POST",
         body: listData,
       });
@@ -42,19 +45,18 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to create shopping list";
-      console.error("Error creating shopping list:", err);
+      consola.error("Error creating shopping list:", err);
       throw err;
     }
   };
 
   const updateShoppingList = async (listId: string, updates: { name?: string }) => {
     try {
-      const updatedList = await $fetch<ShoppingListWithItemsAndCount>(`/api/shopping-lists/${listId}`, {
+      const updatedList = await $fetch<ShoppingListWithOrder>(`/api/shopping-lists/${listId}`, {
         method: "PUT",
         body: updates,
       });
 
-      // Update the list in the local state
       const listIndex = shoppingLists.value.findIndex(list => list.id === listId);
       if (listIndex !== -1) {
         shoppingLists.value[listIndex] = { ...shoppingLists.value[listIndex], ...updatedList };
@@ -64,7 +66,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to update shopping list";
-      console.error("Error updating shopping list:", err);
+      consola.error("Error updating shopping list:", err);
       throw err;
     }
   };
@@ -76,7 +78,6 @@ export function useShoppingLists() {
         body: updates,
       });
 
-      // Update the item in the local state
       shoppingLists.value.forEach((list) => {
         const itemIndex = list.items.findIndex(item => item.id === itemId);
         if (itemIndex !== -1) {
@@ -88,7 +89,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to update shopping list item";
-      console.error("Error updating shopping list item:", err);
+      consola.error("Error updating shopping list item:", err);
       throw err;
     }
   };
@@ -100,7 +101,6 @@ export function useShoppingLists() {
         body: itemData,
       });
 
-      // Add the item to the local state
       const list = shoppingLists.value.find(l => l.id === listId);
       if (list) {
         list.items.push({ ...newItem, shoppingListId: listId });
@@ -110,7 +110,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to add item to shopping list";
-      console.error("Error adding item to shopping list:", err);
+      consola.error("Error adding item to shopping list:", err);
       throw err;
     }
   };
@@ -127,7 +127,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to delete shopping list";
-      console.error("Error deleting shopping list:", err);
+      consola.error("Error deleting shopping list:", err);
       throw err;
     }
   };
@@ -137,11 +137,10 @@ export function useShoppingLists() {
   };
 
   const reorderShoppingList = async (listId: string, direction: "up" | "down") => {
-    // Store original state for potential rollback
     const originalShoppingLists = [...shoppingLists.value];
 
     try {
-      const sortedLists = [...shoppingLists.value].sort((a, b) => ((a as any).order || 0) - ((b as any).order || 0));
+      const sortedLists = [...shoppingLists.value].sort((a, b) => (a.order || 0) - (b.order || 0));
       const currentIndex = sortedLists.findIndex(list => list.id === listId);
 
       if (currentIndex === -1)
@@ -155,34 +154,30 @@ export function useShoppingLists() {
         targetIndex = currentIndex + 1;
       }
       else {
-        return; // No change needed
+        return;
       }
 
-      // Get the lists to swap
       const currentList = sortedLists[currentIndex];
       const targetList = sortedLists[targetIndex];
 
       if (!currentList || !targetList)
         return;
 
-      // Optimistically update the order values
-      const currentOrder = (currentList as any).order || 0;
-      const targetOrder = (targetList as any).order || 0;
+      const currentOrder = currentList.order || 0;
+      const targetOrder = targetList.order || 0;
 
-      // Update the lists
       shoppingLists.value = shoppingLists.value.map((list) => {
         if (list.id === currentList.id) {
-          return { ...list, order: targetOrder } as any;
+          return { ...list, order: targetOrder };
         }
         if (list.id === targetList.id) {
-          return { ...list, order: currentOrder } as any;
+          return { ...list, order: currentOrder };
         }
         return list;
       });
 
-      // Make API call with the new order
       const newOrder = shoppingLists.value
-        .sort((a, b) => ((a as any).order || 0) - ((b as any).order || 0))
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
         .map(list => list.id);
 
       await $fetch("/api/shopping-lists/reorder", {
@@ -191,20 +186,17 @@ export function useShoppingLists() {
       });
     }
     catch (err) {
-      // Revert on error
       shoppingLists.value = originalShoppingLists;
       error.value = "Failed to reorder shopping list";
-      console.error("Error reordering shopping list:", err);
+      consola.error("Error reordering shopping list:", err);
       throw err;
     }
   };
 
   const reorderItem = async (itemId: string, direction: "up" | "down") => {
-    // Store original state for potential rollback
     const originalShoppingLists = [...shoppingLists.value];
 
     try {
-      // Find the item and its list
       const listIndex = shoppingLists.value.findIndex(list =>
         list.items?.some(item => item.id === itemId),
       );
@@ -216,7 +208,7 @@ export function useShoppingLists() {
       if (!list?.items)
         return;
 
-      const sortedItems = [...list.items].sort((a, b) => ((a as any).order || 0) - ((b as any).order || 0));
+      const sortedItems = [...list.items].sort((a, b) => (a.order || 0) - (b.order || 0));
       const currentIndex = sortedItems.findIndex(item => item.id === itemId);
 
       if (currentIndex === -1)
@@ -230,47 +222,41 @@ export function useShoppingLists() {
         targetIndex = currentIndex + 1;
       }
       else {
-        return; // No change needed
+        return;
       }
 
-      // Get the items to swap
       const currentItem = sortedItems[currentIndex];
       const targetItem = sortedItems[targetIndex];
 
       if (!currentItem || !targetItem)
         return;
 
-      // Optimistically update the order values
-      const currentOrder = (currentItem as any).order || 0;
-      const targetOrder = (targetItem as any).order || 0;
+      const currentOrder = currentItem.order || 0;
+      const targetOrder = targetItem.order || 0;
 
-      // Update the items in the list
       const updatedItems = list.items.map((item) => {
         if (item.id === currentItem.id) {
-          return { ...item, order: targetOrder } as any;
+          return { ...item, order: targetOrder };
         }
         if (item.id === targetItem.id) {
-          return { ...item, order: currentOrder } as any;
+          return { ...item, order: currentOrder };
         }
         return item;
       });
 
-      // Update the list with new items
       const updatedList = {
         ...list,
         items: updatedItems,
       };
 
-      // Update the shopping lists array
       shoppingLists.value = [
         ...shoppingLists.value.slice(0, listIndex),
         updatedList,
         ...shoppingLists.value.slice(listIndex + 1),
       ];
 
-      // Make API call with the new order
       const newOrder = updatedItems
-        .sort((a, b) => ((a as any).order || 0) - ((b as any).order || 0))
+        .sort((a, b) => (a.order || 0) - (b.order || 0))
         .map(item => item.id);
 
       await $fetch("/api/shopping-list-items/reorder", {
@@ -279,22 +265,19 @@ export function useShoppingLists() {
       });
     }
     catch (err) {
-      // Revert on error
       shoppingLists.value = originalShoppingLists;
       error.value = "Failed to reorder item";
-      console.error("Error reordering item:", err);
+      consola.error("Error reordering item:", err);
       throw err;
     }
   };
 
   const deleteCompletedItems = async (listId: string) => {
     try {
-      // Find the list
       const list = shoppingLists.value.find(l => l.id === listId);
       if (!list)
         return;
 
-      // Get all completed item IDs
       const completedItemIds = list.items
         .filter(item => item.checked)
         .map(item => item.id);
@@ -302,19 +285,16 @@ export function useShoppingLists() {
       if (completedItemIds.length === 0)
         return;
 
-      // Delete all completed items
       await $fetch(`/api/shopping-lists/${listId}/items/clear-completed`, {
         method: "POST",
         body: { action: "delete" },
       });
 
-      // Update local state by removing completed items
       const updatedList = {
         ...list,
         items: list.items.filter(item => !item.checked),
       };
 
-      // Update the list in the local state
       const listIndex = shoppingLists.value.findIndex(l => l.id === listId);
       if (listIndex !== -1) {
         shoppingLists.value[listIndex] = updatedList;
@@ -322,28 +302,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to clear completed items";
-      console.error("Error clearing completed items:", err);
-      throw err;
-    }
-  };
-
-  const deleteShoppingListItem = async (itemId: string) => {
-    try {
-      const response = await fetch(`/api/shopping-list-items/${itemId}`, {
-        method: "DELETE",
-      });
-      if (!response.ok) {
-        throw new Error("Failed to delete shopping list item");
-      }
-
-      // Update local state by removing the item
-      shoppingLists.value.forEach((list) => {
-        list.items = list.items.filter(item => item.id !== itemId);
-      });
-    }
-    catch (err) {
-      error.value = "Failed to delete shopping list item";
-      console.error("Error deleting shopping list item:", err);
+      consola.error("Error clearing completed items:", err);
       throw err;
     }
   };
@@ -352,7 +311,7 @@ export function useShoppingLists() {
     shoppingLists: readonly(shoppingLists),
     loading: readonly(loading),
     error: readonly(error),
-    fetchShoppingLists,
+    getShoppingLists,
     createShoppingList,
     updateShoppingList,
     updateShoppingListItem,
@@ -362,6 +321,5 @@ export function useShoppingLists() {
     reorderShoppingList,
     reorderItem,
     deleteCompletedItems,
-    deleteShoppingListItem,
   };
 }

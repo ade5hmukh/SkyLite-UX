@@ -135,4 +135,4 @@ function handleDelete() {
       </div>
     </div>
   </div>
-</template> 
+</template>

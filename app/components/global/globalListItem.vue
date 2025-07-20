@@ -1,6 +1,5 @@
 <script setup lang="ts">
-import { notNullish } from "@vueuse/core";
-import type { BaseListItem, ShoppingListItem, TodoListItem, Priority } from "~/types/database";
+import type { BaseListItem, Priority, ShoppingListItem, TodoListItem } from "~/types/database";
 
 type ToggleEvent = {
   itemId: string;
@@ -12,7 +11,7 @@ type ReorderEvent = {
   direction: "up" | "down";
 };
 
-const props = defineProps<{
+defineProps<{
   item: BaseListItem;
   index: number;
   totalItems: number;
@@ -28,13 +27,13 @@ const emit = defineEmits<{
   (e: "reorder", payload: ReorderEvent): void;
 }>();
 
-const isShoppingItem = (item: BaseListItem): item is ShoppingListItem => {
-  return 'quantity' in item && 'unit' in item;
-};
+function isShoppingItem(item: BaseListItem): item is ShoppingListItem {
+  return "quantity" in item && "unit" in item;
+}
 
-const isTodoItem = (item: BaseListItem): item is TodoListItem & { priority?: Priority; dueDate?: Date | null } => {
-  return 'shoppingListId' in item;
-};
+function isTodoItem(item: BaseListItem): item is TodoListItem & { priority?: Priority; dueDate?: Date | null } {
+  return "shoppingListId" in item;
+}
 
 function getPriorityColor(priority: Priority) {
   switch (priority) {
@@ -70,7 +69,6 @@ function getPriorityColor(priority: Priority) {
         </span>
       </div>
       <div class="flex items-center gap-2 mt-1">
-        <!-- Todo Item Priority -->
         <span
           v-if="isTodoItem(item) && item.priority"
           class="text-xs px-2 py-0.5 rounded-full"
@@ -78,14 +76,12 @@ function getPriorityColor(priority: Priority) {
         >
           {{ item.priority }}
         </span>
-        <!-- Todo Item Due Date -->
         <span
           v-if="isTodoItem(item) && item.dueDate"
           class="text-xs text-gray-500 dark:text-gray-400"
         >
           {{ new Date(item.dueDate).toLocaleDateString() }}
         </span>
-        <!-- Shopping Item Quantity -->
         <span
           v-if="isShoppingItem(item) && showQuantity && item.quantity"
           class="text-xs text-gray-500 dark:text-gray-400"
@@ -93,9 +89,8 @@ function getPriorityColor(priority: Priority) {
           {{ item.quantity > 1 ? item.quantity : "" }} {{ item.unit === null || item.unit === "" ? "" : item.unit }}
         </span>
       </div>
-      <!-- Notes -->
       <p
-        v-if="showNotes && item.notes"
+        v-if="showNotes && item.notes && item.notes !== item.name"
         class="text-xs text-gray-700 dark:text-gray-300 line-clamp-2 mt-1"
         :class="{ 'line-through': item.checked }"
       >

@@ -1,8 +1,16 @@
 <script setup lang="ts">
-import type { ShoppingList, TodoList, BaseListItem } from "../../types/database";
+import type { BaseListItem, ShoppingList, TodoList } from "../../types/database";
+
+// Extended list type with integration properties
+type ListWithIntegration = (ShoppingList | TodoList) & {
+  source?: "native" | "integration";
+  integrationIcon?: string;
+  integrationName?: string;
+  integrationId?: string;
+};
 
 const props = defineProps<{
-  lists: readonly (ShoppingList | TodoList)[];
+  lists: readonly ListWithIntegration[];
   loading?: boolean;
   emptyStateIcon?: string;
   emptyStateTitle?: string;
@@ -11,14 +19,16 @@ const props = defineProps<{
   showQuantity?: boolean;
   showNotes?: boolean;
   showReorder?: boolean;
-  showEdit?: boolean | ((list: ShoppingList | TodoList) => boolean);
-  showAdd?: boolean;
-  showCompleted?: boolean;
+  showEdit?: boolean | ((list: ListWithIntegration) => boolean);
+  showAdd?: boolean | ((list: ListWithIntegration) => boolean);
+  showEditItem?: boolean | ((list: ListWithIntegration) => boolean);
+  showCompleted?: boolean | ((list: ListWithIntegration) => boolean);
+  showIntegrationIcons?: boolean;
 }>();
 
 const _emit = defineEmits<{
   (e: "create"): void;
-  (e: "edit", list: ShoppingList | TodoList): void;
+  (e: "edit", list: ListWithIntegration): void;
   (e: "addItem", listId: string): void;
   (e: "editItem", item: BaseListItem): void;
   (e: "toggleItem", itemId: string, checked: boolean): void;
@@ -27,7 +37,6 @@ const _emit = defineEmits<{
   (e: "clearCompleted", listId: string): void;
 }>();
 
-// Computed property to ensure proper reactivity for sorted lists
 const sortedLists = computed(() => {
   return [...props.lists]
     .sort((a, b) => (a.order || 0) - (b.order || 0))
@@ -39,7 +48,7 @@ const sortedLists = computed(() => {
     }));
 });
 
-function getProgressPercentage(list: ShoppingList | TodoList) {
+function getProgressPercentage(list: ListWithIntegration) {
   if (!list.items || list.items.length === 0)
     return 0;
   const checkedItems = list.items.filter((item: BaseListItem) => item.checked).length;
@@ -59,18 +68,25 @@ function getProgressColor(percentage: number) {
 }
 
 const showItemEdit = computed(() => {
-  if (typeof props.showEdit === 'function') {
-    return (item: BaseListItem) => true; // Always show edit for items
+  if (typeof props.showEditItem === "function") {
+    return (item: BaseListItem) => {
+      const list = props.lists.find(l => l.items?.some(i => i.id === item.id));
+      return list ? (props.showEditItem as (list: ListWithIntegration) => boolean)(list) : false;
+    };
   }
-  return props.showEdit;
+  return props.showEditItem;
 });
+
+// Helper function to check if list has integration properties
+function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIntegration & { source: "integration" | "native" } {
+  return "source" in list && (list.source === "integration" || list.source === "native");
+}
 </script>
 
 <template>
-  <div class="flex h-[calc(100vh-2rem)] w-full flex-col rounded-lg">
-    <!-- Lists Content -->
-    <div class="flex-1 overflow-hidden">
-      <div class="flex-1 overflow-y-auto p-4">
+  <div class="flex w-full flex-col rounded-lg">
+    <div class="flex-1">
+      <div class="p-4">
         <div v-if="loading" class="flex items-center justify-center h-full">
           <div class="text-center">
             <UIcon name="i-lucide-loader-2" class="h-8 w-8 animate-spin text-primary-500" />
@@ -105,17 +121,43 @@ const showItemEdit = computed(() => {
                 :key="list.id"
                 class="flex-shrink-0 w-80 h-full flex flex-col bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"
               >
-                <!-- List Header -->
                 <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-t-lg">
                   <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2 flex-1 min-w-0">
+                      <div
+                        v-if="showIntegrationIcons && hasIntegrationProperties(list) && list.source === 'integration' && list.integrationIcon"
+                        class="w-5 h-5 rounded-sm flex items-center justify-center flex-shrink-0"
+                      >
+                        <img
+                          :src="list.integrationIcon"
+                          :alt="list.integrationName || 'Integration'"
+                          class="h-4 w-4"
+                          style="object-fit: contain"
+                          @error="(event) => { const target = event.target as HTMLImageElement; if (target) target.style.display = 'none'; }"
+                        >
+                      </div>
+                      <div
+                        v-else-if="showIntegrationIcons && hasIntegrationProperties(list) && list.source === 'native'"
+                        class="w-5 h-5 rounded-sm flex items-center justify-center flex-shrink-0"
+                      >
+                        <img
+                          src="/favicon.ico"
+                          alt="SkyLite"
+                          class="h-5 w-5"
+                          style="object-fit: contain"
+                          @error="(event) => { const target = event.target as HTMLImageElement; if (target) target.style.display = 'none'; }"
+                        >
+                      </div>
                       <h2 class="text-lg font-semibold text-gray-900 dark:text-white truncate">
                         {{ list.name }}
                       </h2>
                     </div>
                     <div class="flex gap-1">
-                      <!-- Column reorder buttons -->
-                      <div v-if="showReorder" class="flex flex-col gap-1 items-center justify-center" style="height: 64px;">
+                      <div
+                        v-if="showReorder"
+                        class="flex flex-col gap-1 items-center justify-center"
+                        style="height: 64px;"
+                      >
                         <template v-if="listIndex > 0 && listIndex < sortedLists.length - 1">
                           <UButton
                             icon="i-lucide-chevron-left"
@@ -133,7 +175,7 @@ const showItemEdit = computed(() => {
                           />
                         </template>
                         <template v-else-if="listIndex > 0">
-                          <div style="height: 16px;"></div>
+                          <div style="height: 16px;" />
                           <UButton
                             icon="i-lucide-chevron-left"
                             size="xs"
@@ -141,10 +183,10 @@ const showItemEdit = computed(() => {
                             color="neutral"
                             @click="_emit('reorderList', list.id, 'up')"
                           />
-                          <div style="height: 16px;"></div>
+                          <div style="height: 16px;" />
                         </template>
                         <template v-else-if="listIndex < sortedLists.length - 1">
-                          <div style="height: 16px;"></div>
+                          <div style="height: 16px;" />
                           <UButton
                             icon="i-lucide-chevron-right"
                             size="xs"
@@ -152,7 +194,7 @@ const showItemEdit = computed(() => {
                             color="neutral"
                             @click="_emit('reorderList', list.id, 'down')"
                           />
-                          <div style="height: 16px;"></div>
+                          <div style="height: 16px;" />
                         </template>
                       </div>
                       <UButton
@@ -167,7 +209,6 @@ const showItemEdit = computed(() => {
                     </div>
                   </div>
 
-                  <!-- Progress Section -->
                   <div v-if="showProgress && list.items && list.items.length > 0" class="space-y-2">
                     <div class="flex justify-between text-sm">
                       <span class="text-gray-600 dark:text-gray-400">
@@ -185,15 +226,11 @@ const showItemEdit = computed(() => {
                       />
                     </div>
                   </div>
-                  <div v-else-if="!list.items || list.items.length === 0 && showProgress" class="text-sm text-gray-500 dark:text-gray-400 py-4.5">
-                    <!-- Padding when no items -->
-                  </div>
+                  <div v-else-if="!list.items || list.items.length === 0 && showProgress" class="text-sm text-gray-500 dark:text-gray-400 py-4.5" />
                 </div>
 
-                <!-- Items List -->
                 <div class="flex-1 p-4 overflow-y-auto">
-                  <!-- Add Item Button -->
-                  <div v-if="showAdd" class="flex justify-center mb-4">
+                  <div v-if="typeof showAdd === 'function' ? showAdd(list) : showAdd" class="flex justify-center mb-4">
                     <UButton
                       size="xl"
                       color="primary"
@@ -215,7 +252,6 @@ const showItemEdit = computed(() => {
                     </p>
                   </div>
                   <div v-else class="space-y-4">
-                    <!-- Active Items -->
                     <div v-if="list.activeItems.length > 0" class="space-y-2">
                       <GlobalListItem
                         v-for="(item, index) in list.activeItems"
@@ -225,7 +261,7 @@ const showItemEdit = computed(() => {
                         :total-items="list.activeItems.length"
                         :show-quantity="showQuantity"
                         :show-notes="showNotes"
-                        :show-reorder="showReorder"
+                        :show-reorder="(list as ListWithIntegration).source === 'integration' ? false : showReorder"
                         :show-edit="showItemEdit"
                         @edit="_emit('editItem', $event)"
                         @toggle="(payload) => _emit('toggleItem', payload.itemId, payload.checked)"
@@ -233,8 +269,7 @@ const showItemEdit = computed(() => {
                       />
                     </div>
 
-                    <!-- Completed Items -->
-                    <div v-if="showCompleted && list.completedItems.length > 0" class="space-y-2">
+                    <div v-if="(typeof showCompleted === 'function' ? showCompleted(list) : showCompleted) && list.completedItems.length > 0" class="space-y-2">
                       <div class="flex items-center justify-between px-1">
                         <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">
                           Completed ({{ list.completedItems.length }})
@@ -257,7 +292,7 @@ const showItemEdit = computed(() => {
                         :total-items="list.completedItems.length"
                         :show-quantity="showQuantity"
                         :show-notes="showNotes"
-                        :show-reorder="showReorder"
+                        :show-reorder="(list as ListWithIntegration).source === 'integration' ? false : showReorder"
                         :show-edit="showItemEdit"
                         @edit="_emit('editItem', $event)"
                         @toggle="(payload) => _emit('toggleItem', payload.itemId, payload.checked)"

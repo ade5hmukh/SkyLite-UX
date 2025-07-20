@@ -1,19 +1,20 @@
-import { computed, ref } from "vue";
+import { consola } from "consola";
 
 import type { Integration } from "~/types/database";
+import type { IntegrationService } from "~/types/integrations";
+
+import { createIntegrationService } from "~/types/integrations";
 
 export function useIntegrations() {
   const integrations = ref<Integration[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
   const initialized = ref(false);
-
-  // Server-side data fetching
-  const { data: serverIntegrations } = useNuxtData<Integration[]>("integrations");
+  const services = ref<Map<string, IntegrationService>>(new Map());
 
   const fetchIntegrations = async () => {
     if (loading.value)
-      return; // Prevent multiple simultaneous fetches
+      return;
 
     loading.value = true;
     error.value = null;
@@ -23,24 +24,37 @@ export function useIntegrations() {
         throw new Error("Failed to fetch integrations");
       }
       const data = await response.json();
-      integrations.value = data;
+
+      integrations.value.splice(0, integrations.value.length, ...data);
+
+      services.value.clear();
+      for (const integration of data) {
+        if (integration.enabled) {
+          const service = await createIntegrationService(integration);
+          if (service) {
+            services.value.set(integration.id, service);
+            await service.initialize();
+          }
+        }
+      }
+
       initialized.value = true;
     }
     catch (err) {
       error.value = "Failed to fetch integrations";
-      console.error("Error fetching integrations:", err);
+      consola.error("Error fetching integrations:", err);
     }
     finally {
       loading.value = false;
     }
   };
 
-  // Watch for server data changes
-  watch(serverIntegrations, (newIntegrations) => {
-    if (newIntegrations) {
-      integrations.value = newIntegrations;
-      initialized.value = true;
-    }
+  const refreshIntegrations = async () => {
+    await fetchIntegrations();
+  };
+
+  onMounted(() => {
+    fetchIntegrations();
   });
 
   const createIntegration = async (integration: Omit<Integration, "id">) => {
@@ -54,16 +68,19 @@ export function useIntegrations() {
         },
         body: JSON.stringify(integration),
       });
+
       if (!response.ok) {
-        throw new Error("Failed to create integration");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to create integration");
       }
+
       const newIntegration = await response.json();
-      await fetchIntegrations(); // Refresh data after creation
+      await fetchIntegrations();
       return newIntegration;
     }
     catch (err) {
-      error.value = "Failed to create integration";
-      console.error("Error creating integration:", err);
+      error.value = err instanceof Error ? err.message : "Failed to create integration";
+      consola.error("Error creating integration:", err);
       throw err;
     }
     finally {
@@ -82,16 +99,19 @@ export function useIntegrations() {
         },
         body: JSON.stringify(updates),
       });
+
       if (!response.ok) {
-        throw new Error("Failed to update integration");
+        const errorData = await response.json().catch(() => ({}));
+        throw new Error(errorData.message || "Failed to update integration");
       }
+
       const updatedIntegration = await response.json();
-      await fetchIntegrations(); // Refresh data after update
+      await fetchIntegrations();
       return updatedIntegration;
     }
     catch (err) {
-      error.value = "Failed to update integration";
-      console.error("Error updating integration:", err);
+      error.value = err instanceof Error ? err.message : "Failed to update integration";
+      consola.error("Error updating integration:", err);
       throw err;
     }
     finally {
@@ -109,11 +129,12 @@ export function useIntegrations() {
       if (!response.ok) {
         throw new Error("Failed to delete integration");
       }
-      await fetchIntegrations(); // Refresh data after deletion
+      services.value.delete(id);
+      await fetchIntegrations();
     }
     catch (err) {
       error.value = "Failed to delete integration";
-      console.error("Error deleting integration:", err);
+      consola.error("Error deleting integration:", err);
       throw err;
     }
     finally {
@@ -139,17 +160,23 @@ export function useIntegrations() {
     return integrations.value.find((integration: Integration) => integration.type === type && integration.enabled);
   };
 
+  const getService = (integrationId: string) => {
+    return services.value.get(integrationId);
+  };
+
   return {
     integrations,
     loading,
     error,
     initialized,
     fetchIntegrations,
+    refreshIntegrations,
     createIntegration,
     updateIntegration,
     deleteIntegration,
     getEnabledIntegrations,
     getIntegrationByType,
     getIntegrationsByType,
+    getService,
   };
 }

@@ -12,7 +12,6 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Update the order for each item
     const updatePromises = itemIds.map((id: string, index: number) =>
       prisma.shoppingListItem.update({
         where: { id },
