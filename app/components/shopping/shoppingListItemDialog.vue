@@ -166,6 +166,7 @@ function handleDelete() {
               <UInput
                 v-model="formData.unit"
                 :placeholder="fields.find((f: DialogField) => f.key === 'unit')?.placeholder || 'Unit'"
+                :disabled="fields.find((f: DialogField) => f.key === 'unit')?.disabled"
                 class="w-full"
                 :ui="{ base: 'w-full' }"
               />

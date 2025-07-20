@@ -13,6 +13,8 @@
 [![Static Badge](https://img.shields.io/badge/Nuxt-lightgray?logo=nuxt)](https://nuxt.com/docs/getting-started/introduction)
 [![Static Badge](https://img.shields.io/badge/NuxtUI-lightgray?logo=nuxt)](https://ui.nuxt.com)
 [![Static Badge](https://img.shields.io/badge/TailwindCSS-lightgray?logo=tailwindcss)](https://tailwindcss.com/docs/installation/using-vite)
+[![Prisma](https://img.shields.io/badge/Prisma-2D3748?style=for-the-badge&logo=prisma&logoColor=white)](https://www.prisma.io/docs)
+[![PostgreSQL](https://img.shields.io/badge/PostgreSQL-316192?style=for-the-badge&logo=postgresql&logoColor=white)](https://www.postgresql.org/docs/)
 
 # About The Project
 
@@ -20,39 +22,23 @@ Skylite UX was conceived as an open source, self-hosted alternative to commercia
 
 ## Features
 
-- Deploy with Docker
+- Docker Deployment
+- Family Calendar
+- Task Lists
+- Meal Planning
+- User Management
 
-## Feature Preview
+## Intallation
 
-- Calendar
-  - View upcoming and past events for your family in the month, week, day, or agenda views
-  - Add, edit, or delete events
-- Lists
-  - Track to-do lists for family members
-  - Add, edit, or check items on your shopping lists
-- Meals
-  - View upcoming and past meals for your family in the month, week, day or agenda views
-  - Add breakfast, lunch, dinner, and sides to your meal plan
-  - Edit or delete meals from your meal plan
-- Users
-  - Add, edit, or remove family members
-  - Assign family members a specific profile color
+View the [docs](https://wetzel402.github.io/Skylite-UX-docs/index.html#installation) for details.
+
+## Development
+
+Read our [development guide](https://wetzel402.github.io/Skylite-UX-docs/DEVELOPMENT.html) for more details.
 
 ## Contributing
 
-Fork the repo and create your branch from `dev`.
-
-### Setup
-
-- Install [Docker](https://docs.docker.com/get-started/get-docker/) and [Visual Studio Code](https://code.visualstudio.com/)
-- Install the [Github Codespaces](https://marketplace.visualstudio.com/items?itemName=GitHub.codespaces) and [Dev Containers](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers) VScode extensions
-- In VScode [open the command palette and select](https://code.visualstudio.com/docs/devcontainers/containers#_quick-start-open-a-git-repository-or-github-pr-in-an-isolated-container-volume) `Dev Containers: Clone Repository in Container Volume`. Select your repository and branch.
-- Start the development server on `http://localhost:3000`:
-
-```bash
-# npm
-npm run dev
-```
+Check out the [contrubutor guide](https://wetzel402.github.io/Skylite-UX-docs/CONTRIBUTING.html) to get started.
 
 ## License
 
