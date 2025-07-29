@@ -1,6 +1,7 @@
-import { consola } from "consola";
+import consola from "consola";
 
-import type { DialogField, IntegrationSettingsField } from "~/integrations/integrationConfig";
+import type { DialogField, ICalSettings, IntegrationSettingsField } from "~/integrations/integrationConfig";
+import type { CalendarEvent } from "~/types/calendar";
 
 import { getServiceFactories, integrationConfigs } from "~/integrations/integrationConfig";
 
@@ -19,6 +20,11 @@ export type IntegrationStatus = {
   isConnected: boolean;
   lastChecked: Date;
   error?: string;
+};
+
+export type CalendarIntegrationService = IntegrationService & {
+  getEvents: () => Promise<CalendarEvent[]>;
+  // Future: addEvent, updateEvent, deleteEvent
 };
 
 export type IntegrationConfig = {
@@ -52,7 +58,6 @@ function ensureInitialized() {
 
 export async function createIntegrationService(integration: Integration): Promise<IntegrationService | null> {
   ensureInitialized();
-
   try {
     const key = `${integration.type}:${integration.service}`;
     const serviceFactory = getServiceFactories().find(sf => sf.key === key);
@@ -62,7 +67,7 @@ export async function createIntegrationService(integration: Integration): Promis
       return null;
     }
 
-    return serviceFactory.factory(integration.id, integration.apiKey || "", integration.baseUrl || "");
+    return serviceFactory.factory(integration.id, integration.apiKey || "", integration.baseUrl || "", integration.settings as ICalSettings);
   }
   catch (error) {
     consola.error(`Failed to create integration service for ${integration.type}:${integration.service}:`, error);

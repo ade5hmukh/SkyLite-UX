@@ -1,98 +1,150 @@
 <script setup lang="ts">
-import type { CalendarEvent } from "~/utils/calendarTypes";
+import { onMounted, watch } from "vue";
 
-// events data
-const events = ref<CalendarEvent[]>([
-  {
-    id: "1",
-    title: "Team Meeting",
-    description: "Weekly team sync",
-    start: new Date(new Date().setHours(10, 0, 0, 0)),
-    end: new Date(new Date().setHours(11, 30, 0, 0)),
-    color: "sky",
-    location: "Conference Room A",
-  },
-  {
-    id: "2",
-    title: "Project Deadline",
-    description: "Submit final deliverables",
-    start: new Date(new Date().setDate(new Date().getDate() + 1)),
-    end: new Date(new Date().setDate(new Date().getDate() + 1)),
-    allDay: true,
-    color: "orange",
-  },
-  {
-    id: "3",
-    title: "Client Presentation",
-    description: "Present new features to client",
-    start: new Date(new Date().setDate(new Date().getDate() - 2)),
-    end: new Date(new Date().setDate(new Date().getDate() - 2)),
-    allDay: true,
-    color: "violet",
-    location: "Virtual Meeting",
-  },
-  {
-    id: "4",
-    title: "Code Review",
-    description: "Review pull requests",
-    start: new Date(new Date().setHours(8, 0, 0, 0)),
-    end: new Date(new Date().setHours(10, 0, 0, 0)),
-    color: "emerald",
-    location: "Engineering Hub",
-  },
-  {
-    id: "5",
-    title: "Vacation",
-    description: "Hello Fiji!",
-    start: new Date(new Date().setDate(new Date().getDate() - 10)),
-    end: new Date(new Date().setDate(new Date().getDate() - 5)),
-    allDay: true,
-    color: "rose",
-    location: "Fiji",
-  },
-  {
-    id: "6",
-    title: "Buisness Trip",
-    description: "Meeting a client in LV",
-    start: new Date(new Date().setDate(new Date().getDate() + 5)),
-    end: new Date(new Date().setDate(new Date().getDate() + 10)),
-    allDay: true,
-    color: "rose",
-    location: "LV",
-  },
-]);
+import type { CalendarEvent } from "~/types/calendar";
+import type { Integration } from "~/types/database";
 
-function handleEventAdd(event: CalendarEvent) {
-  // Generate a unique ID for new events
-  const newEvent = {
-    ...event,
-    id: crypto.randomUUID(),
+import { useAlertToast } from "~/composables/useAlertToast";
+import { useCalendar } from "~/composables/useCalendar";
+import { useCalendarEvents } from "~/composables/useCalendarEvents";
+import { useCalendarIntegrations } from "~/composables/useCalendarIntegrations";
+import { integrationRegistry } from "~/types/integrations";
+
+const { calendarEvents: integrationEvents, calendarIntegrations, loading: integrationLoading, error: integrationError, getCalendarEvents } = useCalendarIntegrations();
+const { events: localEvents, loading: localLoading, error: localError, createEvent, updateEvent, deleteEvent } = useCalendarEvents();
+const { getEventUserColors } = useCalendar();
+const { showError, showSuccess } = useAlertToast();
+
+const allEvents = computed(() => {
+  const local = localEvents.value || [];
+  const integration = integrationEvents.value || [];
+  return [...local, ...integration] as CalendarEvent[];
+});
+
+const loading = computed(() => {
+  return integrationLoading.value || localLoading.value;
+});
+
+const error = computed(() => {
+  return integrationError.value || localError.value;
+});
+
+onMounted(async () => {
+  await getCalendarEvents();
+});
+
+watch(error, (err) => {
+  if (err) {
+    showError("Calendar Error", err);
+  }
+});
+
+async function handleEventAdd(event: CalendarEvent) {
+  try {
+    if (!event.integrationId) {
+      const eventColor = getEventUserColors(event);
+
+      await createEvent({
+        title: event.title,
+        description: event.description,
+        start: event.start,
+        end: event.end,
+        allDay: event.allDay,
+        color: eventColor,
+        label: event.label,
+        location: event.location,
+        users: event.users,
+      });
+      showSuccess("Event Created", "Local event created successfully");
+    }
+    else {
+      // TODO: Implement add event to integration if supported
+      showError("Not Supported", "Adding events to this integration is not yet supported");
+    }
+  }
+  catch {
+    showError("Failed to Create Event", "Failed to create the event. Please try again.");
+  }
+}
+
+async function handleEventUpdate(event: CalendarEvent) {
+  try {
+    if (!event.integrationId) {
+      const eventColor = getEventUserColors(event);
+
+      await updateEvent(event.id, {
+        title: event.title,
+        description: event.description,
+        start: event.start,
+        end: event.end,
+        allDay: event.allDay,
+        color: eventColor,
+        label: event.label,
+        location: event.location,
+        users: event.users,
+      });
+      showSuccess("Event Updated", "Local event updated successfully");
+    }
+    else {
+      // TODO: Implement update event in integration if supported
+      showError("Not Supported", "Updating events in this integration is not yet supported");
+    }
+  }
+  catch {
+    showError("Failed to Update Event", "Failed to update the event. Please try again.");
+  }
+}
+
+async function handleEventDelete(eventId: string) {
+  try {
+    const event = allEvents.value.find(e => e.id === eventId);
+
+    if (!event) {
+      showError("Event Not Found", "The event could not be found.");
+      return;
+    }
+
+    if (!event.integrationId) {
+      await deleteEvent(eventId);
+      showSuccess("Event Deleted", "Local event deleted successfully");
+    }
+    else {
+      // TODO: Implement delete event from integration if supported
+      showError("Not Supported", "Deleting events from this integration is not yet supported");
+    }
+  }
+  catch {
+    showError("Failed to Delete Event", "Failed to delete the event. Please try again.");
+  }
+}
+
+function getEventIntegrationCapabilities(event: CalendarEvent): { capabilities: string[]; serviceName?: string } | undefined {
+  if (!event.integrationId)
+    return undefined;
+
+  const integration = (calendarIntegrations.value as Integration[]).find(i => i.id === event.integrationId);
+  if (!integration)
+    return undefined;
+
+  const config = integrationRegistry.get(`${integration.type}:${integration.service}`);
+  return {
+    capabilities: config?.capabilities || [],
+    serviceName: integration.service,
   };
-  events.value.push(newEvent);
-}
-
-function handleEventUpdate(event: CalendarEvent) {
-  const index = events.value.findIndex(e => e.id === event.id);
-  if (index !== -1) {
-    events.value[index] = { ...event };
-  }
-}
-
-function handleEventDelete(eventId: string) {
-  const index = events.value.findIndex(e => e.id === eventId);
-  if (index !== -1) {
-    events.value.splice(index, 1);
-  }
 }
 </script>
 
 <template>
-  <CalendarMainView
-    :events="events"
-    initial-view="week"
-    class="h-[calc(100vh-2rem)]"
-    @event-add="handleEventAdd"
-    @event-update="handleEventUpdate"
-    @event-delete="handleEventDelete"
-  />
+  <div>
+    <CalendarMainView
+      :events="allEvents"
+      initial-view="week"
+      class="h-[calc(100vh-2rem)]"
+      :loading="loading"
+      :get-integration-capabilities="getEventIntegrationCapabilities"
+      @event-add="handleEventAdd"
+      @event-update="handleEventUpdate"
+      @event-delete="handleEventDelete"
+    />
+  </div>
 </template>

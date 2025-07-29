@@ -1,4 +1,6 @@
 <script setup lang="ts">
+import { computed, ref, watch } from "vue";
+
 import type { CreateUserInput, User } from "~/types/database";
 
 const props = defineProps<{
@@ -12,16 +14,33 @@ const emit = defineEmits<{
   (e: "delete", userId: string): void;
 }>();
 
-// Form state
 const name = ref("");
 const email = ref("");
+const color = ref("#3b82f6");
+const avatar = ref("");
 const error = ref<string | null>(null);
 
-// Watch for user changes
+const chip = computed(() => ({ backgroundColor: color.value }));
+
+const textColor = computed(() => {
+  const hex = color.value.replace("#", "");
+  if (hex.length !== 6)
+    return "374151";
+
+  const r = Number.parseInt(hex.substring(0, 2), 16);
+  const g = Number.parseInt(hex.substring(2, 4), 16);
+  const b = Number.parseInt(hex.substring(4, 6), 16);
+
+  const luminance = (0.299 * r + 0.587 * g + 0.114 * b) / 255;
+  return luminance > 0.5 ? "374151" : "FFFFFF";
+});
+
 watch(() => props.user, (newUser) => {
   if (newUser) {
     name.value = newUser.name || "";
     email.value = newUser.email || "";
+    color.value = newUser.color || "#06b6d4";
+    avatar.value = newUser.avatar && !newUser.avatar.startsWith("https://ui-avatars.com/api/") ? newUser.avatar : "";
     error.value = null;
   }
   else {
@@ -32,7 +51,13 @@ watch(() => props.user, (newUser) => {
 function resetForm() {
   name.value = "";
   email.value = "";
+  color.value = "#06b6d4";
+  avatar.value = "";
   error.value = null;
+}
+
+function getDefaultAvatarUrl() {
+  return `https://ui-avatars.com/api/?name=${encodeURIComponent(name.value)}&background=${color.value.replace("#", "") || "E5E7EB"}&color=${textColor.value}&size=96`;
 }
 
 function handleSave() {
@@ -44,9 +69,10 @@ function handleSave() {
   emit("save", {
     name: name.value.trim(),
     email: email.value?.trim() || "",
-    avatar: null,
+    color: color.value,
+    avatar: avatar.value || getDefaultAvatarUrl(),
     todoOrder: 0,
-  });
+  } as CreateUserInput);
 }
 
 function handleDelete() {
@@ -103,6 +129,41 @@ function handleDelete() {
             class="w-full"
             :ui="{ base: 'w-full' }"
           />
+        </div>
+
+        <div class="space-y-2">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Profile Color</label>
+          <UPopover>
+            <UButton
+              label="Choose color"
+              color="neutral"
+              variant="outline"
+            >
+              <template #leading>
+                <span :style="chip" class="size-3 rounded-full" />
+              </template>
+            </UButton>
+            <template #content>
+              <UColorPicker v-model="color" class="p-2" />
+            </template>
+          </UPopover>
+        </div>
+
+        <div class="space-y-2">
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Avatar</label>
+          <div class="flex items-center gap-4">
+            <img
+              :src="avatar || getDefaultAvatarUrl()"
+              class="w-12 h-12 rounded-full border border-gray-300 dark:border-gray-700"
+            >
+            <UInput
+              v-model="avatar"
+              placeholder="Optional: Paste image URL"
+              type="url"
+              class="w-full"
+              :ui="{ base: 'w-full' }"
+            />
+          </div>
         </div>
       </div>
 

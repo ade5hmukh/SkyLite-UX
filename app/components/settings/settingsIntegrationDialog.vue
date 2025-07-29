@@ -2,9 +2,9 @@
 import type { IntegrationSettingsField } from "~/integrations/integrationConfig";
 import type { CreateIntegrationInput, Integration } from "~/types/database";
 
+import { useUsers } from "~/composables/useUsers";
 import { integrationRegistry } from "~/types/integrations";
 
-// Type for connection test result
 type ConnectionTestResult = {
   success: boolean;
   message?: string;
@@ -14,7 +14,6 @@ type ConnectionTestResult = {
 const props = defineProps<{
   integration: Integration | null;
   isOpen: boolean;
-  activeType: string;
   existingIntegrations: Integration[];
   connectionTestResult: ConnectionTestResult;
 }>();
@@ -35,7 +34,7 @@ const enabled = ref(true);
 const error = ref<string | null>(null);
 const isSaving = ref(false);
 
-const settingsData = ref<Record<string, string>>({});
+const settingsData = ref<Record<string, string | string[] | boolean>>({});
 
 const isTestingConnection = computed(() => {
   return isSaving.value && !props.connectionTestResult;
@@ -80,16 +79,32 @@ const availableServices = computed(() => {
   }));
 });
 
+const { users, fetchUsers } = useUsers();
+
+onMounted(() => {
+  fetchUsers();
+});
+
+watch(() => props.isOpen, async (isOpen) => {
+  if (isOpen) {
+    await fetchUsers();
+  }
+});
+
 function initializeSettingsData() {
-  const initialData: Record<string, string> = {};
+  const initialData: Record<string, string | string[] | boolean> = {};
   settingsFields.value.forEach((field: IntegrationSettingsField) => {
-    switch (field.type) {
-      case "text":
-      case "password":
-      case "url":
-      default:
-        initialData[field.key] = "";
-        break;
+    if (field.type === "color") {
+      initialData[field.key] = field.placeholder || "#06b6d4";
+    }
+    else if (field.type === "boolean") {
+      initialData[field.key] = false;
+    }
+    else if (field.key === "user") {
+      initialData[field.key] = [];
+    }
+    else {
+      initialData[field.key] = "";
     }
   });
   settingsData.value = initialData;
@@ -137,6 +152,15 @@ watch(() => props.integration, (newIntegration) => {
     }
     if (newIntegration.baseUrl) {
       settingsData.value.baseUrl = newIntegration.baseUrl;
+    }
+    if (newIntegration.settings && newIntegration.settings.user) {
+      settingsData.value.user = newIntegration.settings.user as string[];
+    }
+    if (newIntegration.settings && newIntegration.settings.eventColor) {
+      settingsData.value.eventColor = newIntegration.settings.eventColor as string;
+    }
+    if (newIntegration.settings && typeof newIntegration.settings.useUserColors === "boolean") {
+      settingsData.value.useUserColors = newIntegration.settings.useUserColors as boolean;
     }
   }
   else {
@@ -201,11 +225,15 @@ async function handleSave() {
       name: integrationName,
       type: type.value,
       service: service.value,
-      apiKey: settingsData.value.apiKey?.trim() || "",
-      baseUrl: settingsData.value.baseUrl?.trim() || "",
+      apiKey: settingsData.value.apiKey?.toString().trim() || "",
+      baseUrl: settingsData.value.baseUrl?.toString().trim() || "",
       icon: null,
       enabled: enabled.value,
-      settings: {},
+      settings: {
+        user: settingsData.value.user || [],
+        eventColor: settingsData.value.eventColor || "#06b6d4",
+        useUserColors: settingsData.value.useUserColors || false,
+      },
       createdAt: new Date(),
       updatedAt: new Date(),
     };
@@ -300,7 +328,7 @@ function handleDelete() {
             :ui="{ base: 'w-full' }"
           />
           <p class="text-sm text-gray-500 dark:text-gray-400">
-            Optional. If not provided, a name will be generated.
+            Optional: If not provided, a name will be generated.
           </p>
         </div>
 
@@ -310,26 +338,62 @@ function handleDelete() {
             :key="field.key"
             class="space-y-2"
           >
-            <label :for="field.key" class="block text-sm font-medium text-gray-700 dark:text-gray-200">
-              {{ field.label }}{{ field.required ? ' *' : '' }}
-            </label>
-            <UInput
-              :id="field.key"
-              v-model="settingsData[field.key]"
-              :type="field.type === 'password' ? (show ? 'text' : 'password') : field.type"
-              :placeholder="field.placeholder"
-              class="w-full"
-              :ui="{ base: 'w-full' }"
-            >
-              <template v-if="field.type === 'password'" #trailing>
+            <template v-if="field.type === 'color'">
+              <label :for="field.key" class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+                {{ field.label }}{{ field.required ? ' *' : '' }}
+              </label>
+              <p v-if="field.description" class="text-sm text-gray-500 dark:text-gray-400">
+                {{ field.description }}
+              </p>
+              <UPopover class="mt-2">
                 <UButton
+                  label="Choose color"
                   color="neutral"
-                  variant="ghost"
-                  :icon="show ? 'i-lucide-eye-off' : 'i-lucide-eye'"
-                  @click="show = !show"
-                />
-              </template>
-            </UInput>
+                  variant="outline"
+                >
+                  <template #leading>
+                    <span :style="{ backgroundColor: typeof settingsData[field.key] === 'string' ? settingsData[field.key] as string : '#06b6d4' }" class="size-3 rounded-full" />
+                  </template>
+                </UButton>
+                <template #content>
+                  <UColorPicker v-model="settingsData[field.key] as string" class="p-2" />
+                </template>
+              </UPopover>
+            </template>
+            <template v-else-if="field.type === 'boolean'">
+              <UCheckbox
+                v-model="settingsData[field.key] as boolean"
+                :label="field.label"
+              />
+            </template>
+            <template v-else-if="field.key === 'user'">
+              <USelect
+                v-model="settingsData[field.key] as string[]"
+                :items="users.map(u => ({ label: u.name, value: u.id }))"
+                placeholder="Optional: Select user(s)"
+                class="w-full"
+                multiple
+              />
+            </template>
+            <template v-else>
+              <UInput
+                :id="field.key"
+                v-model="settingsData[field.key] as string"
+                :type="field.type === 'password' ? (show ? 'text' : 'password') : field.type"
+                :placeholder="field.placeholder"
+                class="w-full"
+                :ui="{ base: 'w-full' }"
+              >
+                <template v-if="field.type === 'password'" #trailing>
+                  <UButton
+                    color="neutral"
+                    variant="ghost"
+                    :icon="show ? 'i-lucide-eye-off' : 'i-lucide-eye'"
+                    @click="show = !show"
+                  />
+                </template>
+              </UInput>
+            </template>
             <p v-if="field.description" class="text-sm text-gray-500 dark:text-gray-400">
               {{ field.description }}
             </p>

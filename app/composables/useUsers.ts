@@ -2,7 +2,6 @@ import { consola } from "consola";
 
 import type { CreateUserInput, User } from "~/types/database";
 
-// Extended type to include todoOrder property for users
 type UserWithOrder = User & { todoOrder: number };
 
 export function useUsers() {
@@ -11,7 +10,6 @@ export function useUsers() {
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  // Server-side data fetching
   const { data: serverUsers } = useNuxtData<UserWithOrder[]>("users");
 
   const fetchUsers = async () => {
@@ -32,7 +30,6 @@ export function useUsers() {
     }
   };
 
-  // Watch for server data changes
   watch(serverUsers, (newUsers) => {
     if (newUsers) {
       users.value = newUsers;
@@ -45,7 +42,7 @@ export function useUsers() {
         method: "POST",
         body: userData,
       });
-      await fetchUsers(); // Refresh data after creation
+      await fetchUsers();
       return newUser;
     }
     catch (err) {
@@ -55,9 +52,24 @@ export function useUsers() {
     }
   };
 
+  const updateUser = async (id: string, updates: Partial<User>) => {
+    try {
+      const updatedUser = await $fetch<User>(`/api/users/${id}`, {
+        method: "PUT",
+        body: updates,
+      });
+      await fetchUsers();
+      return updatedUser;
+    }
+    catch (err) {
+      error.value = "Failed to update user";
+      consola.error("Error updating user:", err);
+      throw err;
+    }
+  };
+
   const selectUser = (user: User) => {
     currentUser.value = user;
-    // Store in localStorage for persistence
     if (import.meta.client) {
       localStorage.setItem("currentUser", JSON.stringify(user));
     }
@@ -85,12 +97,11 @@ export function useUsers() {
         method: "DELETE" as const,
       });
 
-      // Clear current user if it was the deleted user
       if (currentUser.value?.id === userId) {
         clearCurrentUser();
       }
 
-      await fetchUsers(); // Refresh data after deletion
+      await fetchUsers();
       return true;
     }
     catch (err) {
@@ -101,7 +112,6 @@ export function useUsers() {
   };
 
   const reorderUser = async (userId: string, direction: "up" | "down") => {
-    // Store original state for potential rollback
     const originalUsers = [...users.value];
 
     try {
@@ -119,21 +129,18 @@ export function useUsers() {
         targetIndex = currentIndex + 1;
       }
       else {
-        return; // No change needed
+        return;
       }
 
-      // Get the users to swap
       const currentUser = sortedUsers[currentIndex];
       const targetUser = sortedUsers[targetIndex];
 
       if (!currentUser || !targetUser)
         return;
 
-      // Optimistically update the todoOrder values
       const currentOrder = currentUser.todoOrder || 0;
       const targetOrder = targetUser.todoOrder || 0;
 
-      // Update the users
       users.value = users.value.map((user) => {
         if (user.id === currentUser.id) {
           return { ...user, todoOrder: targetOrder };
@@ -144,7 +151,6 @@ export function useUsers() {
         return user;
       });
 
-      // Make API call with the new order
       const newOrder = users.value
         .sort((a, b) => (a.todoOrder || 0) - (b.todoOrder || 0))
         .map(user => user.id);
@@ -154,10 +160,9 @@ export function useUsers() {
         body: { userIds: newOrder },
       });
 
-      await fetchUsers(); // Refresh data after reordering
+      await fetchUsers();
     }
     catch (err) {
-      // Revert on error
       users.value = originalUsers;
       error.value = "Failed to reorder user";
       consola.error("Error reordering user:", err);
@@ -172,6 +177,7 @@ export function useUsers() {
     error: readonly(error),
     fetchUsers,
     createUser,
+    updateUser,
     deleteUser,
     selectUser,
     loadCurrentUser,

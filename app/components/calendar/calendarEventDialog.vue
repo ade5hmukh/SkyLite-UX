@@ -4,16 +4,15 @@ import type { DateValue } from "@internationalized/date";
 import { CalendarDate, DateFormatter, getLocalTimeZone, parseDate } from "@internationalized/date";
 import { format, isBefore } from "date-fns";
 
-import type { CalendarEvent } from "~/utils/calendarTypes";
+import type { CalendarEvent } from "~/types/calendar";
 
-import { getEventColorClasses } from "~/utils/calendarUtils";
-
-type EventColor = "sky" | "violet" | "rose" | "emerald" | "orange";
+import { useUsers } from "~/composables/useUsers";
 
 const props = defineProps<{
   event: CalendarEvent | null;
   isOpen: boolean;
-  position?: { top: number; left: number };
+  integrationCapabilities?: string[];
+  integrationServiceName?: string;
 }>();
 
 const emit = defineEmits<{
@@ -22,7 +21,8 @@ const emit = defineEmits<{
   (e: "delete", eventId: string): void;
 }>();
 
-// Constants
+const { users, fetchUsers } = useUsers();
+
 const StartHour = 0;
 const EndHour = 23;
 const DefaultStartHour = 9;
@@ -31,7 +31,6 @@ const df = new DateFormatter("en-US", {
   dateStyle: "medium",
 });
 
-// Form state
 const title = ref("");
 const description = ref("");
 const startDate = ref<DateValue>(new CalendarDate(2022, 2, 6));
@@ -40,19 +39,9 @@ const startTime = ref(`${DefaultStartHour}:00`);
 const endTime = ref(`${DefaultEndHour}:00`);
 const allDay = ref(false);
 const location = ref("");
-const color = ref<EventColor>("sky");
+const selectedUsers = ref<string[]>([]);
 const error = ref<string | null>(null);
 
-// Color options
-const colorOptions = [
-  { value: "sky", label: "Sky" },
-  { value: "violet", label: "Violet" },
-  { value: "rose", label: "Rose" },
-  { value: "emerald", label: "Emerald" },
-  { value: "orange", label: "Orange" },
-];
-
-// Time options
 const timeOptions = computed(() => {
   const options = [];
   for (let hour = StartHour; hour <= EndHour; hour++) {
@@ -68,7 +57,34 @@ const timeOptions = computed(() => {
   return options;
 });
 
-// Watch for event changes
+const canEdit = computed(() => {
+  if (!props.integrationCapabilities)
+    return true;
+  return props.integrationCapabilities.includes("edit_events");
+});
+
+const canDelete = computed(() => {
+  if (!props.integrationCapabilities)
+    return true;
+  return props.integrationCapabilities.includes("delete_events");
+});
+
+const canAdd = computed(() => {
+  if (!props.integrationCapabilities)
+    return true;
+  return props.integrationCapabilities.includes("add_events");
+});
+
+const isReadOnly = computed(() => {
+  return Boolean(props.event && !canEdit.value);
+});
+
+watch(() => props.isOpen, async (isOpen) => {
+  if (isOpen) {
+    await fetchUsers();
+  }
+});
+
 watch(() => props.event, (newEvent) => {
   if (newEvent) {
     title.value = newEvent.title || "";
@@ -81,7 +97,7 @@ watch(() => props.event, (newEvent) => {
     endTime.value = formatTimeForInput(end);
     allDay.value = newEvent.allDay || false;
     location.value = newEvent.location || "";
-    color.value = (newEvent.color as EventColor) || "sky";
+    selectedUsers.value = newEvent.users?.map(user => user.id) || [];
     error.value = null;
   }
   else {
@@ -99,7 +115,7 @@ function resetForm() {
   endTime.value = `${DefaultEndHour}:00`;
   allDay.value = false;
   location.value = "";
-  color.value = "sky";
+  selectedUsers.value = [];
   error.value = null;
 }
 
@@ -110,6 +126,16 @@ function formatTimeForInput(date: Date) {
 }
 
 function handleSave() {
+  if (!canAdd.value && !props.event) {
+    error.value = "This integration does not support creating new events";
+    return;
+  }
+
+  if (!canEdit.value && props.event) {
+    error.value = "This integration does not support editing events";
+    return;
+  }
+
   if (!startDate.value || !endDate.value) {
     error.value = "Invalid date selection";
     return;
@@ -147,6 +173,15 @@ function handleSave() {
 
   const eventTitle = title.value.trim() ? title.value : "(no title)";
 
+  const selectedUserObjects = users.value
+    .filter(user => selectedUsers.value.includes(user.id))
+    .map(user => ({
+      id: user.id,
+      name: user.name,
+      avatar: user.avatar,
+      color: user.color,
+    }));
+
   emit("save", {
     id: props.event?.id || "",
     title: eventTitle,
@@ -155,11 +190,17 @@ function handleSave() {
     end: new Date(end),
     allDay: allDay.value,
     location: location.value,
-    color: color.value,
+    color: props.event?.color || "sky",
+    users: selectedUserObjects,
   });
 }
 
 function handleDelete() {
+  if (!canDelete.value) {
+    error.value = "This integration does not support deleting events";
+    return;
+  }
+
   if (props.event?.id) {
     emit("delete", props.event.id);
   }
@@ -194,6 +235,10 @@ function handleDelete() {
           {{ error }}
         </div>
 
+        <div v-if="isReadOnly" class="bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 rounded-md px-3 py-2 text-sm">
+          This event cannot be edited. {{ integrationServiceName || 'This integration' }} does not support editing events.
+        </div>
+
         <div class="space-y-2">
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Title</label>
           <UInput
@@ -201,6 +246,7 @@ function handleDelete() {
             placeholder="Event title"
             class="w-full"
             :ui="{ base: 'w-full' }"
+            :disabled="isReadOnly"
           />
         </div>
 
@@ -212,6 +258,7 @@ function handleDelete() {
             :rows="3"
             class="w-full"
             :ui="{ base: 'w-full' }"
+            :disabled="isReadOnly"
           />
         </div>
 
@@ -224,6 +271,7 @@ function handleDelete() {
                 variant="subtle"
                 icon="i-lucide-calendar"
                 class="w-full justify-between"
+                :disabled="isReadOnly"
               >
                 {{ startDate ? df.format(startDate.toDate(getLocalTimeZone())) : 'Select a date' }}
               </UButton>
@@ -232,6 +280,7 @@ function handleDelete() {
                 <UCalendar
                   :model-value="startDate as DateValue"
                   class="p-2"
+                  :disabled="isReadOnly"
                   @update:model-value="(value) => { if (value) startDate = value as DateValue }"
                 />
               </template>
@@ -247,6 +296,7 @@ function handleDelete() {
               value-attribute="value"
               class="w-full"
               :ui="{ base: 'w-full' }"
+              :disabled="isReadOnly"
             />
           </div>
         </div>
@@ -260,6 +310,7 @@ function handleDelete() {
                 variant="subtle"
                 icon="i-lucide-calendar"
                 class="w-full justify-between"
+                :disabled="isReadOnly"
               >
                 {{ endDate ? df.format(endDate.toDate(getLocalTimeZone())) : 'Select a date' }}
               </UButton>
@@ -268,6 +319,7 @@ function handleDelete() {
                 <UCalendar
                   :model-value="endDate as DateValue"
                   class="p-2"
+                  :disabled="isReadOnly"
                   @update:model-value="(value) => { if (value) endDate = value as DateValue }"
                 />
               </template>
@@ -283,6 +335,7 @@ function handleDelete() {
               value-attribute="value"
               class="w-full"
               :ui="{ base: 'w-full' }"
+              :disabled="isReadOnly"
             />
           </div>
         </div>
@@ -291,6 +344,7 @@ function handleDelete() {
           <UCheckbox
             v-model="allDay"
             label="All day"
+            :disabled="isReadOnly"
           />
         </div>
 
@@ -301,34 +355,46 @@ function handleDelete() {
             placeholder="Event location"
             class="w-full"
             :ui="{ base: 'w-full' }"
+            :disabled="isReadOnly"
           />
         </div>
 
         <div class="space-y-2">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Color</label>
-          <UButtonGroup orientation="horizontal" class="flex gap-1.5">
-            <UButton
-              v-for="option in colorOptions"
-              :key="option.value"
-              variant="ghost"
-              class="size-6 p-0 size-6 transition-all duration-200"
-              @click="color = option.value as EventColor"
-            >
-              <div
-                class="size-4 rounded-full"
-                :class="[
-                  getEventColorClasses(option.value),
-                  color === option.value ? 'ring-2 ring-gray-200' : '',
-                ]"
-              />
-            </UButton>
-          </UButtonGroup>
+          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Users</label>
+          <div class="space-y-2">
+            <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+              {{ event?.id ? 'Edit users for this event:' : 'Select users for this event:' }}
+            </div>
+            <div class="flex flex-wrap gap-2">
+              <UButton
+                v-for="user in users"
+                :key="user.id"
+                variant="ghost"
+                size="sm"
+                class="p-1"
+                :class="selectedUsers.includes(user.id) ? 'ring-2 ring-primary-500' : ''"
+                :disabled="isReadOnly"
+                @click="selectedUsers.includes(user.id) ? selectedUsers = selectedUsers.filter(id => id !== user.id) : selectedUsers.push(user.id)"
+              >
+                <UAvatar
+                  :src="user.avatar || undefined"
+                  :alt="user.name"
+                  size="xl"
+                />
+              </UButton>
+            </div>
+            <div v-if="!users.length" class="text-sm text-gray-500 dark:text-gray-400">
+              No users found! Please add some users in the <NuxtLink to="/settings" class="text-primary">
+                settings
+              </NuxtLink> page.
+            </div>
+          </div>
         </div>
       </div>
 
       <div class="flex justify-between p-4 border-t border-gray-200 dark:border-gray-700">
         <UButton
-          v-if="event?.id"
+          v-if="event?.id && canDelete"
           color="error"
           variant="ghost"
           icon="i-lucide-trash"
@@ -345,6 +411,7 @@ function handleDelete() {
             Cancel
           </UButton>
           <UButton
+            v-if="!isReadOnly"
             color="primary"
             @click="handleSave"
           >
