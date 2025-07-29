@@ -7,7 +7,7 @@ import SettingsIntegrationDialog from "~/components/settings/settingsIntegration
 import SettingsUserDialog from "~/components/settings/settingsUserDialog.vue";
 import { integrationRegistry } from "~/types/integrations";
 
-const { users, loading, error, fetchUsers, createUser, deleteUser } = useUsers();
+const { users, loading, error, fetchUsers, createUser, deleteUser, updateUser } = useUsers();
 const { integrations, loading: integrationsLoading, fetchIntegrations, createIntegration, updateIntegration, deleteIntegration } = useIntegrations();
 
 const colorMode = useColorMode();
@@ -59,7 +59,7 @@ const filteredIntegrations = computed(() => {
 
 function handleUserSave(userData: CreateUserInput) {
   if (selectedUser.value?.id) {
-    consola.warn("Update user:", userData);
+    updateUser(selectedUser.value.id, userData);
   }
   else {
     createUser(userData);
@@ -251,9 +251,11 @@ function getIntegrationIconUrl(integration: Integration) {
                 :key="user.id"
                 class="flex items-center gap-3 p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700"
               >
-                <div class="w-10 h-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-600 flex items-center justify-center text-white text-sm font-medium">
-                  {{ user.name.charAt(0).toUpperCase() }}
-                </div>
+                <img
+                  :src="user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=${(user.color || '#06b6d4').replace('#', '')}&color=374151&size=96`"
+                  class="w-10 h-10 rounded-full object-cover border border-gray-300 dark:border-gray-700"
+                  :alt="user.name"
+                >
                 <div class="flex-1 min-w-0">
                   <p class="font-medium text-gray-900 dark:text-white truncate">
                     {{ user.name }}

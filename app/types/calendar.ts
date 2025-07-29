@@ -7,9 +7,14 @@ export type CalendarEvent = {
   start: Date;
   end: Date;
   allDay?: boolean;
-  color?: EventColor;
+  color?: string | string[];
   label?: string;
   location?: string;
+  integrationId?: string;
+  users?: Array<{
+    id: string;
+    name: string;
+    avatar?: string | null;
+    color?: string | null;
+  }>;
 };
-
-export type EventColor = "sky" | "orange" | "violet" | "rose" | "emerald";

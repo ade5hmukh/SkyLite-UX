@@ -1,79 +1,52 @@
 <script setup lang="ts">
-import { format, isSameDay } from "date-fns";
+import { format } from "date-fns";
+import { computed } from "vue";
 
-import type { CalendarEvent } from "~/utils/calendarTypes";
+import type { CalendarEvent } from "~/types/calendar";
 
-import { getAllEventsForDay, sortEvents } from "~/utils/calendarUtils";
+import { useCalendar } from "~/composables/useCalendar";
 
 const props = defineProps<{
   weeks: Date[][];
   events: CalendarEvent[];
   isCurrentMonth: boolean;
   cellId: string;
-  isReferenceCell?: boolean;
-  visibleCount?: number;
   remainingCount?: number;
   hasMore?: boolean;
-  defaultStartHour?: number;
   eventHeight?: number;
 }>();
 
 const emit = defineEmits<{
   (e: "eventCreate", date: Date): void;
   (e: "eventClick", event: CalendarEvent, mouseEvent: MouseEvent): void;
-  (e: "eventUpdate", event: CalendarEvent): void;
 }>();
 
-const contentRef = useState<HTMLElement | null>("calendarContentRef", () => null);
+const { isToday, isFirstDay, isLastDay, isFirstVisibleDay, handleEventClick: _handleEventClick, scrollToDate, getAllEventsForDay, isPlaceholderEvent, assignSpanningEventLanes, sortEvents, computedEventHeight: getEventHeight } = useCalendar();
 
-const cellRef = computed(() => props.isReferenceCell ? contentRef : undefined);
+const computedEventHeight = computed(() => getEventHeight("month", props.eventHeight));
+
+const eventGap = 4;
+
+watch(() => props.events, (events) => {
+  assignSpanningEventLanes(events);
+}, { immediate: true });
 
 const allEvents = computed(() => {
   return props.events;
 });
 
-function scrollToCurrentDay() {
-  const today = new Date();
-  const todayElement = document.querySelector(`[data-date="${format(today, "yyyy-MM-dd")}"]`);
-  if (todayElement) {
-    const headerHeight = 80; // Approximate height of the header
-    const padding = 20; // Additional padding
-    const elementPosition = todayElement.getBoundingClientRect().top;
-    const offsetPosition = elementPosition + window.pageYOffset - headerHeight - padding;
-
-    window.scrollTo({
-      top: offsetPosition,
-      behavior: "smooth",
-    });
-  }
-}
-
-// Scroll to current day when component is mounted
 onMounted(() => {
-  scrollToCurrentDay();
+  scrollToDate(new Date(), "month");
 });
 
-// Watch for changes in weeks and scroll to current day
 watch(() => props.weeks, () => {
   nextTick(() => {
-    scrollToCurrentDay();
+    scrollToDate(new Date(), "month");
   });
 });
 
-function isToday(date: Date) {
-  return isSameDay(date, new Date());
-}
-
-function isFirstDay(day: Date, event: CalendarEvent) {
-  return isSameDay(day, new Date(event.start));
-}
-
-function isLastDay(day: Date, event: CalendarEvent) {
-  return isSameDay(day, new Date(event.end));
-}
-
 function handleEventClick(event: CalendarEvent, e: MouseEvent) {
-  emit("eventClick", event, e);
+  _handleEventClick(event, e, emit);
 }
 </script>
 
@@ -103,36 +76,49 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
           class="group flex h-full flex-col border border-gray-200 dark:border-gray-700 last:border-r-0"
           :class="{
             'bg-gray-100/25 dark:bg-gray-800/25 text-gray-600 dark:text-gray-400': !isCurrentMonth,
+            'bg-blue-100/10 dark:bg-blue-900/10': isToday(day),
           }"
         >
-          <div
-            class="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-sm"
-            :class="{
-              'bg-primary text-white': isToday(day),
-              'text-gray-600 dark:text-gray-400': !isToday(day),
-            }"
-          >
-            {{ format(day, 'd') }}
+          <div class="flex justify-end items-center p-0.5">
+            <div
+              class="inline-flex h-6 w-6 items-center justify-center rounded-full text-sm"
+              :class="{
+                'bg-primary text-white': isToday(day),
+                'text-gray-600 dark:text-gray-400': !isToday(day),
+              }"
+            >
+              {{ format(day, 'd') }}
+            </div>
           </div>
+          <div class="border-b border-gray-200 dark:border-gray-700 mb-1" />
           <div
-            :ref="cellRef"
-            class="h-[calc((var(--event-height)+var(--event-gap))*5)] overflow-y-auto px-2 py-1 space-y-1 relative z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            class="overflow-y-auto px-2 py-1 space-y-1 relative z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col"
+            :style="{ height: `${(computedEventHeight + eventGap) * 3}px` }"
           >
             <template v-for="event in sortEvents(getAllEventsForDay(events, day))" :key="`${event.id}-${day.toISOString().slice(0, 10)}`">
+              <!-- Invisible placeholder for spacing -->
+              <div
+                v-if="isPlaceholderEvent(event)"
+                class="opacity-0 pointer-events-none"
+                :style="{ height: `${computedEventHeight}px` }"
+              />
+              <!-- Regular event -->
               <CalendarEventItem
+                v-else
                 :event="event"
                 view="month"
-                :is-first-day="isFirstDay(day, event)"
+                :is-first-day="isFirstVisibleDay(day, event, props.weeks.flat())"
                 :is-last-day="isLastDay(day, event)"
+                :current-day="day"
                 :class="{
-                  'rounded-l rounded-r-none -mr-2 !w-[calc(100%+0.5rem)]': isFirstDay(day, event) && !isLastDay(day, event),
-                  'rounded-r rounded-l-none -ml-2 !w-[calc(100%+0.5rem)]': !isFirstDay(day, event) && isLastDay(day, event),
-                  'rounded-none -ml-2 -mr-2 !w-[calc(100%+1rem)]': !isFirstDay(day, event) && !isLastDay(day, event),
+                  'rounded-l rounded-r-none -mr-3 !w-[calc(100%+0.75rem)]': isFirstDay(day, event) && !isLastDay(day, event),
+                  'rounded-r rounded-l-none -ml-3 !w-[calc(100%+0.75rem)]': !isFirstDay(day, event) && isLastDay(day, event),
+                  'rounded-none -ml-3 -mr-3 !w-[calc(100%+1.5rem)]': !isFirstDay(day, event) && !isLastDay(day, event),
                   'rounded': isFirstDay(day, event) && isLastDay(day, event),
                 }"
                 @click="(e) => handleEventClick(event, e)"
               >
-                <div v-if="isFirstDay(day, event)" class="invisible">
+                <div v-if="isFirstVisibleDay(day, event, props.weeks.flat())" class="invisible">
                   <span v-if="!event.allDay">
                     {{ format(new Date(event.start), 'h:mm') }}
                   </span>
@@ -141,43 +127,60 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
               </CalendarEventItem>
             </template>
 
-            <Popover v-if="hasMore" modal>
-              <PopoverTrigger as-child>
-                <button
-                  class="mt-[var(--event-gap)] h-[var(--event-height)] w-full justify-start px-1 text-[10px] sm:px-2 sm:text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
-                  @click.stop
-                >
-                  <span>
-                    + {{ remainingCount }}
-                    <span class="max-sm:sr-only">more</span>
-                  </span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                align="center"
-                class="w-52 p-3 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
-                :style="{
-                  '--event-height': `${eventHeight}px`,
-                }"
+            <!-- No events message -->
+            <div v-if="getAllEventsForDay(events, day).length === 0 && !isToday(day)" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-600 flex-1">
+              <UIcon name="i-lucide-calendar-off" class="w-6 h-6" />
+              <span class="text-md text-gray-500 dark:text-gray-400">No events</span>
+            </div>
+            <div v-if="getAllEventsForDay(events, day).length === 0 && isToday(day)" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-600 flex-1">
+              <UIcon name="i-lucide-calendar-off" class="w-6 h-6" />
+              <span class="text-md text-gray-500 dark:text-gray-400">No events today</span>
+            </div>
+
+            <UPopover v-if="hasMore">
+              <UButton
+                variant="ghost"
+                class="w-full justify-start px-1 text-[10px] sm:px-2 sm:text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
+                :style="{ marginTop: `${eventGap}px`, height: `${computedEventHeight}px` }"
+                @click.stop
               >
-                <div class="space-y-2">
-                  <div class="text-sm font-medium">
-                    {{ format(day, 'EEE d') }}
-                  </div>
-                  <div class="space-y-1">
-                    <CalendarEventItem
-                      v-for="event in sortEvents(allEvents)"
-                      :key="event.id"
-                      :event="event"
-                      view="month"
-                      :is-first-day="isFirstDay(day, event)"
-                      :is-last-day="isLastDay(day, event)"
-                      @click="(e) => handleEventClick(event, e)"
-                    />
+                <span>
+                  + {{ remainingCount }}
+                  <span class="max-sm:sr-only">more</span>
+                </span>
+              </UButton>
+
+              <template #panel>
+                <div
+                  class="w-52 p-3 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
+                >
+                  <div class="space-y-2">
+                    <div class="text-sm font-medium">
+                      {{ format(day, 'EEE d') }}
+                    </div>
+                    <div class="space-y-1">
+                      <template v-for="event in sortEvents(allEvents)" :key="event.id">
+                        <!-- Invisible placeholder for spacing in popover -->
+                        <div
+                          v-if="isPlaceholderEvent(event)"
+                          class="opacity-0 pointer-events-none"
+                          :style="{ height: `${computedEventHeight}px` }"
+                        />
+                        <!-- Regular event in popover -->
+                        <CalendarEventItem
+                          v-else
+                          :event="event"
+                          view="month"
+                          :is-first-day="isFirstVisibleDay(day, event, props.weeks.flat())"
+                          :is-last-day="isLastDay(day, event)"
+                          @click="(e) => handleEventClick(event, e)"
+                        />
+                      </template>
+                    </div>
                   </div>
                 </div>
-              </PopoverContent>
-            </Popover>
+              </template>
+            </UPopover>
           </div>
         </div>
       </div>

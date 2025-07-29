@@ -3,15 +3,15 @@ import type { DropdownMenuItem } from "@nuxt/ui";
 
 import { addDays, addMonths, addWeeks, endOfWeek, format, isSameMonth, startOfWeek, subMonths, subWeeks } from "date-fns";
 
-import type { CalendarEvent, CalendarView } from "~/utils/calendarTypes";
+import type { CalendarEvent, CalendarView } from "~/types/calendar";
 
 const props = defineProps<{
   events?: CalendarEvent[];
-  onEventAdd?: (event: CalendarEvent) => void;
-  onEventUpdate?: (event: CalendarEvent) => void;
-  onEventDelete?: (eventId: string) => void;
   className?: string;
   initialView?: CalendarView;
+  class?: string;
+  loading?: boolean;
+  getIntegrationCapabilities?: (event: CalendarEvent) => { capabilities: string[]; serviceName?: string } | undefined;
 }>();
 
 const _emit = defineEmits<{
@@ -20,7 +20,6 @@ const _emit = defineEmits<{
   (e: "eventDelete", eventId: string): void;
 }>();
 
-// Calendar state
 const currentDate = ref(new Date());
 const view = ref<CalendarView>(props.initialView || "week");
 const isEventDialogOpen = ref(false);
@@ -36,7 +35,10 @@ const items: DropdownMenuItem[][] = [
     {
       label: "Week",
       icon: "i-lucide-calendar-range",
-      onSelect: () => view.value = "week",
+      onSelect: () => {
+        view.value = "week";
+        currentDate.value = new Date();
+      },
     },
     {
       label: "Day",
@@ -51,7 +53,6 @@ const items: DropdownMenuItem[][] = [
   ],
 ];
 
-// Keyboard shortcuts for view switching
 onMounted(() => {
   const handleKeyDown = (e: KeyboardEvent) => {
     if (
@@ -85,7 +86,6 @@ onMounted(() => {
   });
 });
 
-// Navigation handlers
 function handlePrevious() {
   if (view.value === "month") {
     currentDate.value = subMonths(currentDate.value, 1);
@@ -120,62 +120,41 @@ function handleToday() {
   currentDate.value = new Date();
 }
 
-// Event handlers
 function handleEventSelect(event: CalendarEvent) {
-  selectedEvent.value = { ...event };
+  selectedEvent.value = event;
   isEventDialogOpen.value = true;
 }
 
-function handleEventCreate(startTime: Date) {
-  // Snap to 15-minute intervals
-  const minutes = startTime.getMinutes();
-  const remainder = minutes % 15;
-  if (remainder !== 0) {
-    if (remainder < 7.5) {
-      startTime.setMinutes(minutes - remainder);
-    }
-    else {
-      startTime.setMinutes(minutes + (15 - remainder));
-    }
-    startTime.setSeconds(0);
-    startTime.setMilliseconds(0);
-  }
-
-  const newEvent: CalendarEvent = {
-    id: "", // Empty ID for new events
+function handleEventCreate(date: Date) {
+  selectedEvent.value = {
+    id: "",
     title: "",
-    start: startTime,
-    end: new Date(startTime.getTime() + 60 * 60 * 1000), // Add 1 hour
+    description: "",
+    start: date,
+    end: addDays(date, 1),
     allDay: false,
+    color: "sky",
   };
-  selectedEvent.value = newEvent;
   isEventDialogOpen.value = true;
 }
 
 function handleEventSave(event: CalendarEvent) {
-  // For new events, we should always emit eventAdd
-  if (!event.id) {
-    _emit("eventAdd", event);
+  if (event.id) {
+    _emit("eventUpdate", event);
   }
   else {
-    // For existing events, check if it exists in the current events
-    const existingEvent = props.events?.find(e => e.id === event.id);
-    if (existingEvent) {
-      _emit("eventUpdate", event);
-    }
-    else {
-      _emit("eventAdd", event);
-    }
+    _emit("eventAdd", event);
   }
   isEventDialogOpen.value = false;
+  selectedEvent.value = null;
 }
 
 function handleEventDelete(eventId: string) {
   _emit("eventDelete", eventId);
   isEventDialogOpen.value = false;
+  selectedEvent.value = null;
 }
 
-// View title computation
 const viewTitle = computed(() => {
   if (view.value === "month") {
     return format(currentDate.value, "MMMM yyyy");
@@ -206,7 +185,6 @@ const viewTitle = computed(() => {
   return format(currentDate.value, "MMMM yyyy");
 });
 
-// Helper functions for generating dates
 function getWeeksForMonth(date: Date) {
   const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
   const lastDayOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
@@ -227,22 +205,11 @@ function getWeeksForMonth(date: Date) {
   return weeks;
 }
 
-function getDaysForWeek(date: Date) {
-  const start = startOfWeek(date, { weekStartsOn: 0 });
-  const days: Date[] = [];
-  for (let i = 0; i < 7; i++) {
-    days.push(addDays(start, i));
-  }
-  return days;
-}
-
 function getDaysForAgenda(date: Date) {
   const days: Date[] = [];
-  // Add 15 days before the current date
   for (let i = -15; i < 0; i++) {
     days.push(addDays(date, i));
   }
-  // Add the current date and 14 days after
   for (let i = 0; i < 15; i++) {
     days.push(addDays(date, i));
   }
@@ -253,7 +220,7 @@ function getDaysForAgenda(date: Date) {
 <template>
   <div
     class="flex h-full w-full flex-col rounded-lg"
-    :class="[className]"
+    :class="[className, props.class]"
     :style="{
       '--event-height': '24px',
       '--event-gap': '2px',
@@ -325,10 +292,8 @@ function getDaysForAgenda(date: Date) {
       />
       <GlobalWeekView
         v-if="view === 'week'"
-        :days="getDaysForWeek(currentDate)"
+        :start-date="currentDate"
         :events="events || []"
-        :week-start="startOfWeek(currentDate, { weekStartsOn: 0 })"
-        :show-all-day-section="true"
         @event-click="handleEventSelect"
         @event-create="handleEventCreate"
       />
@@ -339,6 +304,7 @@ function getDaysForAgenda(date: Date) {
         :show-all-day-section="true"
         @event-click="handleEventSelect"
         @event-create="handleEventCreate"
+        @date-select="(date) => currentDate = date"
       />
       <GlobalAgendaView
         v-if="view === 'agenda'"
@@ -366,6 +332,8 @@ function getDaysForAgenda(date: Date) {
   <CalendarEventDialog
     :event="selectedEvent"
     :is-open="isEventDialogOpen"
+    :integration-capabilities="selectedEvent && props.getIntegrationCapabilities ? props.getIntegrationCapabilities(selectedEvent)?.capabilities : undefined"
+    :integration-service-name="selectedEvent && props.getIntegrationCapabilities ? props.getIntegrationCapabilities(selectedEvent)?.serviceName : undefined"
     @close="isEventDialogOpen = false"
     @save="handleEventSave"
     @delete="handleEventDelete"

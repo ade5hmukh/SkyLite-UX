@@ -18,12 +18,13 @@ model User {
   name      String
   email     String?  @unique
   avatar    String?
+  color     String?
   todoOrder Int      @default(0)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  // Relations
   todoColumn TodoColumn?
+  calendarEvents CalendarEventUser[]
 
   @@map("users")
 }
@@ -32,8 +33,8 @@ model TodoColumn {
   id        String   @id @default(cuid())
   name      String
   order     Int      @default(0)
-  isDefault Boolean  @default(false) // For "Unassigned" column
-  userId    String?  @unique // Optional - allows for custom columns not tied to users
+  isDefault Boolean  @default(false)
+  userId    String?  @unique
   user      User?    @relation(fields: [userId], references: [id], onDelete: Cascade)
   todos     Todo[]
   createdAt DateTime @default(now())
@@ -53,7 +54,6 @@ model Todo {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  // Relations
   todoColumnId String?
   todoColumn   TodoColumn? @relation(fields: [todoColumnId], references: [id], onDelete: Cascade)
 
@@ -67,7 +67,6 @@ model ShoppingList {
   createdAt DateTime          @default(now())
   updatedAt DateTime          @updatedAt
 
-  // Relations
   items ShoppingListItem[]
 
   @@map("shopping_lists")
@@ -82,7 +81,6 @@ model ShoppingListItem {
   notes    String?
   order    Int     @default(0)
 
-  // Relations
   shoppingListId String
   shoppingList   ShoppingList @relation(fields: [shoppingListId], references: [id], onDelete: Cascade)
 
@@ -91,19 +89,50 @@ model ShoppingListItem {
 
 model Integration {
   id        String   @id @default(cuid())
-  name      String   // e.g., "My Tandoor Instance"
-  type      String   // e.g., "shopping", "calendar"
-  service   String   // e.g., "tandoor", "mealie", "google"
+  name      String
+  type      String
+  service   String
   apiKey    String?
   baseUrl   String?
-  icon      String?  // URL to the integration icon
+  icon      String?
   enabled   Boolean  @default(true)
-  settings  Json?    // Additional settings specific to the integration
+  settings  Json?   
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@unique([name])
   @@map("integrations")
+}
+
+model CalendarEvent {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  start       DateTime
+  end         DateTime
+  allDay      Boolean  @default(false)
+  color       Json?  
+  label       String?
+  location    String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  users CalendarEventUser[]
+
+  @@map("calendar_events")
+}
+
+model CalendarEventUser {
+  id             String        @id @default(cuid())
+  calendarEventId String
+  userId         String
+  createdAt      DateTime      @default(now())
+
+  calendarEvent CalendarEvent @relation(fields: [calendarEventId], references: [id], onDelete: Cascade)
+  user          User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([calendarEventId, userId])
+  @@map("calendar_event_users")
 }
 
 enum Priority {

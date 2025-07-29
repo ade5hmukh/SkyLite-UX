@@ -1,8 +1,10 @@
 import type { Priority, Prisma } from "@prisma/client";
 import type { JsonObject } from "type-fest";
 
-// User types
-export type User = Prisma.UserGetPayload<Record<string, never>>;
+export type User = Prisma.UserGetPayload<Record<string, never>> & {
+  avatar?: string | null;
+  color?: string | null;
+};
 export type UserWithTodos = Prisma.UserGetPayload<{
   include: {
     todoColumn: {
@@ -13,7 +15,6 @@ export type UserWithTodos = Prisma.UserGetPayload<{
   };
 }>;
 
-// Todo types
 export type Todo = Prisma.TodoGetPayload<Record<string, never>>;
 export type TodoWithUser = Prisma.TodoGetPayload<{
   include: {
@@ -31,7 +32,6 @@ export type TodoWithUser = Prisma.TodoGetPayload<{
   };
 }>;
 
-// Todo Column types
 export type TodoColumn = Omit<Prisma.TodoColumnGetPayload<{
   include: {
     user: {
@@ -62,7 +62,6 @@ export type TodoColumnBasic = Pick<TodoColumn, "id" | "name"> & {
   };
 };
 
-// Base types for lists
 export type BaseListItem = {
   id: string;
   name: string;
@@ -71,7 +70,6 @@ export type BaseListItem = {
   notes: string | null;
 };
 
-// Shopping List types
 export type ShoppingList = {
   id: string;
   name: string;
@@ -108,7 +106,6 @@ export type ShoppingListWithItemsAndCount = Prisma.ShoppingListGetPayload<{
   };
 }>;
 
-// Integration types
 export type Integration = {
   id: string;
   name: string;
@@ -126,17 +123,14 @@ export type Integration = {
 export type CreateIntegrationInput = Omit<Integration, "id" | "createdAt" | "updatedAt">;
 export type UpdateIntegrationInput = Partial<CreateIntegrationInput>;
 
-// Create types for forms
-export type CreateUserInput = Omit<User, "id" | "createdAt" | "updatedAt">;
+export type CreateUserInput = Omit<User, "id" | "createdAt" | "updatedAt" | "avatar" | "color">;
 export type CreateTodoInput = Omit<Todo, "id" | "createdAt" | "updatedAt">;
 export type CreateShoppingListInput = Omit<ShoppingList, "id" | "createdAt" | "updatedAt" | "items">;
 export type CreateShoppingListItemInput = Omit<ShoppingListItem, "id" | "shoppingListId">;
 
-// Update types
 export type UpdateTodoInput = Partial<Omit<Todo, "id" | "createdAt" | "updatedAt">>;
 export type UpdateShoppingListItemInput = Partial<CreateShoppingListItemInput>;
 
-// Todo List types
 export type TodoList = {
   id: string;
   name: string;
@@ -158,5 +152,4 @@ export type TodoListItem = BaseListItem & {
   shoppingListId: string;
 };
 
-// Re-export Priority enum
 export type { Priority };
