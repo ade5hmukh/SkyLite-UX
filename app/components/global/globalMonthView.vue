@@ -76,20 +76,24 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
           class="group flex h-full flex-col border border-gray-200 dark:border-gray-700 last:border-r-0"
           :class="{
             'bg-gray-100/25 dark:bg-gray-800/25 text-gray-600 dark:text-gray-400': !isCurrentMonth,
+            'bg-blue-100/10 dark:bg-blue-900/10': isToday(day),
           }"
         >
-          <div
-            class="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-sm"
-            :class="{
-              'bg-primary text-white': isToday(day),
-              'text-gray-600 dark:text-gray-400': !isToday(day),
-            }"
-          >
-            {{ format(day, 'd') }}
+          <div class="flex justify-end items-center p-0.5">
+            <div
+              class="inline-flex h-6 w-6 items-center justify-center rounded-full text-sm"
+              :class="{
+                'bg-primary text-white': isToday(day),
+                'text-gray-600 dark:text-gray-400': !isToday(day),
+              }"
+            >
+              {{ format(day, 'd') }}
+            </div>
           </div>
+          <div class="border-b border-gray-200 dark:border-gray-700 mb-1" />
           <div
-            class="overflow-y-auto px-2 py-1 space-y-1 relative z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
-            :style="{ height: `${(computedEventHeight + eventGap) * 5}px` }"
+            class="overflow-y-auto px-2 py-1 space-y-1 relative z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col"
+            :style="{ height: `${(computedEventHeight + eventGap) * 3}px` }"
           >
             <template v-for="event in sortEvents(getAllEventsForDay(events, day))" :key="`${event.id}-${day.toISOString().slice(0, 10)}`">
               <!-- Invisible placeholder for spacing -->
@@ -122,6 +126,16 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
                 </div>
               </CalendarEventItem>
             </template>
+
+            <!-- No events message -->
+            <div v-if="getAllEventsForDay(events, day).length === 0 && !isToday(day)" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-600 flex-1">
+              <UIcon name="i-lucide-calendar-off" class="w-6 h-6" />
+              <span class="text-md text-gray-500 dark:text-gray-400">No events</span>
+            </div>
+            <div v-if="getAllEventsForDay(events, day).length === 0 && isToday(day)" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-600 flex-1">
+              <UIcon name="i-lucide-calendar-off" class="w-6 h-6" />
+              <span class="text-md text-gray-500 dark:text-gray-400">No events today</span>
+            </div>
 
             <UPopover v-if="hasMore">
               <UButton

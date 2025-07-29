@@ -402,7 +402,7 @@ function handleDelete() {
         >
           Delete
         </UButton>
-        <div class="flex gap-2">
+        <div class="flex gap-2" :class="{ 'ml-auto': !event?.id || !canDelete }">
           <UButton
             color="neutral"
             variant="ghost"

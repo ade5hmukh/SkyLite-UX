@@ -48,6 +48,12 @@ watch(() => props.user, (newUser) => {
   }
 }, { immediate: true });
 
+watch(() => props.isOpen, (isOpen) => {
+  if (!isOpen) {
+    resetForm();
+  }
+});
+
 function resetForm() {
   name.value = "";
   email.value = "";

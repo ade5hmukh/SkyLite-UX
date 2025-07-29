@@ -109,7 +109,7 @@ function handleTouchStart(e: TouchEvent) {
           <UAvatarGroup
             v-if="eventUsers.length > 0"
             size="xs"
-            :max="5"
+            :max="4"
             :ui="{
               base: 'relative rounded-full ring-0 border-0 shadow-none outline-none first:me-0',
             }"
@@ -132,11 +132,11 @@ function handleTouchStart(e: TouchEvent) {
 
     <!-- Day View -->
     <template v-else-if="view === 'day'">
-      <div class="flex items-start justify-between">
+      <div class="text-sm font-medium">
+        {{ event.title }}
+      </div>
+      <div class="flex items-end justify-between mt-1">
         <div class="flex-1">
-          <div class="text-sm font-medium">
-            {{ event.title }}
-          </div>
           <div class="text-xs opacity-70">
             <template v-if="event.allDay">
               <span>All day</span>
@@ -157,8 +157,8 @@ function handleTouchStart(e: TouchEvent) {
         </div>
         <UAvatarGroup
           v-if="eventUsers.length > 0"
-          size="lg"
-          :max="4"
+          size="xs"
+          :max="6"
           class="ml-3"
           :ui="{
             base: 'relative rounded-full ring-0 border-0 shadow-none outline-none first:me-0',
@@ -181,11 +181,11 @@ function handleTouchStart(e: TouchEvent) {
 
     <!-- Agenda View -->
     <template v-else>
-      <div class="flex items-start justify-between">
+      <div class="text-sm font-medium">
+        {{ event.title }}
+      </div>
+      <div class="flex items-end justify-between mt-1">
         <div class="flex-1">
-          <div class="text-sm font-medium">
-            {{ event.title }}
-          </div>
           <div class="text-xs opacity-70">
             <template v-if="event.allDay">
               <span>All day</span>
@@ -206,7 +206,7 @@ function handleTouchStart(e: TouchEvent) {
         </div>
         <UAvatarGroup
           v-if="eventUsers.length > 0"
-          size="lg"
+          size="md"
           :max="8"
           class="ml-3"
           :ui="{

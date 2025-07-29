@@ -17,8 +17,7 @@ const emit = defineEmits<{
   (e: "dateSelect", date: Date): void;
 }>();
 
-const { isToday, computedEventHeight: getEventHeight, isSelectedDate: _isSelectedDate, handleDateSelect: _handleDateSelect, getMiniCalendarWeeks, getAllEventsForDay, getAgendaEventsForDay } = useCalendar();
-const computedEventHeight = computed(() => getEventHeight("day", props.eventHeight));
+const { isToday, isSelectedDate: _isSelectedDate, handleDateSelect: _handleDateSelect, getMiniCalendarWeeks, getAllEventsForDay, getAgendaEventsForDay } = useCalendar();
 
 const miniCalendarWeeks = computed(() => getMiniCalendarWeeks(props.currentDate));
 
@@ -128,7 +127,6 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
             :event="event"
             view="agenda"
             class="mb-2"
-            :style="{ height: `${computedEventHeight}px` }"
             @click="(e) => handleEventClick(event, e)"
           />
         </div>

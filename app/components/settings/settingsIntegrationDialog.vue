@@ -98,7 +98,12 @@ function initializeSettingsData() {
       initialData[field.key] = field.placeholder || "#06b6d4";
     }
     else if (field.type === "boolean") {
-      initialData[field.key] = false;
+      if (field.key === "useUserColors") {
+        initialData[field.key] = true;
+      }
+      else {
+        initialData[field.key] = false;
+      }
     }
     else if (field.key === "user") {
       initialData[field.key] = [];
@@ -118,6 +123,9 @@ watch(() => props.isOpen, (isOpen) => {
         type.value = firstType.value;
       }
     }
+  }
+  else {
+    resetForm();
   }
 });
 
@@ -175,6 +183,8 @@ function resetForm() {
   service.value = "";
   enabled.value = true;
   error.value = null;
+  isSaving.value = false;
+  show.value = false;
   initializeSettingsData();
 }
 
@@ -232,7 +242,7 @@ async function handleSave() {
       settings: {
         user: settingsData.value.user || [],
         eventColor: settingsData.value.eventColor || "#06b6d4",
-        useUserColors: settingsData.value.useUserColors || false,
+        useUserColors: Boolean(settingsData.value.useUserColors),
       },
       createdAt: new Date(),
       updatedAt: new Date(),

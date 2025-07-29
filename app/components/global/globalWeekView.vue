@@ -73,7 +73,7 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
 
         <!-- Events Container -->
         <div
-          class="overflow-y-auto px-2 py-1 space-y-1 relative z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          class="overflow-y-auto px-2 py-1 space-y-1 relative z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col"
           style="height: 240px;"
         >
           <template v-for="event in sortEvents(getAllEventsForDay(events, day))" :key="`${event.id}-${day.toISOString().slice(0, 10)}`">
@@ -93,6 +93,16 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
               @click="(e) => handleEventClick(event, e)"
             />
           </template>
+
+          <!-- No events message -->
+          <div v-if="getAllEventsForDay(events, day).length === 0 && !isToday(day)" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-600 flex-1">
+            <UIcon name="i-lucide-calendar-off" class="w-8 h-8" />
+            <span class="text-lg text-gray-500 dark:text-gray-400">No events</span>
+          </div>
+          <div v-if="getAllEventsForDay(events, day).length === 0 && isToday(day)" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-600 flex-1">
+            <UIcon name="i-lucide-calendar-off" class="w-8 h-8" />
+            <span class="text-lg text-gray-500 dark:text-gray-400">No events today</span>
+          </div>
         </div>
       </div>
 
@@ -124,7 +134,7 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
 
         <!-- Events Container -->
         <div
-          class="overflow-y-auto px-2 py-1 space-y-1 relative z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+          class="overflow-y-auto px-2 py-1 space-y-1 relative z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col"
           style="height: 240px;"
         >
           <template v-for="event in sortEvents(getAllEventsForDay(events, day))" :key="`${event.id}-${day.toISOString().slice(0, 10)}`">
@@ -144,6 +154,16 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
               @click="(e) => handleEventClick(event, e)"
             />
           </template>
+
+          <!-- No events message -->
+          <div v-if="getAllEventsForDay(events, day).length === 0 && !isToday(day)" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-600 flex-1">
+            <UIcon name="i-lucide-calendar-off" class="w-6 h-6" />
+            <span class="text-md text-gray-500 dark:text-gray-400">No events</span>
+          </div>
+          <div v-if="getAllEventsForDay(events, day).length === 0 && isToday(day)" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-600 flex-1">
+            <UIcon name="i-lucide-calendar-off" class="w-6 h-6" />
+            <span class="text-md text-gray-500 dark:text-gray-400">No events today</span>
+          </div>
         </div>
       </div>
     </div>

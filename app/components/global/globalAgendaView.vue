@@ -20,21 +20,17 @@ const hasEvents = computed(() => {
   return props.events.length > 0;
 });
 
-const daysWithEvents = computed(() => {
-  return props.days.filter(day => getAgendaEventsForDay(props.events, day).length > 0);
-});
-
 function handleEventClick(event: CalendarEvent, e: MouseEvent) {
   _handleEventClick(event, e, emit);
 }
 
 onMounted(() => {
-  scrollToDate(new Date(), "month");
+  scrollToDate(new Date(), "agenda");
 });
 
 watch(() => props.days, () => {
   nextTick(() => {
-    scrollToDate(new Date(), "month");
+    scrollToDate(new Date(), "agenda");
   });
 });
 </script>
@@ -52,7 +48,7 @@ watch(() => props.days, () => {
     </div>
     <template v-else>
       <div
-        v-for="day in daysWithEvents"
+        v-for="day in days"
         :key="day.toString()"
         :data-date="format(day, 'yyyy-MM-dd')"
         class="border-gray-200 dark:border-gray-700 relative my-12 border-t border-r"
@@ -72,6 +68,18 @@ watch(() => props.days, () => {
           </span>
         </span>
         <div class="mt-6 space-y-2">
+          <div v-if="getAgendaEventsForDay(events, day).length === 0 && isToday(day)" class="text-center py-8">
+            <div class="flex items-center justify-center gap-2 text-gray-400 dark:text-gray-600">
+              <UIcon name="i-lucide-calendar-off" class="w-6 h-6" />
+              <span class="text-md font-medium text-gray-900 dark:text-gray-100">No events today</span>
+            </div>
+          </div>
+          <div v-if="getAgendaEventsForDay(events, day).length === 0 && !isToday(day)" class="text-center py-8">
+            <div class="flex items-center justify-center gap-2 text-gray-400 dark:text-gray-600">
+              <UIcon name="i-lucide-calendar-off" class="w-6 h-6" />
+              <span class="text-md font-medium text-gray-900 dark:text-gray-100">No events</span>
+            </div>
+          </div>
           <CalendarEventItem
             v-for="event in getAgendaEventsForDay(events, day)"
             :key="event.id"

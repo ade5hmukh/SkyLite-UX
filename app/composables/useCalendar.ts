@@ -146,23 +146,31 @@ export function useCalendar() {
 
           const visibleColors: Array<{ color: string; start: number; end: number }> = [];
 
-          // Special case: when days == colors, create artificial gradients for visual effect
+          // Edge case: when days == colors
           if (totalDays === color.length) {
             const currentColor = color[dayDiff];
             const nextColor = color[dayDiff + 1];
 
             if (currentColor) {
+              const baseSplit = 75;
+              const dayOffset = dayDiff * 2;
+              const adjustedSplit = Math.min(baseSplit + dayOffset, 100);
+
               visibleColors.push({
                 color: currentColor,
                 start: 0,
-                end: nextColor ? 90 : 100,
+                end: nextColor ? adjustedSplit : 100,
               });
             }
 
             if (nextColor) {
+              const baseSplit = 75;
+              const dayOffset = dayDiff * 2;
+              const adjustedSplit = Math.min(baseSplit + dayOffset, 100);
+
               visibleColors.push({
                 color: nextColor,
-                start: 90,
+                start: adjustedSplit,
                 end: 100,
               });
             }
@@ -299,9 +307,25 @@ export function useCalendar() {
     emit("eventClick", calendarEvent, e);
   }
 
-  function scrollToDate(date: Date, view: "month" | "week" | "day") {
+  function scrollToDate(date: Date, view: "month" | "week" | "day" | "agenda") {
     if (view === "month") {
       const dateElement = document.querySelector(`[data-date="${format(date, "yyyy-MM-dd")}"]`);
+      if (dateElement) {
+        const headerHeight = 80;
+        const padding = 20;
+        const elementPosition = dateElement.getBoundingClientRect().top;
+        const offsetPosition = elementPosition + window.pageYOffset - headerHeight - padding;
+
+        window.scrollTo({
+          top: offsetPosition,
+          behavior: "smooth",
+        });
+      }
+    }
+    else if (view === "agenda") {
+      const targetDate = format(date, "yyyy-MM-dd");
+      const dateElement = document.querySelector(`[data-date="${targetDate}"]`);
+
       if (dateElement) {
         const headerHeight = 80;
         const padding = 20;
