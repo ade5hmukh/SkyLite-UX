@@ -6,6 +6,8 @@ import { format, isBefore } from "date-fns";
 
 import type { CalendarEvent } from "~/types/calendar";
 
+import { useCalendar } from "~/composables/useCalendar";
+import { useStableDate } from "~/composables/useStableDate";
 import { useUsers } from "~/composables/useUsers";
 
 const props = defineProps<{
@@ -23,13 +25,16 @@ const emit = defineEmits<{
 
 const { users, fetchUsers } = useUsers();
 
+// Use global stable date
+const { getStableDate, parseStableDate } = useStableDate();
+
+// Use calendar timestamp handling functions
+const { getEventStartTimeForInput, getEventEndTimeForInput, getEventEndDateForInput, convertLocalToUTC } = useCalendar();
+
 const StartHour = 0;
 const EndHour = 23;
 const DefaultStartHour = 9;
 const DefaultEndHour = 10;
-const df = new DateFormatter("en-US", {
-  dateStyle: "medium",
-});
 
 const title = ref("");
 const description = ref("");
@@ -45,10 +50,11 @@ const error = ref<string | null>(null);
 const timeOptions = computed(() => {
   const options = [];
   for (let hour = StartHour; hour <= EndHour; hour++) {
-    for (let minute = 0; minute < 60; minute += 15) {
+    for (let minute = 0; minute < 60; minute += 5) {
       const formattedHour = hour.toString().padStart(2, "0");
       const formattedMinute = minute.toString().padStart(2, "0");
       const value = `${formattedHour}:${formattedMinute}`;
+      // Use a fixed date for time formatting to avoid hydration mismatches
       const date = new Date(2000, 0, 1, hour, minute);
       const label = format(date, "h:mm a");
       options.push({ value, label });
@@ -89,12 +95,12 @@ watch(() => props.event, (newEvent) => {
   if (newEvent) {
     title.value = newEvent.title || "";
     description.value = newEvent.description || "";
-    const start = new Date(newEvent.start);
-    const end = new Date(newEvent.end);
+    // Use stable date parsing to avoid hydration mismatches
+    const start = newEvent.start instanceof Date ? newEvent.start : parseStableDate(newEvent.start);
     startDate.value = parseDate(start.toISOString().split("T")[0]!);
-    endDate.value = parseDate(end.toISOString().split("T")[0]!);
-    startTime.value = formatTimeForInput(start);
-    endTime.value = formatTimeForInput(end);
+    endDate.value = parseDate(getEventEndDateForInput(newEvent));
+    startTime.value = getEventStartTimeForInput(newEvent);
+    endTime.value = getEventEndTimeForInput(newEvent);
     allDay.value = newEvent.allDay || false;
     location.value = newEvent.location || "";
     selectedUsers.value = newEvent.users?.map(user => user.id) || [];
@@ -108,21 +114,15 @@ watch(() => props.event, (newEvent) => {
 function resetForm() {
   title.value = "";
   description.value = "";
-  const now = new Date();
-  startDate.value = parseDate(now.toISOString().split("T")[0]!);
-  endDate.value = parseDate(now.toISOString().split("T")[0]!);
+  // Use a stable date reference to avoid hydration mismatches
+  startDate.value = parseDate(getStableDate().toISOString().split("T")[0]!);
+  endDate.value = parseDate(getStableDate().toISOString().split("T")[0]!);
   startTime.value = `${DefaultStartHour}:00`;
   endTime.value = `${DefaultEndHour}:00`;
   allDay.value = false;
   location.value = "";
   selectedUsers.value = [];
   error.value = null;
-}
-
-function formatTimeForInput(date: Date) {
-  const hours = date.getHours().toString().padStart(2, "0");
-  const minutes = Math.floor(date.getMinutes() / 15) * 15;
-  return `${hours}:${minutes.toString().padStart(2, "0")}`;
 }
 
 function handleSave() {
@@ -141,12 +141,26 @@ function handleSave() {
     return;
   }
 
-  const start = startDate.value.toDate(getLocalTimeZone());
-  const end = endDate.value.toDate(getLocalTimeZone());
+  let start: Date;
+  let end: Date;
 
-  if (!allDay.value) {
-    const [startHours = 0, startMinutes = 0] = startTime.value.split(":").map(Number);
-    const [endHours = 0, endMinutes = 0] = endTime.value.split(":").map(Number);
+  if (allDay.value) {
+    // All-day events: use UTC day boundaries
+    start = startDate.value.toDate("UTC");
+    end = endDate.value.toDate("UTC");
+
+    // Set UTC day boundaries for all-day events
+    start.setUTCHours(0, 0, 0, 0);
+    end.setUTCHours(23, 59, 59, 999);
+  }
+  else {
+    // Timed events: create local datetime and convert to UTC
+    const startLocal = startDate.value.toDate(getLocalTimeZone());
+    const endLocal = endDate.value.toDate(getLocalTimeZone());
+
+    // Validate time ranges
+    const [startHours = 0] = startTime.value.split(":").map(Number);
+    const [endHours = 0] = endTime.value.split(":").map(Number);
 
     if (
       startHours < StartHour
@@ -158,12 +172,16 @@ function handleSave() {
       return;
     }
 
-    start.setHours(startHours, startMinutes, 0);
-    end.setHours(endHours, endMinutes, 0);
-  }
-  else {
-    start.setHours(0, 0, 0, 0);
-    end.setHours(23, 59, 59, 999);
+    // Set the time on the local dates
+    const [startHoursFull = 0, startMinutes = 0] = startTime.value.split(":").map(Number);
+    const [endHoursFull = 0, endMinutes = 0] = endTime.value.split(":").map(Number);
+
+    startLocal.setHours(startHoursFull, startMinutes, 0, 0);
+    endLocal.setHours(endHoursFull, endMinutes, 0, 0);
+
+    // Convert local time to UTC while preserving the intended local time
+    start = convertLocalToUTC(startLocal);
+    end = convertLocalToUTC(endLocal);
   }
 
   if (isBefore(end, start)) {
@@ -186,8 +204,8 @@ function handleSave() {
     id: props.event?.id || "",
     title: eventTitle,
     description: description.value,
-    start: new Date(start),
-    end: new Date(end),
+    start,
+    end,
     allDay: allDay.value,
     location: location.value,
     color: props.event?.color || "sky",
@@ -229,16 +247,13 @@ function handleDelete() {
           @click="emit('close')"
         />
       </div>
-
       <div class="p-4 space-y-6">
         <div v-if="error" class="bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 rounded-md px-3 py-2 text-sm">
           {{ error }}
         </div>
-
         <div v-if="isReadOnly" class="bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 rounded-md px-3 py-2 text-sm">
           This event cannot be edited. {{ integrationServiceName || 'This integration' }} does not support editing events.
         </div>
-
         <div class="space-y-2">
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Title</label>
           <UInput
@@ -249,7 +264,6 @@ function handleDelete() {
             :disabled="isReadOnly"
           />
         </div>
-
         <div class="space-y-2">
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Description</label>
           <UTextarea
@@ -261,7 +275,6 @@ function handleDelete() {
             :disabled="isReadOnly"
           />
         </div>
-
         <div class="flex gap-4">
           <div class="w-1/2 space-y-2">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Start Date</label>
@@ -273,9 +286,15 @@ function handleDelete() {
                 class="w-full justify-between"
                 :disabled="isReadOnly"
               >
-                {{ startDate ? df.format(startDate.toDate(getLocalTimeZone())) : 'Select a date' }}
+                <NuxtTime
+                  v-if="startDate"
+                  :datetime="startDate.toDate(getLocalTimeZone())"
+                  year="numeric"
+                  month="short"
+                  day="numeric"
+                />
+                <span v-else>Select a date</span>
               </UButton>
-
               <template #content>
                 <UCalendar
                   :model-value="startDate as DateValue"
@@ -286,7 +305,6 @@ function handleDelete() {
               </template>
             </UPopover>
           </div>
-
           <div v-if="!allDay" class="w-1/2 space-y-2">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Start Time</label>
             <USelect
@@ -300,7 +318,6 @@ function handleDelete() {
             />
           </div>
         </div>
-
         <div class="flex gap-4">
           <div class="w-1/2 space-y-2">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">End Date</label>
@@ -312,9 +329,15 @@ function handleDelete() {
                 class="w-full justify-between"
                 :disabled="isReadOnly"
               >
-                {{ endDate ? df.format(endDate.toDate(getLocalTimeZone())) : 'Select a date' }}
+                <NuxtTime
+                  v-if="endDate"
+                  :datetime="endDate.toDate(getLocalTimeZone())"
+                  year="numeric"
+                  month="short"
+                  day="numeric"
+                />
+                <span v-else>Select a date</span>
               </UButton>
-
               <template #content>
                 <UCalendar
                   :model-value="endDate as DateValue"
@@ -325,7 +348,6 @@ function handleDelete() {
               </template>
             </UPopover>
           </div>
-
           <div v-if="!allDay" class="w-1/2 space-y-2">
             <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">End Time</label>
             <USelect
@@ -339,7 +361,6 @@ function handleDelete() {
             />
           </div>
         </div>
-
         <div class="flex items-center gap-2">
           <UCheckbox
             v-model="allDay"
@@ -347,7 +368,6 @@ function handleDelete() {
             :disabled="isReadOnly"
           />
         </div>
-
         <div class="space-y-2">
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Location</label>
           <UInput
@@ -358,7 +378,6 @@ function handleDelete() {
             :disabled="isReadOnly"
           />
         </div>
-
         <div class="space-y-2">
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Users</label>
           <div class="space-y-2">
@@ -391,7 +410,6 @@ function handleDelete() {
           </div>
         </div>
       </div>
-
       <div class="flex justify-between p-4 border-t border-gray-200 dark:border-gray-700">
         <UButton
           v-if="event?.id && canDelete"

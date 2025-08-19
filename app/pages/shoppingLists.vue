@@ -10,8 +10,24 @@ import GlobalList from "~/components/global/globalList.vue";
 import ShoppingListDialog from "~/components/shopping/shoppingListDialog.vue";
 import ShoppingListItemDialog from "~/components/shopping/shoppingListItemDialog.vue";
 import { useAlertToast } from "~/composables/useAlertToast";
+import { useStableDate } from "~/composables/useStableDate";
 import { getFieldsForItem, getIntegrationFields } from "~/integrations/integrationConfig";
 import { integrationRegistry } from "~/types/integrations";
+
+// Use global stable date
+const { parseStableDate, getStableDate } = useStableDate();
+
+const { data: shoppingLists } = useNuxtData<ShoppingList[]>("native-shopping-lists");
+
+const isShoppingListDialogOpen = ref(false);
+const selectedShoppingList = ref<ShoppingList | null>(null);
+
+// Helper function to get date with fallback
+function getDateWithFallback(dateString: string | Date | null): Date {
+  if (!dateString)
+    return getStableDate();
+  return dateString instanceof Date ? dateString : parseStableDate(dateString);
+}
 
 const {
   shoppingLists: nativeShoppingLists,
@@ -21,7 +37,6 @@ const {
   deleteShoppingList,
   addItemToList,
   updateShoppingListItem,
-  getShoppingLists: fetchNativeLists,
   reorderItem,
   reorderShoppingList,
   deleteCompletedItems,
@@ -35,11 +50,9 @@ const {
   updateShoppingListItem: updateIntegrationItem,
   toggleItem: toggleIntegrationItem,
   clearCompletedItems: clearIntegrationCompletedItems,
-  syncShoppingLists,
-  initialFetchError,
 } = useShoppingIntegrations();
 
-const { fetchIntegrations, getIntegrationsByType } = useIntegrations();
+const { getIntegrationsByType } = useIntegrations();
 
 const listDialog = ref(false);
 const itemDialog = ref(false);
@@ -80,8 +93,8 @@ function normalizeIntegrationList(list: RawIntegrationList): ShoppingList {
     id: String(list.id),
     name: String(list.name ?? ""),
     order: Number(list.order ?? 0),
-    createdAt: list.createdAt ? new Date(list.createdAt) : new Date(),
-    updatedAt: list.updatedAt ? new Date(list.updatedAt) : new Date(),
+    createdAt: getDateWithFallback(list.createdAt),
+    updatedAt: getDateWithFallback(list.updatedAt),
     items: filteredItems,
     source: "integration",
     integrationId: list.integrationId ?? undefined,
@@ -143,8 +156,8 @@ const transformedShoppingLists = computed(() => {
     id: list.id,
     name: list.name,
     order: list.order || 0,
-    createdAt: new Date(list.createdAt),
-    updatedAt: new Date(list.updatedAt),
+    createdAt: parseStableDate(list.createdAt),
+    updatedAt: parseStableDate(list.updatedAt),
     items: list.items,
     _count: list._count,
     source: list.source,
@@ -154,34 +167,9 @@ const transformedShoppingLists = computed(() => {
   })) as (ShoppingList & { source?: "native" | "integration"; integrationIcon?: string; integrationName?: string; integrationId?: string })[];
 });
 
-onMounted(async () => {
-  try {
-    await fetchIntegrations();
-    await fetchNativeLists();
-  }
-  catch (error) {
-    consola.error("Failed to initialize shopping lists:", error);
-  }
-});
+// Data is pre-loaded by appInit.ts plugin
 
-watch(initialFetchError, (error) => {
-  if (error) {
-    consola.error("Initial integration fetch failed:", error);
-    let errorMessage = "There was an error while trying to sync your shopping lists. Please check your connection and try again.";
-
-    if (error?.cause && typeof error.cause === "object" && "statusMessage" in error.cause) {
-      errorMessage = (error.cause as { statusMessage: string }).statusMessage;
-    }
-    else if (error?.cause && typeof error.cause === "object" && "detail" in error.cause) {
-      errorMessage = (error.cause as { detail: string }).detail;
-    }
-    else if (error?.message) {
-      errorMessage = error.message;
-    }
-
-    showError("Integration Error", errorMessage);
-  }
-}, { immediate: true });
+// Error handling is now managed by the unified cache system
 
 function openCreateList() {
   editingList.value = null;
@@ -536,29 +524,7 @@ function getFilteredFieldsForItem(item: ShoppingListItem, integrationType: strin
   return getFieldsForItem(item, integrationType, baseFields) as DialogField[];
 }
 
-async function handleSyncIntegrationLists() {
-  try {
-    await syncShoppingLists();
-    showSuccess("Sync Complete", "Your shopping lists have been successfully synchronized with all integrations.");
-  }
-  catch (error: unknown) {
-    consola.error("Failed to sync integration lists:", error);
-
-    let errorMessage = "There was an error while trying to sync your shopping lists. Please check your connection and try again.";
-
-    if (error && typeof error === "object" && "cause" in error && error.cause && typeof error.cause === "object" && "statusMessage" in error.cause) {
-      errorMessage = (error.cause as { statusMessage: string }).statusMessage;
-    }
-    else if (error && typeof error === "object" && "cause" in error && error.cause && typeof error.cause === "object" && "detail" in error.cause) {
-      errorMessage = (error.cause as { detail: string }).detail;
-    }
-    else if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
-      errorMessage = error.message;
-    }
-
-    showError("Sync Failed", errorMessage);
-  }
-}
+// Sync is now handled automatically by the sync manager
 </script>
 
 <template>
@@ -566,18 +532,7 @@ async function handleSyncIntegrationLists() {
     <div class="py-5 sm:px-4 sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
       <GlobalDateHeader />
 
-      <div v-if="enabledIntegrationsByType.length > 0" class="mt-4 flex justify-end">
-        <UButton
-          color="primary"
-          variant="outline"
-          size="sm"
-          :loading="integrationLoading"
-          @click="handleSyncIntegrationLists"
-        >
-          <UIcon name="i-lucide-refresh-cw" class="h-4 w-4 mr-1" />
-          Sync Integrations
-        </UButton>
-      </div>
+      <!-- Sync is now handled automatically by the sync manager -->
     </div>
 
     <div class="flex-1 overflow-y-auto">

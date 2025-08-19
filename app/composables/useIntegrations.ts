@@ -6,29 +6,28 @@ import type { IntegrationService } from "~/types/integrations";
 import { createIntegrationService } from "~/types/integrations";
 
 export function useIntegrations() {
-  const integrations = ref<Integration[]>([]);
+  // Get integrations from Nuxt cache
+  const { data: cachedIntegrations } = useNuxtData<Integration[]>("integrations");
+
+  // Local state for services and initialization
+  const services = ref<Map<string, IntegrationService>>(new Map());
+  const initialized = ref(false);
   const loading = ref(false);
   const error = ref<string | null>(null);
-  const initialized = ref(false);
-  const services = ref<Map<string, IntegrationService>>(new Map());
 
-  const fetchIntegrations = async () => {
-    if (loading.value)
+  // Computed property for integrations with fallback
+  const integrations = computed(() => {
+    return cachedIntegrations.value || [];
+  });
+
+  // Initialize services when integrations data is available
+  const initializeServices = async () => {
+    if (!integrations.value.length || initialized.value)
       return;
 
-    loading.value = true;
-    error.value = null;
     try {
-      const response = await fetch("/api/integrations");
-      if (!response.ok) {
-        throw new Error("Failed to fetch integrations");
-      }
-      const data = await response.json();
-
-      integrations.value.splice(0, integrations.value.length, ...data);
-
       services.value.clear();
-      for (const integration of data) {
+      for (const integration of integrations.value) {
         if (integration.enabled) {
           const service = await createIntegrationService(integration);
           if (service) {
@@ -37,15 +36,29 @@ export function useIntegrations() {
           }
         }
       }
-
       initialized.value = true;
+      consola.info(`Initialized ${services.value.size} integration services`);
     }
     catch (err) {
-      error.value = "Failed to fetch integrations";
-      consola.error("Error fetching integrations:", err);
+      consola.error("Error initializing integration services:", err);
     }
-    finally {
-      loading.value = false;
+  };
+
+  // Watch for integrations data changes and initialize services
+  watch(integrations, async (newIntegrations) => {
+    if (newIntegrations.length > 0) {
+      await initializeServices();
+    }
+  }, { immediate: true });
+
+  const fetchIntegrations = async () => {
+    try {
+      // Refresh the cached data
+      await refreshNuxtData("integrations");
+      consola.info("Integrations data refreshed successfully");
+    }
+    catch (err) {
+      consola.error("Error refreshing integrations:", err);
     }
   };
 
@@ -58,87 +71,112 @@ export function useIntegrations() {
   });
 
   const createIntegration = async (integration: Omit<Integration, "id">) => {
-    loading.value = true;
-    error.value = null;
     try {
-      const response = await fetch("/api/integrations", {
+      const response = await $fetch<Integration>("/api/integrations", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(integration),
+        body: integration,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to create integration");
+      // Refresh the cache to include the new integration
+      await refreshNuxtData("integrations");
+
+      // Initialize service for the new integration if enabled
+      if (response.enabled) {
+        const service = await createIntegrationService(response);
+        if (service) {
+          services.value.set(response.id, service);
+          await service.initialize();
+        }
       }
 
-      const newIntegration = await response.json();
-      await fetchIntegrations();
-      return newIntegration;
+      // Register the new integration with the server-side sync manager
+      if (response.enabled) {
+        try {
+          await $fetch("/api/sync/register-integration", {
+            method: "POST",
+            body: response,
+          });
+          consola.info("Integration registered with sync manager:", response.name);
+        }
+        catch (syncError) {
+          consola.warn("Failed to register integration with sync manager:", syncError);
+        }
+      }
+
+      consola.info("Integration created successfully:", response.name);
+      return response;
     }
     catch (err) {
-      error.value = err instanceof Error ? err.message : "Failed to create integration";
+      const errorMessage = err instanceof Error ? err.message : "Failed to create integration";
       consola.error("Error creating integration:", err);
-      throw err;
-    }
-    finally {
-      loading.value = false;
+      throw new Error(errorMessage);
     }
   };
 
   const updateIntegration = async (id: string, updates: Partial<Integration>) => {
-    loading.value = true;
-    error.value = null;
     try {
-      const response = await fetch(`/api/integrations/${id}`, {
+      const response = await $fetch<Integration>(`/api/integrations/${id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(updates),
+        body: updates,
       });
 
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.message || "Failed to update integration");
+      // Refresh the cache to reflect the changes
+      await refreshNuxtData("integrations");
+
+      // Update service if integration was enabled/disabled
+      if (response.enabled) {
+        const service = await createIntegrationService(response);
+        if (service) {
+          services.value.set(response.id, service);
+          await service.initialize();
+        }
+
+        // Register the updated integration with the server-side sync manager
+        try {
+          await $fetch("/api/sync/register-integration", {
+            method: "POST",
+            body: response,
+          });
+          consola.info("Integration re-registered with sync manager:", response.name);
+        }
+        catch (syncError) {
+          consola.warn("Failed to re-register integration with sync manager:", syncError);
+        }
+      }
+      else {
+        services.value.delete(response.id);
+        // Note: We could add an endpoint to unregister from sync, but for now
+        // the sync manager will skip disabled integrations
       }
 
-      const updatedIntegration = await response.json();
-      await fetchIntegrations();
-      return updatedIntegration;
+      consola.info("Integration updated successfully:", response.name);
+      return response;
     }
     catch (err) {
-      error.value = err instanceof Error ? err.message : "Failed to update integration";
+      const errorMessage = err instanceof Error ? err.message : "Failed to update integration";
       consola.error("Error updating integration:", err);
-      throw err;
-    }
-    finally {
-      loading.value = false;
+      throw new Error(errorMessage);
     }
   };
 
   const deleteIntegration = async (id: string) => {
-    loading.value = true;
-    error.value = null;
     try {
-      const response = await fetch(`/api/integrations/${id}`, {
+      await $fetch(`/api/integrations/${id}`, {
         method: "DELETE",
       });
-      if (!response.ok) {
-        throw new Error("Failed to delete integration");
-      }
+
+      // Remove service
       services.value.delete(id);
-      await fetchIntegrations();
+
+      // Refresh the cache to reflect the deletion
+      await refreshNuxtData("integrations");
+
+      consola.info("Integration deleted successfully:", id);
     }
     catch (err) {
-      error.value = "Failed to delete integration";
+      const errorMessage = err instanceof Error ? err.message : "Failed to delete integration";
       consola.error("Error deleting integration:", err);
-      throw err;
-    }
-    finally {
-      loading.value = false;
+      throw new Error(errorMessage);
     }
   };
 
@@ -165,10 +203,13 @@ export function useIntegrations() {
   };
 
   return {
-    integrations,
-    loading,
-    error,
-    initialized,
+    // Data access
+    integrations: readonly(integrations),
+    loading: readonly(loading),
+    error: readonly(error),
+    initialized: readonly(initialized),
+
+    // Functions
     fetchIntegrations,
     refreshIntegrations,
     createIntegration,

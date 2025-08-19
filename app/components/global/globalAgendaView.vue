@@ -4,6 +4,7 @@ import { format } from "date-fns";
 import type { CalendarEvent } from "~/types/calendar";
 
 import { useCalendar } from "~/composables/useCalendar";
+import { useStableDate } from "~/composables/useStableDate";
 
 const props = defineProps<{
   days: Date[];
@@ -16,6 +17,9 @@ const emit = defineEmits<{
 
 const { isToday, handleEventClick: _handleEventClick, scrollToDate, getAgendaEventsForDay } = useCalendar();
 
+// Use global stable date
+const { getStableDate } = useStableDate();
+
 const hasEvents = computed(() => {
   return props.events.length > 0;
 });
@@ -25,19 +29,21 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
 }
 
 onMounted(() => {
-  scrollToDate(new Date(), "agenda");
+  // Use a stable date reference to avoid hydration mismatches
+  scrollToDate(getStableDate(), "agenda");
 });
 
 watch(() => props.days, () => {
   nextTick(() => {
-    scrollToDate(new Date(), "agenda");
+    // Use a stable date reference to avoid hydration mismatches
+    scrollToDate(getStableDate(), "agenda");
   });
 });
 </script>
 
 <template>
   <div class="border-gray-200 dark:border-gray-700 border-t ps-4 h-full w-full">
-    <div v-if="!hasEvents" class="flex min-h-[70svh] flex-col items-center justify-center py-16 text-center">
+    <div v-show="!hasEvents" class="flex min-h-[70svh] flex-col items-center justify-center py-16 text-center">
       <UIcon name="i-lucide-calendar-off" class="size-8" />
       <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
         No events found
@@ -46,7 +52,7 @@ watch(() => props.days, () => {
         There are no events scheduled for this time period.
       </p>
     </div>
-    <template v-else>
+    <div v-show="hasEvents">
       <div
         v-for="day in days"
         :key="day.toString()"
@@ -61,23 +67,19 @@ watch(() => props.days, () => {
               'text-gray-600 dark:text-gray-400': !isToday(day),
             }"
           >
-            {{ format(day, 'd') }}
+            <NuxtTime :datetime="day" day="numeric" />
           </span>
           <span :class="{ 'font-medium text-gray-900 dark:text-gray-100': isToday(day), 'text-gray-600 dark:text-gray-400': !isToday(day) }">
-            {{ format(day, "MMM, EEEE") }}
+            <NuxtTime :datetime="day" month="short" weekday="long" />
           </span>
         </span>
         <div class="mt-6 space-y-2">
-          <div v-if="getAgendaEventsForDay(events, day).length === 0 && isToday(day)" class="text-center py-8">
+          <div v-show="getAgendaEventsForDay(events, day).length === 0" class="text-center py-8">
             <div class="flex items-center justify-center gap-2 text-gray-400 dark:text-gray-600">
               <UIcon name="i-lucide-calendar-off" class="w-6 h-6" />
-              <span class="text-md font-medium text-gray-900 dark:text-gray-100">No events today</span>
-            </div>
-          </div>
-          <div v-if="getAgendaEventsForDay(events, day).length === 0 && !isToday(day)" class="text-center py-8">
-            <div class="flex items-center justify-center gap-2 text-gray-400 dark:text-gray-600">
-              <UIcon name="i-lucide-calendar-off" class="w-6 h-6" />
-              <span class="text-md font-medium text-gray-900 dark:text-gray-100">No events</span>
+              <span class="text-md font-medium text-gray-900 dark:text-gray-100">
+                {{ isToday(day) ? 'No events today' : 'No events' }}
+              </span>
             </div>
           </div>
           <CalendarEventItem
@@ -89,6 +91,6 @@ watch(() => props.days, () => {
           />
         </div>
       </div>
-    </template>
+    </div>
   </div>
 </template>

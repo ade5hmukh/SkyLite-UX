@@ -1,9 +1,8 @@
 <script setup lang="ts">
-import { format } from "date-fns";
-
 import type { CalendarEvent } from "~/types/calendar";
 
 import { useCalendar } from "~/composables/useCalendar";
+import { useStableDate } from "~/composables/useStableDate";
 
 const props = defineProps<{
   event: CalendarEvent;
@@ -23,8 +22,36 @@ const emit = defineEmits<{
   (e: "touchstart", event: TouchEvent): void;
 }>();
 
-const displayStart = computed(() => new Date(props.event.start));
-const displayEnd = computed(() => new Date(props.event.end));
+// Use global stable date
+const { getStableDate, parseStableDate } = useStableDate();
+
+const displayStart = computed(() => {
+  // Handle both Date objects and date strings with SSR-friendly conversion
+  if (props.event.start instanceof Date) {
+    return props.event.start;
+  }
+  // For SSR consistency, parse the date string deterministically
+  const dateString = props.event.start;
+  if (typeof dateString === "string") {
+    // Ensure consistent parsing by using ISO string format
+    return parseStableDate(dateString);
+  }
+  return getStableDate();
+});
+
+const displayEnd = computed(() => {
+  // Handle both Date objects and date strings with SSR-friendly conversion
+  if (props.event.end instanceof Date) {
+    return props.event.end;
+  }
+  // For SSR consistency, parse the date string deterministically
+  const dateString = props.event.end;
+  if (typeof dateString === "string") {
+    // Ensure consistent parsing by using ISO string format
+    return parseStableDate(dateString);
+  }
+  return getStableDate();
+});
 
 const { getEventColorClasses } = useCalendar();
 
@@ -47,12 +74,32 @@ const eventColorClasses = computed(() => {
 
 const eventUsers = computed(() => props.event.users || []);
 
+const isAllDay = computed(() => {
+  // Determine if event is all-day in a consistent way
+  // Check both the allDay property and if start/end times are at midnight
+  if (props.event.allDay) {
+    return true;
+  }
+
+  // Check if start and end times are at midnight (all-day events)
+  const startHours = displayStart.value.getHours();
+  const startMinutes = displayStart.value.getMinutes();
+  const endHours = displayEnd.value.getHours();
+  const endMinutes = displayEnd.value.getMinutes();
+
+  // Consider it all-day if both start and end are at midnight
+  return startHours === 0 && startMinutes === 0 && endHours === 0 && endMinutes === 0;
+});
+
 function isPast(date: Date) {
-  return date < new Date();
+  // Use a stable date reference to avoid hydration mismatches
+  return date < getStableDate();
 }
 
-function formatTimeWithOptionalMinutes(date: Date) {
-  return format(date, "h:mm a");
+// Helper function to determine if event is past using stable date parsing
+function isEventPast(event: CalendarEvent): boolean {
+  const endDate = event.end instanceof Date ? event.end : parseStableDate(event.end);
+  return isPast(endDate);
 }
 
 function handleClick(e: MouseEvent) {
@@ -72,37 +119,38 @@ function handleTouchStart(e: TouchEvent) {
 </script>
 
 <template>
-  <button
-    class="focus-visible:border-ring focus-visible:ring-ring/50 flex w-full flex-col gap-1 rounded p-2 text-left transition outline-none focus-visible:ring-[3px] data-past-event:line-through data-past-event:opacity-90"
+  <div
+    class="focus-visible:border-ring focus-visible:ring-ring/50 flex w-full flex-col gap-1 rounded p-2 text-left transition outline-none focus-visible:ring-[3px] data-past-event:line-through data-past-event:opacity-90 cursor-pointer"
     :class="typeof eventColorClasses === 'string' ? eventColorClasses : className"
     v-bind="typeof eventColorClasses === 'object' && eventColorClasses !== null ? eventColorClasses : undefined"
-    :data-past-event="isPast(new Date(event.end)) || undefined"
+    :data-past-event="isEventPast(event) || undefined"
+    tabindex="0"
+    role="button"
+    :aria-label="`Calendar event: ${event.title}`"
     @click="handleClick"
     @mousedown="handleMouseDown"
     @touchstart="handleTouchStart"
+    @keydown.enter="handleClick"
+    @keydown.space="handleClick"
   >
-    <!-- Month View -->
-    <template v-if="view === 'month'">
+    <div v-show="view === 'month'">
       <div class="flex items-center justify-between">
         <span class="truncate flex-1" :class="{ invisible: !isFirstDay }">
           {{ isFirstDay ? event.title : '&#8203;' }}
         </span>
       </div>
-    </template>
-
-    <!-- Week View -->
-    <template v-else-if="view === 'week'">
+    </div>
+    <div v-show="view === 'week'">
       <div class="font-medium text-sm truncate">
         {{ event.title }}
       </div>
-
       <div class="flex items-center justify-between gap-2 mt-1 min-h-[1.25rem]">
         <div class="text-xs opacity-70">
-          <template v-if="event.allDay">
+          <template v-if="isAllDay">
             All day
           </template>
           <template v-else>
-            {{ formatTimeWithOptionalMinutes(displayStart) }} - {{ formatTimeWithOptionalMinutes(displayEnd) }}
+            <NuxtTime :datetime="displayStart" hour="numeric" minute="2-digit" :hour12="true" /> - <NuxtTime :datetime="displayEnd" hour="numeric" minute="2-digit" :hour12="true" />
           </template>
         </div>
         <div class="flex-shrink-0 h-5 flex items-center">
@@ -111,7 +159,7 @@ function handleTouchStart(e: TouchEvent) {
             size="xs"
             :max="4"
             :ui="{
-              base: 'relative rounded-full ring-0 border-0 shadow-none outline-none first:me-0',
+              base: 'relative ring-0 border-0 shadow-none outline-none first:me-0',
             }"
           >
             <UAvatar
@@ -120,30 +168,28 @@ function handleTouchStart(e: TouchEvent) {
               :src="user.avatar || undefined"
               :alt="user.name"
               :ui="{
-                root: 'relative rounded-full ring-0 border-0 shadow-none outline-none',
-                image: 'rounded-full object-cover ring-0 border-0 shadow-none',
-                fallback: 'rounded-full ring-0 border-0 shadow-none',
+                root: 'relative ring-0 border-0 shadow-none outline-none',
+                image: 'object-cover ring-0 border-0 shadow-none',
+                fallback: 'ring-0 border-0 shadow-none',
               }"
             />
           </UAvatarGroup>
         </div>
       </div>
-    </template>
-
-    <!-- Day View -->
-    <template v-else-if="view === 'day'">
+    </div>
+    <div v-show="view === 'day'">
       <div class="text-sm font-medium">
         {{ event.title }}
       </div>
       <div class="flex items-end justify-between mt-1">
         <div class="flex-1">
           <div class="text-xs opacity-70">
-            <template v-if="event.allDay">
+            <template v-if="isAllDay">
               <span>All day</span>
             </template>
             <template v-else>
               <span class="uppercase">
-                {{ formatTimeWithOptionalMinutes(displayStart) }} - {{ formatTimeWithOptionalMinutes(displayEnd) }}
+                <NuxtTime :datetime="displayStart" hour="numeric" minute="2-digit" :hour12="true" /> - <NuxtTime :datetime="displayEnd" hour="numeric" minute="2-digit" :hour12="true" />
               </span>
             </template>
             <template v-if="event.location">
@@ -161,7 +207,7 @@ function handleTouchStart(e: TouchEvent) {
           :max="6"
           class="ml-3"
           :ui="{
-            base: 'relative rounded-full ring-0 border-0 shadow-none outline-none first:me-0',
+            base: 'relative ring-0 border-0 shadow-none outline-none first:me-0',
           }"
         >
           <UAvatar
@@ -170,29 +216,27 @@ function handleTouchStart(e: TouchEvent) {
             :src="user.avatar || undefined"
             :alt="user.name"
             :ui="{
-              root: 'relative rounded-full ring-0 border-0 shadow-none outline-none',
-              image: 'rounded-full object-cover ring-0 border-0 shadow-none',
-              fallback: 'rounded-full ring-0 border-0 shadow-none',
+              root: 'relative ring-0 border-0 shadow-none outline-none',
+              image: 'object-cover ring-0 border-0 shadow-none',
+              fallback: 'ring-0 border-0 shadow-none',
             }"
           />
         </UAvatarGroup>
       </div>
-    </template>
-
-    <!-- Agenda View -->
-    <template v-else>
+    </div>
+    <div v-show="view === 'agenda'">
       <div class="text-sm font-medium">
         {{ event.title }}
       </div>
       <div class="flex items-end justify-between mt-1">
         <div class="flex-1">
           <div class="text-xs opacity-70">
-            <template v-if="event.allDay">
+            <template v-if="isAllDay">
               <span>All day</span>
             </template>
             <template v-else>
               <span class="uppercase">
-                {{ formatTimeWithOptionalMinutes(displayStart) }} - {{ formatTimeWithOptionalMinutes(displayEnd) }}
+                <NuxtTime :datetime="displayStart" hour="numeric" minute="2-digit" :hour12="true" /> - <NuxtTime :datetime="displayEnd" hour="numeric" minute="2-digit" :hour12="true" />
               </span>
             </template>
             <template v-if="event.location">
@@ -210,7 +254,7 @@ function handleTouchStart(e: TouchEvent) {
           :max="8"
           class="ml-3"
           :ui="{
-            base: 'relative rounded-full ring-0 border-0 shadow-none outline-none first:me-0',
+            base: 'relative ring-0 border-0 shadow-none outline-none first:me-0',
           }"
         >
           <UAvatar
@@ -219,13 +263,13 @@ function handleTouchStart(e: TouchEvent) {
             :src="user.avatar || undefined"
             :alt="user.name"
             :ui="{
-              root: 'relative rounded-full ring-0 border-0 shadow-none outline-none',
-              image: 'rounded-full object-cover ring-0 border-0 shadow-none',
-              fallback: 'rounded-full ring-0 border-0 shadow-none',
+              root: 'relative ring-0 border-0 shadow-none outline-none',
+              image: 'object-cover ring-0 border-0 shadow-none',
+              fallback: 'ring-0 border-0 shadow-none',
             }"
           />
         </UAvatarGroup>
       </div>
-    </template>
-  </button>
+    </div>
+  </div>
 </template>

@@ -5,14 +5,19 @@ import { consola } from "consola";
 import type { ShoppingList, ShoppingListItem, UpdateShoppingListItemInput } from "~/types/database";
 import type { IntegrationService, IntegrationStatus } from "~/types/integrations";
 
+import { useStableDate } from "~/composables/useStableDate";
 import { integrationRegistry } from "~/types/integrations";
 
 import { MealieService as ServerMealieService } from "../../../server/integrations/mealie";
 
 export class MealieService implements IntegrationService {
+  private integrationId: string;
   private apiKey: string;
   private baseUrl: string;
-  private integrationId: string;
+
+  // Global stable date function
+  private parseStableDate: (dateInput: string | Date | undefined, fallback?: Date) => Date;
+
   private status: IntegrationStatus = {
     isConnected: false,
     lastChecked: new Date(),
@@ -25,6 +30,14 @@ export class MealieService implements IntegrationService {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl;
     this.serverService = new ServerMealieService(integrationId);
+
+    // Initialize stable date function
+    const { parseStableDate } = useStableDate();
+    this.parseStableDate = parseStableDate;
+
+    // Update status with stable date
+    const { getStableDate } = useStableDate();
+    this.status.lastChecked = getStableDate();
   }
 
   async initialize(): Promise<void> {
@@ -35,17 +48,19 @@ export class MealieService implements IntegrationService {
     try {
       await this.serverService.getShoppingLists();
 
+      const { getStableDate } = useStableDate();
       this.status = {
         isConnected: true,
-        lastChecked: new Date(),
+        lastChecked: getStableDate(),
       };
 
       return true;
     }
     catch (error) {
+      const { getStableDate } = useStableDate();
       this.status = {
         isConnected: false,
-        lastChecked: new Date(),
+        lastChecked: getStableDate(),
         error: error instanceof Error ? error.message : "Unknown error",
       };
       return false;
@@ -69,9 +84,10 @@ export class MealieService implements IntegrationService {
       if (!response.ok) {
         const errorText = await response.text();
         consola.error("Mealie API error:", response.status, response.statusText, errorText);
+        const { getStableDate } = useStableDate();
         this.status = {
           isConnected: false,
-          lastChecked: new Date(),
+          lastChecked: getStableDate(),
           error: `API error: ${response.status} ${response.statusText}`,
         };
         return false;
@@ -79,9 +95,10 @@ export class MealieService implements IntegrationService {
 
       await response.json();
 
+      const { getStableDate } = useStableDate();
       this.status = {
         isConnected: true,
-        lastChecked: new Date(),
+        lastChecked: getStableDate(),
       };
 
       return true;
@@ -121,8 +138,8 @@ export class MealieService implements IntegrationService {
             id: fullList.id,
             name: fullList.name,
             order: 0,
-            createdAt: new Date(fullList.createdAt),
-            updatedAt: new Date(fullList.updatedAt),
+            createdAt: this.parseStableDate(fullList.createdAt),
+            updatedAt: this.parseStableDate(fullList.updatedAt),
             items: fullList.listItems?.map(mealieItem => ({
               id: mealieItem.id,
               name: mealieItem.food?.name || mealieItem.note || mealieItem.display || "Unknown",
@@ -160,8 +177,8 @@ export class MealieService implements IntegrationService {
       id: mealieList.id,
       name: mealieList.name,
       order: 0,
-      createdAt: new Date(mealieList.createdAt),
-      updatedAt: new Date(mealieList.updatedAt),
+      createdAt: this.parseStableDate(mealieList.createdAt),
+      updatedAt: this.parseStableDate(mealieList.updatedAt),
       items: mealieList.listItems.map(mealieItem => ({
         id: mealieItem.id,
         name: mealieItem.food?.name || mealieItem.note || mealieItem.display || "Unknown",

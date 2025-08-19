@@ -3,40 +3,31 @@ import { consola } from "consola";
 import type { TodoColumn } from "~/types/database";
 
 export function useTodoColumns() {
-  const todoColumns = ref<TodoColumn[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  // Server-side data fetching
-  const { data: serverTodoColumns } = useNuxtData<TodoColumn[]>("todo-columns");
+  // Get todo columns from Nuxt cache
+  const { data: todoColumns } = useNuxtData<TodoColumn[]>("todo-columns");
+
+  // Computed property to handle undefined case
+  const currentTodoColumns = computed(() => todoColumns.value || []);
 
   // Fetch all todo columns
   const fetchTodoColumns = async () => {
     loading.value = true;
     try {
-      const data = await $fetch<TodoColumn[]>("/api/todo-columns");
-      todoColumns.value = data.map(item => ({
-        ...item,
-        createdAt: new Date(item.createdAt).toISOString(),
-        updatedAt: new Date(item.updatedAt).toISOString(),
-      }));
-      error.value = null;
+      await refreshNuxtData("todo-columns");
+      consola.info("Todo columns refreshed successfully");
     }
     catch (err) {
       error.value = err instanceof Error ? err.message : "Failed to fetch todo columns";
       consola.error("Failed to fetch todo columns:", err);
+      throw err;
     }
     finally {
       loading.value = false;
     }
   };
-
-  // Watch for server data changes
-  watch(serverTodoColumns, (newColumns) => {
-    if (newColumns) {
-      todoColumns.value = newColumns;
-    }
-  });
 
   // Create a new todo column
   const createTodoColumn = async (columnData: {
@@ -51,7 +42,9 @@ export function useTodoColumns() {
         body: columnData,
       });
 
-      todoColumns.value.push(newColumn);
+      // Refresh cache to get updated data
+      await refreshNuxtData("todo-columns");
+
       error.value = null;
       return newColumn;
     }
@@ -73,11 +66,8 @@ export function useTodoColumns() {
         body: updates,
       });
 
-      // Update the column in the local state
-      const columnIndex = todoColumns.value.findIndex(column => column.id === columnId);
-      if (columnIndex !== -1) {
-        todoColumns.value[columnIndex] = updatedColumn;
-      }
+      // Refresh cache to get updated data
+      await refreshNuxtData("todo-columns");
 
       error.value = null;
       return updatedColumn;
@@ -99,8 +89,8 @@ export function useTodoColumns() {
         throw new Error("Failed to delete todo column");
       }
 
-      // Remove the column from the local state
-      todoColumns.value = todoColumns.value.filter(column => column.id !== columnId);
+      // Refresh cache to get updated data
+      await refreshNuxtData("todo-columns");
 
       error.value = null;
       return true;
@@ -117,8 +107,8 @@ export function useTodoColumns() {
     if (fromIndex === toIndex)
       return;
 
-    // Optimistic update
-    const columns = [...todoColumns.value];
+    // Get current columns for optimistic update
+    const columns = [...currentTodoColumns.value];
     const movedColumn = columns.splice(fromIndex, 1)[0];
     if (movedColumn) {
       columns.splice(toIndex, 0, movedColumn);
@@ -130,24 +120,18 @@ export function useTodoColumns() {
       order: index,
     }));
 
-    // Apply optimistic update
-    todoColumns.value = columns.map((column, index) => ({
-      ...column,
-      order: index,
-    }));
-
     try {
-      const updatedColumns = await $fetch("/api/todo-columns/reorder", {
+      await $fetch("/api/todo-columns/reorder", {
         method: "PUT",
         body: { reorders },
       });
 
-      todoColumns.value = updatedColumns;
+      // Refresh cache to get updated data
+      await refreshNuxtData("todo-columns");
+
       error.value = null;
     }
     catch (err) {
-      // Rollback on error
-      await fetchTodoColumns();
       error.value = err instanceof Error ? err.message : "Failed to reorder todo columns";
       consola.error("Failed to reorder todo columns:", err);
       throw err;
@@ -155,7 +139,7 @@ export function useTodoColumns() {
   };
 
   return {
-    todoColumns: readonly(todoColumns),
+    todoColumns: readonly(currentTodoColumns),
     loading: readonly(loading),
     error: readonly(error),
     fetchTodoColumns,

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { addDays, format } from "date-fns";
+import { addDays } from "date-fns";
 
 import type { CalendarEvent } from "~/types/calendar";
 
 import { useCalendar } from "~/composables/useCalendar";
+import { useStableDate } from "~/composables/useStableDate";
 
 const props = defineProps<{
   events: CalendarEvent[];
@@ -16,8 +17,11 @@ const emit = defineEmits<{
   (e: "eventClick", event: CalendarEvent, mouseEvent: MouseEvent): void;
 }>();
 
+// Use global stable date
+const { getStableDate } = useStableDate();
+
 const weekDays = computed(() => {
-  const start = props.startDate || new Date();
+  const start = props.startDate || getStableDate();
   const days = [];
   for (let i = 0; i < 8; i++) {
     days.push(addDays(start, i));
@@ -28,9 +32,7 @@ const weekDays = computed(() => {
 const firstRow = computed(() => weekDays.value.slice(0, 4));
 const secondRow = computed(() => weekDays.value.slice(4, 8));
 
-const { isToday, getAllEventsForDay, isPlaceholderEvent, assignSpanningEventLanes, sortEvents, computedEventHeight: getEventHeight, handleEventClick: _handleEventClick } = useCalendar();
-
-const computedEventHeight = computed(() => getEventHeight("week", props.eventHeight));
+const { isToday, getAllEventsForDay, assignSpanningEventLanes, sortEvents, handleEventClick: _handleEventClick } = useCalendar();
 
 watch(() => props.events, (events) => {
   assignSpanningEventLanes(events);
@@ -39,11 +41,19 @@ watch(() => props.events, (events) => {
 function handleEventClick(event: CalendarEvent, e: MouseEvent) {
   _handleEventClick(event, e, emit);
 }
+
+// Helper function to get events for a specific day and position
+function getEventForDayAndPosition(day: Date, position: number): CalendarEvent | null {
+  const dayEvents = getAllEventsForDay(props.events, day);
+  const sortedEvents = sortEvents(dayEvents);
+  const result = sortedEvents[position] || null;
+
+  return result;
+}
 </script>
 
 <template>
   <div class="w-full">
-    <!-- Week Grid Layout -->
     <div class="grid grid-cols-4 grid-rows-2 border border-gray-200 dark:border-gray-700">
       <div
         v-for="day in firstRow"
@@ -55,10 +65,9 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
           'bg-blue-100/10 dark:bg-blue-900/10': isToday(day),
         }"
       >
-        <!-- Day Header -->
         <div class="flex items-center justify-between p-2 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div class="text-sm font-medium text-gray-600 dark:text-gray-400">
-            {{ format(day, 'EEE') }}
+            <NuxtTime :datetime="day" weekday="short" />
           </div>
           <div
             class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold"
@@ -67,45 +76,54 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
               'text-gray-600 dark:text-gray-400': !isToday(day),
             }"
           >
-            {{ format(day, 'd') }}
+            <NuxtTime :datetime="day" day="numeric" />
           </div>
         </div>
-
-        <!-- Events Container -->
         <div
           class="overflow-y-auto px-2 py-1 space-y-1 relative z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col"
           style="height: 240px;"
         >
-          <template v-for="event in sortEvents(getAllEventsForDay(events, day))" :key="`${event.id}-${day.toISOString().slice(0, 10)}`">
-            <!-- Invisible placeholder for spacing -->
-            <div
-              v-if="isPlaceholderEvent(event)"
-              class="opacity-0 pointer-events-none"
-              :style="{ height: `${computedEventHeight}px` }"
-            />
-            <!-- Regular event -->
+          <div class="rounded">
             <CalendarEventItem
-              v-else
-              :event="event"
+              v-if="getEventForDayAndPosition(day, 0)"
+              :event="getEventForDayAndPosition(day, 0)!"
               view="week"
               :current-day="day"
               class="rounded"
-              @click="(e) => handleEventClick(event, e)"
+              @click="(e) => handleEventClick(getEventForDayAndPosition(day, 0)!, e)"
             />
-          </template>
-
-          <!-- No events message -->
-          <div v-if="getAllEventsForDay(events, day).length === 0 && !isToday(day)" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-600 flex-1">
-            <UIcon name="i-lucide-calendar-off" class="w-8 h-8" />
-            <span class="text-lg text-gray-500 dark:text-gray-400">No events</span>
           </div>
-          <div v-if="getAllEventsForDay(events, day).length === 0 && isToday(day)" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-600 flex-1">
+          <div class="rounded">
+            <CalendarEventItem
+              v-if="getEventForDayAndPosition(day, 1)"
+              :event="getEventForDayAndPosition(day, 1)!"
+              view="week"
+              :current-day="day"
+              class="rounded"
+              @click="(e) => handleEventClick(getEventForDayAndPosition(day, 1)!, e)"
+            />
+          </div>
+          <div class="rounded">
+            <CalendarEventItem
+              v-if="getEventForDayAndPosition(day, 2)"
+              :event="getEventForDayAndPosition(day, 2)!"
+              view="week"
+              :current-day="day"
+              class="rounded"
+              @click="(e) => handleEventClick(getEventForDayAndPosition(day, 2)!, e)"
+            />
+          </div>
+          <div
+            v-show="getAllEventsForDay(events, day).length === 0"
+            class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-600 flex-1"
+          >
             <UIcon name="i-lucide-calendar-off" class="w-8 h-8" />
-            <span class="text-lg text-gray-500 dark:text-gray-400">No events today</span>
+            <span class="text-lg text-gray-500 dark:text-gray-400">
+              {{ isToday(day) ? 'No events today' : 'No events' }}
+            </span>
           </div>
         </div>
       </div>
-
       <div
         v-for="day in secondRow"
         :key="day.toISOString()"
@@ -116,10 +134,9 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
           'bg-blue-100/10 dark:bg-blue-900/10': isToday(day),
         }"
       >
-        <!-- Day Header -->
         <div class="flex items-center justify-between p-2 border-b border-gray-200 dark:border-gray-700 flex-shrink-0">
           <div class="text-sm font-medium text-gray-600 dark:text-gray-400">
-            {{ format(day, 'EEE') }}
+            <NuxtTime :datetime="day" weekday="short" />
           </div>
           <div
             class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold"
@@ -128,41 +145,51 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
               'text-gray-600 dark:text-gray-400': !isToday(day),
             }"
           >
-            {{ format(day, 'd') }}
+            <NuxtTime :datetime="day" day="numeric" />
           </div>
         </div>
-
-        <!-- Events Container -->
         <div
           class="overflow-y-auto px-2 py-1 space-y-1 relative z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col"
           style="height: 240px;"
         >
-          <template v-for="event in sortEvents(getAllEventsForDay(events, day))" :key="`${event.id}-${day.toISOString().slice(0, 10)}`">
-            <!-- Invisible placeholder for spacing -->
-            <div
-              v-if="isPlaceholderEvent(event)"
-              class="opacity-0 pointer-events-none"
-              :style="{ height: `${computedEventHeight}px` }"
-            />
-            <!-- Regular event -->
+          <div class="rounded">
             <CalendarEventItem
-              v-else
-              :event="event"
+              v-if="getEventForDayAndPosition(day, 0)"
+              :event="getEventForDayAndPosition(day, 0)!"
               view="week"
               :current-day="day"
               class="rounded"
-              @click="(e) => handleEventClick(event, e)"
+              @click="(e) => handleEventClick(getEventForDayAndPosition(day, 0)!, e)"
             />
-          </template>
-
-          <!-- No events message -->
-          <div v-if="getAllEventsForDay(events, day).length === 0 && !isToday(day)" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-600 flex-1">
-            <UIcon name="i-lucide-calendar-off" class="w-6 h-6" />
-            <span class="text-md text-gray-500 dark:text-gray-400">No events</span>
           </div>
-          <div v-if="getAllEventsForDay(events, day).length === 0 && isToday(day)" class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-600 flex-1">
+          <div class="rounded">
+            <CalendarEventItem
+              v-if="getEventForDayAndPosition(day, 1)"
+              :event="getEventForDayAndPosition(day, 1)!"
+              view="week"
+              :current-day="day"
+              class="rounded"
+              @click="(e) => handleEventClick(getEventForDayAndPosition(day, 1)!, e)"
+            />
+          </div>
+          <div class="rounded">
+            <CalendarEventItem
+              v-if="getEventForDayAndPosition(day, 2)"
+              :event="getEventForDayAndPosition(day, 2)!"
+              view="week"
+              :current-day="day"
+              class="rounded"
+              @click="(e) => handleEventClick(getEventForDayAndPosition(day, 2)!, e)"
+            />
+          </div>
+          <div
+            v-show="getAllEventsForDay(events, day).length === 0"
+            class="flex flex-col items-center justify-center gap-1 text-gray-400 dark:text-gray-600 flex-1"
+          >
             <UIcon name="i-lucide-calendar-off" class="w-6 h-6" />
-            <span class="text-md text-gray-500 dark:text-gray-400">No events today</span>
+            <span class="text-md text-gray-500 dark:text-gray-400">
+              {{ isToday(day) ? 'No events today' : 'No events' }}
+            </span>
           </div>
         </div>
       </div>

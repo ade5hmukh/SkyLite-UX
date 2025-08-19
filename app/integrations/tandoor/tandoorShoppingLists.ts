@@ -5,14 +5,19 @@ import { consola } from "consola";
 import type { ShoppingList, ShoppingListItem, UpdateShoppingListItemInput } from "~/types/database";
 import type { IntegrationService, IntegrationStatus } from "~/types/integrations";
 
+import { useStableDate } from "~/composables/useStableDate";
 import { integrationRegistry } from "~/types/integrations";
 
 import { TandoorService as ServerTandoorService } from "../../../server/integrations/tandoor";
 
 export class TandoorService implements IntegrationService {
+  private integrationId: string;
   private apiKey: string;
   private baseUrl: string;
-  private integrationId: string;
+
+  // Global stable date function
+  private parseStableDate: (dateInput?: string | Date, fallback?: Date) => Date;
+
   private status: IntegrationStatus = {
     isConnected: false,
     lastChecked: new Date(),
@@ -25,6 +30,14 @@ export class TandoorService implements IntegrationService {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl;
     this.serverService = new ServerTandoorService(integrationId);
+
+    // Initialize stable date function
+    const { parseStableDate } = useStableDate();
+    this.parseStableDate = parseStableDate;
+
+    // Update status with stable date
+    const { getStableDate } = useStableDate();
+    this.status.lastChecked = getStableDate();
   }
 
   async initialize(): Promise<void> {
@@ -35,17 +48,19 @@ export class TandoorService implements IntegrationService {
     try {
       await this.serverService.getShoppingListEntries();
 
+      const { getStableDate } = useStableDate();
       this.status = {
         isConnected: true,
-        lastChecked: new Date(),
+        lastChecked: getStableDate(),
       };
 
       return true;
     }
     catch (error) {
+      const { getStableDate } = useStableDate();
       this.status = {
         isConnected: false,
-        lastChecked: new Date(),
+        lastChecked: getStableDate(),
         error: error instanceof Error ? error.message : "Unknown error",
       };
       return false;
@@ -68,23 +83,26 @@ export class TandoorService implements IntegrationService {
         headers,
       });
       if (!response.ok) {
+        const { getStableDate } = useStableDate();
         this.status = {
           isConnected: false,
-          lastChecked: new Date(),
+          lastChecked: getStableDate(),
           error: `API error: ${response.status} ${response.statusText}`,
         };
         return false;
       }
+      const { getStableDate } = useStableDate();
       this.status = {
         isConnected: true,
-        lastChecked: new Date(),
+        lastChecked: getStableDate(),
       };
       return true;
     }
     catch (error) {
+      const { getStableDate } = useStableDate();
       this.status = {
         isConnected: false,
-        lastChecked: new Date(),
+        lastChecked: getStableDate(),
         error: error instanceof Error ? error.message : "Unknown error",
       };
       return false;
@@ -122,8 +140,8 @@ export class TandoorService implements IntegrationService {
         id: "default",
         name: "Shopping List",
         order: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
+        createdAt: this.parseStableDate(),
+        updatedAt: this.parseStableDate(),
         items,
         _count: {
           items: items.length,

@@ -7,8 +7,8 @@ import SettingsIntegrationDialog from "~/components/settings/settingsIntegration
 import SettingsUserDialog from "~/components/settings/settingsUserDialog.vue";
 import { integrationRegistry } from "~/types/integrations";
 
-const { users, loading, error, fetchUsers, createUser, deleteUser, updateUser } = useUsers();
-const { integrations, loading: integrationsLoading, fetchIntegrations, createIntegration, updateIntegration, deleteIntegration } = useIntegrations();
+const { users, loading, error, createUser, deleteUser, updateUser } = useUsers();
+const { integrations, loading: integrationsLoading, createIntegration, updateIntegration, deleteIntegration } = useIntegrations();
 
 const colorMode = useColorMode();
 const isDark = computed({
@@ -57,15 +57,20 @@ const filteredIntegrations = computed(() => {
   return integrations.value.filter(integration => integration.type === activeIntegrationTab.value);
 });
 
-function handleUserSave(userData: CreateUserInput) {
-  if (selectedUser.value?.id) {
-    updateUser(selectedUser.value.id, userData);
+async function handleUserSave(userData: CreateUserInput) {
+  try {
+    if (selectedUser.value?.id) {
+      await updateUser(selectedUser.value.id, userData);
+    }
+    else {
+      await createUser(userData);
+    }
+    isUserDialogOpen.value = false;
+    selectedUser.value = null;
   }
-  else {
-    createUser(userData);
+  catch (error) {
+    consola.error("Failed to save user:", error);
   }
-  isUserDialogOpen.value = false;
-  selectedUser.value = null;
 }
 
 function handleUserDelete(userId: string) {
@@ -84,16 +89,11 @@ async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
     connectionTestResult.value = null;
 
     if (selectedIntegration.value?.id) {
-      const updatedIntegration = await updateIntegration(selectedIntegration.value.id, {
+      await updateIntegration(selectedIntegration.value.id, {
         ...integrationData,
         createdAt: selectedIntegration.value.createdAt,
         updatedAt: new Date(),
       });
-
-      const index = integrations.value.findIndex(i => i.id === selectedIntegration.value?.id);
-      if (index !== -1) {
-        integrations.value[index] = updatedIntegration;
-      }
 
       connectionTestResult.value = {
         success: true,
@@ -101,13 +101,11 @@ async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
       };
     }
     else {
-      const newIntegration = await createIntegration({
+      await createIntegration({
         ...integrationData,
         createdAt: new Date(),
         updatedAt: new Date(),
       });
-
-      integrations.value.push(newIntegration);
 
       connectionTestResult.value = {
         success: true,
@@ -133,7 +131,6 @@ async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
 async function handleIntegrationDelete(integrationId: string) {
   try {
     await deleteIntegration(integrationId);
-    await fetchIntegrations();
     isIntegrationDialogOpen.value = false;
     selectedIntegration.value = null;
   }
@@ -160,12 +157,7 @@ async function handleToggleIntegration(integrationId: string, enabled: boolean) 
   }
 }
 
-onMounted(async () => {
-  await Promise.all([
-    fetchUsers(),
-    fetchIntegrations(),
-  ]);
-});
+// Data is pre-loaded by appInit.ts plugin
 
 function getIntegrationIcon(type: string) {
   switch (type) {
@@ -301,6 +293,7 @@ function getIntegrationIconUrl(integration: Integration) {
               <button
                 v-for="type in availableIntegrationTypes"
                 :key="type"
+                type="button"
                 class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm"
                 :class="[
                   activeIntegrationTab === type
@@ -383,7 +376,7 @@ function getIntegrationIconUrl(integration: Integration) {
                 </div>
                 <div class="flex items-center gap-2">
                   <USwitch
-                    v-model="integration.enabled"
+                    :model-value="integration.enabled"
                     color="primary"
                     unchecked-icon="i-lucide-x"
                     checked-icon="i-lucide-check"

@@ -1,14 +1,28 @@
 <script setup lang="ts">
 import { consola } from "consola";
 
-import type { BaseListItem, TodoList, TodoListItem } from "~/types/database";
+import type { BaseListItem, TodoColumn, TodoItem, TodoList, TodoListItem } from "~/types/database";
 
 import GlobalList from "~/components/global/globalList.vue";
 import TodoColumnDialog from "~/components/todos/todoColumnDialog.vue";
 import TodoItemDialog from "~/components/todos/todoItemDialog.vue";
+import { useStableDate } from "~/composables/useStableDate";
 
-const { todos, loading: todosLoading, fetchTodos, createTodo, updateTodo, toggleTodo, deleteTodo, reorderTodo, clearCompleted } = useTodos();
-const { todoColumns, loading: columnsLoading, fetchTodoColumns, createTodoColumn, updateTodoColumn, deleteTodoColumn, reorderTodoColumns } = useTodoColumns();
+// Use global stable date
+const { parseStableDate, getStableDate } = useStableDate();
+
+const { data: todoColumns } = useNuxtData<TodoColumn[]>("todo-columns");
+const { data: todos } = useNuxtData<TodoItem[]>("todos");
+
+const isTodoDialogOpen = ref(false);
+const isColumnDialogOpen = ref(false);
+const selectedTodo = ref<TodoItem | null>(null);
+const selectedColumn = ref<TodoColumn | null>(null);
+
+// Helper function to get due date with fallback
+function getDueDate(todo: TodoItem): Date {
+  return todo.dueDate ? parseStableDate(todo.dueDate) : getStableDate();
+}
 
 const mutableTodoColumns = computed(() => todoColumns.value.map(col => ({
   ...col,
@@ -35,8 +49,8 @@ const todoLists = computed<TodoList[]>(() => {
     id: column.id,
     name: column.name,
     order: column.order,
-    createdAt: new Date(column.createdAt),
-    updatedAt: new Date(column.updatedAt),
+    createdAt: parseStableDate(column.createdAt),
+    updatedAt: parseStableDate(column.updatedAt),
     isDefault: column.isDefault,
     items: todos.value
       .filter(todo => todo.todoColumnId === column.id)
@@ -72,7 +86,7 @@ function openEditTodo(item: BaseListItem) {
     name: todo.title,
     description: todo.description ?? "",
     priority: todo.priority,
-    dueDate: todo.dueDate ?? new Date(),
+    dueDate: todo.dueDate ? parseStableDate(todo.dueDate) : getStableDate(),
     todoColumnId: todo.todoColumnId ?? "",
     checked: todo.completed,
     order: todo.order,
@@ -230,10 +244,7 @@ async function handleClearCompleted(columnId: string) {
   }
 }
 
-onMounted(async () => {
-  await fetchTodoColumns();
-  await fetchTodos();
-});
+// Data is pre-loaded by appInit.ts plugin
 </script>
 
 <template>

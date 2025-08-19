@@ -38,17 +38,13 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
 
 <template>
   <div class="flex h-full w-full">
-    <!-- Mini Calendar - 30% -->
     <div class="w-[30%] flex-shrink-0 border-r border-gray-200 dark:border-gray-700">
       <div class="p-4">
-        <!-- Calendar Header -->
         <div class="flex items-center justify-center mb-4">
           <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {{ format(currentDate, "MMMM yyyy") }}
+            <NuxtTime :datetime="currentDate" month="long" year="numeric" />
           </h3>
         </div>
-
-        <!-- Days of Week Header -->
         <div class="grid grid-cols-7 gap-1 mb-2">
           <div
             v-for="day in ['S', 'M', 'T', 'W', 'T', 'F', 'S']"
@@ -58,12 +54,11 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
             {{ day }}
           </div>
         </div>
-
-        <!-- Calendar Grid -->
         <div class="grid grid-cols-7 gap-1">
           <button
             v-for="day in miniCalendarWeeks.flat()"
             :key="day.toISOString()"
+            type="button"
             class="relative aspect-square flex items-center justify-center text-sm transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
             :class="{
               'text-gray-400 dark:text-gray-600': !isSameMonth(day, currentDate),
@@ -73,23 +68,19 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
             }"
             @click="handleDateSelect(day)"
           >
-            {{ format(day, 'd') }}
-            <!-- Event indicator dots -->
-            <div
-              v-if="getAllEventsForDay(events, day).length > 0"
+            <NuxtTime :datetime="day" day="numeric" />
+            <span
+              v-show="getAllEventsForDay(events, day).length > 0"
               class="absolute bottom-1 left-1/2 transform -translate-x-1/2"
             >
-              <div class="w-1 h-1 bg-current rounded-full opacity-60" />
-            </div>
+              <span class="w-1 h-1 bg-current rounded-full opacity-60" />
+            </span>
           </button>
         </div>
       </div>
     </div>
-
-    <!-- Today's Events - 70% -->
     <div class="w-[70%] flex-1">
       <div class="h-full">
-        <!-- Today's Header -->
         <div class="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
           <div class="flex items-center gap-3">
             <div
@@ -99,28 +90,25 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
                 'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400': !isToday(currentDate),
               }"
             >
-              {{ format(currentDate, 'd') }}
+              <NuxtTime :datetime="currentDate" day="numeric" />
             </div>
             <div>
               <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">
-                {{ format(currentDate, "EEEE") }}
+                <NuxtTime :datetime="currentDate" weekday="long" />
               </h2>
               <p class="text-xs text-gray-500 dark:text-gray-400">
-                {{ format(currentDate, "MMMM d, yyyy") }}
+                <NuxtTime :datetime="currentDate" month="long" day="numeric" year="numeric" />
               </p>
             </div>
           </div>
         </div>
-
-        <!-- Events List -->
         <div class="p-4">
-          <div v-if="todaysEvents.length === 0" class="text-center py-8">
+          <div v-show="todaysEvents.length === 0" class="text-center py-8">
             <UIcon name="i-lucide-calendar-off" class="w-8 h-8 text-gray-400 dark:text-gray-600 mx-auto mb-2" />
             <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">
               No events today
             </h3>
           </div>
-
           <CalendarEventItem
             v-for="event in todaysEvents"
             :key="event.id"

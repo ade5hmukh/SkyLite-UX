@@ -38,6 +38,7 @@ export type IntegrationConfig = {
   icon: string;
   files: string[];
   dialogFields: DialogField[];
+  syncInterval: number;
 };
 
 export const integrationConfigs: IntegrationConfig[] = [
@@ -87,6 +88,7 @@ export const integrationConfigs: IntegrationConfig[] = [
     icon: "https://unpkg.com/lucide-static@latest/icons/calendar.svg",
     files: [],
     dialogFields: [],
+    syncInterval: 10,
   },
   // ================================================
   // Meal integration configs can support the following list-level capabilities:
@@ -152,6 +154,7 @@ export const integrationConfigs: IntegrationConfig[] = [
         canEdit: false,
       },
     ],
+    syncInterval: 1,
   },
   {
     type: "shopping",
@@ -211,6 +214,7 @@ export const integrationConfigs: IntegrationConfig[] = [
         canEdit: false,
       },
     ],
+    syncInterval: 1,
   },
   // ================================================
   // TODO integration configs can support the following list-level capabilities:

@@ -18,12 +18,28 @@ export class ICalServerService {
     const dtstart = vevent.getFirstPropertyValue("dtstart") as ical.Time;
     const dtend = vevent.getFirstPropertyValue("dtend") as ical.Time;
 
+    let start: Date;
+    let end: Date;
+
+    if (dtstart && dtend) {
+      // All events: convert to UTC using ical.js timezone handling
+      const startTime = dtstart.convertToZone(ical.TimezoneService.get("UTC"));
+      const endTime = dtend.convertToZone(ical.TimezoneService.get("UTC"));
+      
+      start = startTime.toJSDate();
+      end = endTime.toJSDate();
+    } else {
+      // Fallback for missing dates
+      start = new Date();
+      end = new Date();
+    }
+
     return {
       uid: vevent.getFirstPropertyValue("uid") as string || "",
       summary: vevent.getFirstPropertyValue("summary") as string || "",
       description: vevent.getFirstPropertyValue("description") as string || "",
-      start: dtstart?.toJSDate() || new Date(),
-      end: dtend?.toJSDate() || new Date(),
+      start,
+      end,
       location: vevent.getFirstPropertyValue("location") as string || "",
       allDay: dtstart?.isDate || false,
       attendees: vevent.getAllSubcomponents("attendee")?.map((attendee: ical.Component) => ({

@@ -33,6 +33,7 @@
     "@iconify-json/lucide": "^1.2.45",
     "@iconify-json/simple-icons": "^1.2.37",
     "@nuxt/eslint": "^1.2.0",
+    "@nuxtjs/html-validator": "^2.1.0",
     "@rushstack/eslint-patch": "^1.3.3",
     "@tailwindcss/postcss": "^4.0.9",
     "@tailwindcss/typography": "^0.5.16",

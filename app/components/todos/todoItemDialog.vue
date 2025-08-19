@@ -5,10 +5,12 @@ import { DateFormatter, getLocalTimeZone, parseDate } from "@internationalized/d
 
 import type { Priority, TodoColumnBasic, TodoListItem } from "~/types/database";
 
+import { useStableDate } from "~/composables/useStableDate";
+
 const props = defineProps<{
+  todo: TodoListItem | null;
   isOpen: boolean;
   todoColumns: TodoColumnBasic[];
-  todo?: TodoListItem;
 }>();
 
 const emit = defineEmits<{
@@ -16,6 +18,9 @@ const emit = defineEmits<{
   (e: "save", todo: TodoListItem): void;
   (e: "delete", todoId: string): void;
 }>();
+
+// Use global stable date
+const { parseStableDate } = useStableDate();
 
 const todoTitle = ref("");
 const todoDescription = ref("");
@@ -44,7 +49,8 @@ watch(() => [props.isOpen, props.todo], ([isOpen, todo]) => {
         todoDescription.value = todo.description || "";
         todoPriority.value = todo.priority || "MEDIUM";
         if (todo.dueDate) {
-          const date = new Date(todo.dueDate);
+          // Use stable date parsing
+          const date = todo.dueDate instanceof Date ? todo.dueDate : parseStableDate(todo.dueDate);
           todoDueDate.value = parseDate(date.toISOString().split("T")[0]!);
         }
       }
@@ -176,7 +182,8 @@ function handleDelete() {
                 icon="i-lucide-calendar"
                 class="w-full justify-between"
               >
-                {{ todoDueDate ? df.format(todoDueDate.toDate(getLocalTimeZone())) : 'No due date' }}
+                <NuxtTime v-if="todoDueDate" :datetime="todoDueDate.toDate(getLocalTimeZone())" year="numeric" month="short" day="numeric" />
+                <span v-else>No due date</span>
               </UButton>
 
               <template #content>

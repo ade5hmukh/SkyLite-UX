@@ -1,21 +1,25 @@
 <script setup lang="ts">
-import type { CreateTodoInput, Priority, TodoColumnBasic, TodoListItem, UpdateTodoInput } from "~/types/database";
+import type { CreateTodoInput, TodoItem } from "~/types/database";
+
+import { useStableDate } from "~/composables/useStableDate";
 
 const props = defineProps<{
-  todo: TodoListItem | null;
+  todo: TodoItem | null;
   isOpen: boolean;
-  todoColumns: TodoColumnBasic[];
 }>();
 
 const emit = defineEmits<{
   (e: "close"): void;
-  (e: "save", todo: CreateTodoInput | (UpdateTodoInput & { id: string })): void;
+  (e: "save", todo: CreateTodoInput | (CreateTodoInput & { id: string })): void;
   (e: "delete", todoId: string): void;
 }>();
 
+// Use global stable date
+const { parseStableDate } = useStableDate();
+
 const title = ref("");
 const description = ref("");
-const priority = ref<Priority>("MEDIUM");
+const priority = ref<"LOW" | "MEDIUM" | "HIGH" | "URGENT">("MEDIUM");
 const dueDate = ref<string>("");
 const todoColumnId = ref<string | undefined>(undefined);
 const error = ref<string | null>(null);
@@ -32,7 +36,9 @@ watch(() => props.todo, (newTodo) => {
     title.value = newTodo.name || "";
     description.value = newTodo.description || "";
     priority.value = newTodo.priority || "MEDIUM";
-    dueDate.value = newTodo.dueDate ? new Date(newTodo.dueDate).toISOString().slice(0, 16) : "";
+    // Use stable date parsing
+    const date = newTodo.dueDate ? parseStableDate(newTodo.dueDate) : null;
+    dueDate.value = date ? date.toISOString().slice(0, 16) : "";
     todoColumnId.value = newTodo.todoColumnId || undefined;
     error.value = null;
   }
@@ -60,7 +66,7 @@ function handleSave() {
     title: title.value,
     description: description.value,
     priority: priority.value,
-    dueDate: dueDate.value ? new Date(dueDate.value) : null,
+    dueDate: dueDate.value ? parseStableDate(dueDate.value) : null,
     todoColumnId: todoColumnId.value || null,
     completed: false,
     order: 0,

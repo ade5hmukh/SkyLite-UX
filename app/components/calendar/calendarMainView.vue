@@ -5,6 +5,8 @@ import { addDays, addMonths, addWeeks, endOfWeek, format, isSameMonth, startOfWe
 
 import type { CalendarEvent, CalendarView } from "~/types/calendar";
 
+import { useStableDate } from "~/composables/useStableDate";
+
 const props = defineProps<{
   events?: CalendarEvent[];
   className?: string;
@@ -20,7 +22,9 @@ const _emit = defineEmits<{
   (e: "eventDelete", eventId: string): void;
 }>();
 
-const currentDate = ref(new Date());
+// Use global stable date
+const { getStableDate } = useStableDate();
+const currentDate = useState<Date>("calendar-current-date", () => getStableDate());
 const view = ref<CalendarView>(props.initialView || "week");
 const isEventDialogOpen = ref(false);
 const selectedEvent = ref<CalendarEvent | null>(null);
@@ -37,7 +41,8 @@ const items: DropdownMenuItem[][] = [
       icon: "i-lucide-calendar-range",
       onSelect: () => {
         view.value = "week";
-        currentDate.value = new Date();
+        // Use a stable date reference to avoid hydration mismatches
+        currentDate.value = getStableDate();
       },
     },
     {
@@ -117,7 +122,8 @@ function handleNext() {
 }
 
 function handleToday() {
-  currentDate.value = new Date();
+  // Use a stable date reference to avoid hydration mismatches
+  currentDate.value = getStableDate();
 }
 
 function handleEventSelect(event: CalendarEvent) {
@@ -155,34 +161,44 @@ function handleEventDelete(eventId: string) {
   selectedEvent.value = null;
 }
 
+function handleCreateEvent() {
+  // Use a stable date reference to avoid hydration mismatches
+  handleEventCreate(getStableDate());
+}
+
+const isCurrentMonth = computed(() => {
+  // Use a stable date reference to avoid hydration mismatches
+  return isSameMonth(currentDate.value, getStableDate());
+});
+
 const viewTitle = computed(() => {
   if (view.value === "month") {
-    return format(currentDate.value, "MMMM yyyy");
+    return "month";
   }
   else if (view.value === "week") {
     const start = startOfWeek(currentDate.value, { weekStartsOn: 0 });
     const end = endOfWeek(currentDate.value, { weekStartsOn: 0 });
     if (isSameMonth(start, end)) {
-      return format(start, "MMMM yyyy");
+      return "week-same-month";
     }
     else {
-      return `${format(start, "MMM")} - ${format(end, "MMM yyyy")}`;
+      return "week-different-months";
     }
   }
   else if (view.value === "day") {
-    return format(currentDate.value, "MMMM d, yyyy");
+    return "day";
   }
   else if (view.value === "agenda") {
     const start = currentDate.value;
     const end = addDays(currentDate.value, 30 - 1);
     if (isSameMonth(start, end)) {
-      return format(start, "MMMM yyyy");
+      return "agenda-same-month";
     }
     else {
-      return `${format(start, "MMM")} - ${format(end, "MMM yyyy")}`;
+      return "agenda-different-months";
     }
   }
-  return format(currentDate.value, "MMMM yyyy");
+  return "month";
 });
 
 function getWeeksForMonth(date: Date) {
@@ -196,7 +212,8 @@ function getWeeksForMonth(date: Date) {
   while (currentDate <= endDate) {
     const week: Date[] = [];
     for (let i = 0; i < 7; i++) {
-      week.push(new Date(currentDate));
+      // Create a new Date object to avoid mutation
+      week.push(new Date(currentDate.getTime()));
       currentDate = addDays(currentDate, 1);
     }
     weeks.push(week);
@@ -227,12 +244,23 @@ function getDaysForAgenda(date: Date) {
       '--week-cells-height': '60px',
     }"
   >
-    <!-- Calendar header -->
     <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-5 sm:px-4 sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
       <div class="flex sm:flex-col max-sm:items-center justify-between gap-1.5">
         <div class="flex items-center gap-1.5">
           <h1 class="font-semibold text-xl">
-            {{ viewTitle }}
+            <NuxtTime v-if="viewTitle === 'month'" :datetime="currentDate" month="long" year="numeric" />
+            <NuxtTime v-else-if="viewTitle === 'week-same-month'" :datetime="startOfWeek(currentDate, { weekStartsOn: 0 })" month="long" year="numeric" />
+            <span v-else-if="viewTitle === 'week-different-months'">
+              <NuxtTime :datetime="startOfWeek(currentDate, { weekStartsOn: 0 })" month="short" /> - 
+              <NuxtTime :datetime="endOfWeek(currentDate, { weekStartsOn: 0 })" month="short" year="numeric" />
+            </span>
+            <NuxtTime v-else-if="viewTitle === 'day'" :datetime="currentDate" month="long" day="numeric" year="numeric" />
+            <NuxtTime v-else-if="viewTitle === 'agenda-same-month'" :datetime="currentDate" month="long" year="numeric" />
+            <span v-else-if="viewTitle === 'agenda-different-months'">
+              <NuxtTime :datetime="currentDate" month="short" /> - 
+              <NuxtTime :datetime="addDays(currentDate, 30 - 1)" month="short" year="numeric" />
+            </span>
+            <NuxtTime v-else :datetime="currentDate" month="long" year="numeric" />
           </h1>
         </div>
       </div>
@@ -278,14 +306,12 @@ function getDaysForAgenda(date: Date) {
         </div>
       </div>
     </div>
-
-    <!-- Calendar views -->
     <div class="flex flex-1 flex-col min-h-0">
       <GlobalMonthView
         v-if="view === 'month'"
         :weeks="getWeeksForMonth(currentDate)"
         :events="events || []"
-        :is-current-month="isSameMonth(currentDate, new Date())"
+        :is-current-month="isCurrentMonth"
         cell-id="month-cell"
         @event-click="handleEventSelect"
         @event-create="handleEventCreate"
@@ -314,8 +340,6 @@ function getDaysForAgenda(date: Date) {
       />
     </div>
   </div>
-
-  <!-- Floating Action Button -->
   <UButton
     class="fixed bottom-8 right-8 rounded-full shadow-lg z-50 p-4"
     color="primary"
@@ -325,10 +349,8 @@ function getDaysForAgenda(date: Date) {
     :ui="{
       leadingIcon: 'bg-gray-100 dark:bg-gray-800 w-10 h-10',
     }"
-    @click="handleEventCreate(new Date())"
+    @click="handleCreateEvent"
   />
-
-  <!-- Event Dialog -->
   <CalendarEventDialog
     :event="selectedEvent"
     :is-open="isEventDialogOpen"

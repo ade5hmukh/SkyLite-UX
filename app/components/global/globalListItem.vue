@@ -1,6 +1,8 @@
 <script setup lang="ts">
 import type { BaseListItem, Priority, ShoppingListItem, TodoListItem } from "~/types/database";
 
+import { useStableDate } from "~/composables/useStableDate";
+
 type ToggleEvent = {
   itemId: string;
   checked: boolean;
@@ -26,6 +28,9 @@ const emit = defineEmits<{
   (e: "toggle", payload: ToggleEvent): void;
   (e: "reorder", payload: ReorderEvent): void;
 }>();
+
+// Use global stable date
+const { parseStableDate } = useStableDate();
 
 function isShoppingItem(item: BaseListItem): item is ShoppingListItem {
   return "quantity" in item && "unit" in item;
@@ -80,7 +85,7 @@ function getPriorityColor(priority: Priority) {
           v-if="isTodoItem(item) && item.dueDate"
           class="text-xs text-gray-500 dark:text-gray-400"
         >
-          {{ new Date(item.dueDate).toLocaleDateString() }}
+          <NuxtTime :datetime="item.dueDate" year="numeric" month="short" day="numeric" />
         </span>
         <span
           v-if="isShoppingItem(item) && showQuantity && item.quantity"

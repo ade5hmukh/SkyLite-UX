@@ -1,49 +1,26 @@
 <script setup lang="ts">
-import { onMounted, watch } from "vue";
-
 import type { CalendarEvent } from "~/types/calendar";
 import type { Integration } from "~/types/database";
 
 import { useAlertToast } from "~/composables/useAlertToast";
 import { useCalendar } from "~/composables/useCalendar";
 import { useCalendarEvents } from "~/composables/useCalendarEvents";
-import { useCalendarIntegrations } from "~/composables/useCalendarIntegrations";
+import { useIntegrations } from "~/composables/useIntegrations";
 import { integrationRegistry } from "~/types/integrations";
 
-const { calendarEvents: integrationEvents, calendarIntegrations, loading: integrationLoading, error: integrationError, getCalendarEvents } = useCalendarIntegrations();
-const { events: localEvents, loading: localLoading, error: localError, createEvent, updateEvent, deleteEvent } = useCalendarEvents();
-const { getEventUserColors } = useCalendar();
+const { allEvents, getEventUserColors, refreshCalendarData } = useCalendar();
 const { showError, showSuccess } = useAlertToast();
 
-const allEvents = computed(() => {
-  const local = localEvents.value || [];
-  const integration = integrationEvents.value || [];
-  return [...local, ...integration] as CalendarEvent[];
-});
-
-const loading = computed(() => {
-  return integrationLoading.value || localLoading.value;
-});
-
-const error = computed(() => {
-  return integrationError.value || localError.value;
-});
-
-onMounted(async () => {
-  await getCalendarEvents();
-});
-
-watch(error, (err) => {
-  if (err) {
-    showError("Calendar Error", err);
-  }
-});
+// allEvents is now provided by useCalendar composable
+// No need for separate loading/error states as they're handled by the unified system
 
 async function handleEventAdd(event: CalendarEvent) {
   try {
     if (!event.integrationId) {
       const eventColor = getEventUserColors(event);
 
+      // Use the useCalendarEvents composable for local events
+      const { createEvent } = useCalendarEvents();
       await createEvent({
         title: event.title,
         description: event.description,
@@ -72,6 +49,7 @@ async function handleEventUpdate(event: CalendarEvent) {
     if (!event.integrationId) {
       const eventColor = getEventUserColors(event);
 
+      const { updateEvent } = useCalendarEvents();
       await updateEvent(event.id, {
         title: event.title,
         description: event.description,
@@ -105,6 +83,7 @@ async function handleEventDelete(eventId: string) {
     }
 
     if (!event.integrationId) {
+      const { deleteEvent } = useCalendarEvents();
       await deleteEvent(eventId);
       showSuccess("Event Deleted", "Local event deleted successfully");
     }
@@ -122,7 +101,9 @@ function getEventIntegrationCapabilities(event: CalendarEvent): { capabilities: 
   if (!event.integrationId)
     return undefined;
 
-  const integration = (calendarIntegrations.value as Integration[]).find(i => i.id === event.integrationId);
+  // Get integrations from the unified useCalendar composable
+  const { integrations } = useIntegrations();
+  const integration = (integrations.value as readonly Integration[] || []).find(i => i.id === event.integrationId);
   if (!integration)
     return undefined;
 
@@ -140,7 +121,6 @@ function getEventIntegrationCapabilities(event: CalendarEvent): { capabilities: 
       :events="allEvents"
       initial-view="week"
       class="h-[calc(100vh-2rem)]"
-      :loading="loading"
       :get-integration-capabilities="getEventIntegrationCapabilities"
       @event-add="handleEventAdd"
       @event-update="handleEventUpdate"
