@@ -66,10 +66,6 @@ export function useIntegrations() {
     await fetchIntegrations();
   };
 
-  onMounted(() => {
-    fetchIntegrations();
-  });
-
   const createIntegration = async (integration: Omit<Integration, "id">) => {
     try {
       const response = await $fetch<Integration>("/api/integrations", {

@@ -1,4 +1,5 @@
 import { consola } from "consola";
+import ical from "ical.js";
 
 import type { CalendarEvent } from "~/types/calendar";
 import type { Integration, ShoppingListWithItemsAndCount, TodoColumn, TodoWithUser, User } from "~/types/database";
@@ -8,6 +9,52 @@ import { createIntegrationService, registerIntegration } from "~/types/integrati
 
 export default defineNuxtPlugin(async () => {
   consola.start("AppInit plugin: Initializing application...");
+
+  // Initialize timezone registration (browser-side only)
+  if (import.meta.client) {
+    consola.info("AppInit plugin: Initializing timezone registration...");
+
+    try {
+      // Get browser's timezone (e.g., "America/Chicago")
+      const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      consola.info("AppInit plugin: Detected browser timezone:", browserTimezone);
+
+      // Fetch VTIMEZONE block from the API using Nuxt's useFetch
+      const apiUrl = `https://tz.add-to-calendar-technology.com/api/${encodeURIComponent(browserTimezone)}.ics`;
+      const { data: vtimezoneBlock, error } = await useFetch(apiUrl, {
+        key: `timezone-${browserTimezone}`,
+        server: false, // Only fetch on client-side
+        default: () => null,
+      });
+
+      if (error.value) {
+        throw new Error(`Failed to fetch timezone data: ${error.value.statusCode || "Unknown error"}`);
+      }
+
+      if (!vtimezoneBlock.value) {
+        throw new Error("No timezone data received");
+      }
+
+      // Parse and register the timezone with ical.js
+      const timezoneComponent = new ical.Component(vtimezoneBlock.value as string);
+      const timezone = new ical.Timezone({
+        tzid: browserTimezone,
+        component: timezoneComponent,
+      });
+
+      ical.TimezoneService.register(timezone);
+      consola.success("AppInit plugin: Successfully registered timezone:", browserTimezone);
+
+      // Store timezone info globally for calendar functions to check
+      (globalThis as any).__TIMEZONE_REGISTERED__ = true;
+      (globalThis as any).__BROWSER_TIMEZONE__ = browserTimezone;
+    }
+    catch (error) {
+      consola.warn("AppInit plugin: Failed to register timezone, calendar will use fallback:", error);
+      // Mark timezone as not registered so calendar functions know to use fallback
+      (globalThis as any).__TIMEZONE_REGISTERED__ = false;
+    }
+  }
 
   consola.info("AppInit plugin: Initializing integration registry...");
   integrationConfigs.forEach((config) => {

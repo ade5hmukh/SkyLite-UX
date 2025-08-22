@@ -42,7 +42,11 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
       <div class="p-4">
         <div class="flex items-center justify-center mb-4">
           <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            <NuxtTime :datetime="currentDate" month="long" year="numeric" />
+            <NuxtTime
+              :datetime="currentDate"
+              month="long"
+              year="numeric"
+            />
           </h3>
         </div>
         <div class="grid grid-cols-7 gap-1 mb-2">
@@ -97,7 +101,12 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
                 <NuxtTime :datetime="currentDate" weekday="long" />
               </h2>
               <p class="text-xs text-gray-500 dark:text-gray-400">
-                <NuxtTime :datetime="currentDate" month="long" day="numeric" year="numeric" />
+                <NuxtTime
+                  :datetime="currentDate"
+                  month="long"
+                  day="numeric"
+                  year="numeric"
+                />
               </p>
             </div>
           </div>

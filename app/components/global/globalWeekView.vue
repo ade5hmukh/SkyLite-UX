@@ -1,6 +1,4 @@
 <script setup lang="ts">
-import { addDays } from "date-fns";
-
 import type { CalendarEvent } from "~/types/calendar";
 
 import { useCalendar } from "~/composables/useCalendar";
@@ -20,19 +18,15 @@ const emit = defineEmits<{
 // Use global stable date
 const { getStableDate } = useStableDate();
 
+const { isToday, getAllEventsForDay, assignSpanningEventLanes, sortEvents, handleEventClick: _handleEventClick, getLocalWeekDays } = useCalendar();
+
 const weekDays = computed(() => {
   const start = props.startDate || getStableDate();
-  const days = [];
-  for (let i = 0; i < 8; i++) {
-    days.push(addDays(start, i));
-  }
-  return days;
+  return getLocalWeekDays(start);
 });
 
 const firstRow = computed(() => weekDays.value.slice(0, 4));
 const secondRow = computed(() => weekDays.value.slice(4, 8));
-
-const { isToday, getAllEventsForDay, assignSpanningEventLanes, sortEvents, handleEventClick: _handleEventClick } = useCalendar();
 
 watch(() => props.events, (events) => {
   assignSpanningEventLanes(events);

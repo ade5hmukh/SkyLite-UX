@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { CalendarDate, DateValue } from "@internationalized/date";
 
-import { DateFormatter, getLocalTimeZone, parseDate } from "@internationalized/date";
+import { getLocalTimeZone, parseDate } from "@internationalized/date";
 
 import type { Priority, TodoColumnBasic, TodoListItem } from "~/types/database";
 
@@ -28,10 +28,6 @@ const todoPriority = ref<Priority>("MEDIUM");
 const todoDueDate = ref<DateValue | null>(null);
 const todoColumnId = ref<string | undefined>(undefined);
 const todoError = ref<string | null>(null);
-
-const df = new DateFormatter("en-US", {
-  dateStyle: "medium",
-});
 
 const priorityOptions = [
   { label: "Low", value: "LOW" },
@@ -182,7 +178,13 @@ function handleDelete() {
                 icon="i-lucide-calendar"
                 class="w-full justify-between"
               >
-                <NuxtTime v-if="todoDueDate" :datetime="todoDueDate.toDate(getLocalTimeZone())" year="numeric" month="short" day="numeric" />
+                <NuxtTime
+                  v-if="todoDueDate"
+                  :datetime="todoDueDate.toDate(getLocalTimeZone())"
+                  year="numeric"
+                  month="short"
+                  day="numeric"
+                />
                 <span v-else>No due date</span>
               </UButton>
 

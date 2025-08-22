@@ -86,12 +86,6 @@ export function useShoppingIntegrations() {
   const error = ref<string | null>(null);
   const syncing = ref(false);
 
-  const optimisticallyUpdateItem = (itemId: string, updates: Partial<ShoppingListItem>) => {
-    // Note: Optimistic updates are now handled by the sync manager
-    // This function is kept for backward compatibility but doesn't modify cache directly
-    consola.debug("Optimistic update requested for item:", itemId, updates);
-  };
-
   const refreshShoppingLists = async () => {
     loading.value = true;
     error.value = null;

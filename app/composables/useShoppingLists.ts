@@ -237,17 +237,6 @@ export function useShoppingLists() {
         return item;
       });
 
-      const updatedList = {
-        ...list,
-        items: updatedItems,
-      };
-
-      const updatedLists = [
-        ...currentShoppingLists.value.slice(0, listIndex),
-        updatedList,
-        ...currentShoppingLists.value.slice(listIndex + 1),
-      ];
-
       const newOrder = updatedItems
         .sort((a, b) => (a.order || 0) - (b.order || 0))
         .map(item => item.id);

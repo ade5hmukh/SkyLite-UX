@@ -70,7 +70,11 @@ watch(() => props.days, () => {
             <NuxtTime :datetime="day" day="numeric" />
           </span>
           <span :class="{ 'font-medium text-gray-900 dark:text-gray-100': isToday(day), 'text-gray-600 dark:text-gray-400': !isToday(day) }">
-            <NuxtTime :datetime="day" month="short" weekday="long" />
+            <NuxtTime
+              :datetime="day"
+              month="short"
+              weekday="long"
+            />
           </span>
         </span>
         <div class="mt-6 space-y-2">

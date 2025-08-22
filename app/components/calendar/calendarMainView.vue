@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import type { DropdownMenuItem } from "@nuxt/ui";
 
-import { addDays, addMonths, addWeeks, endOfWeek, format, isSameMonth, startOfWeek, subMonths, subWeeks } from "date-fns";
+import { addDays, addMonths, addWeeks, endOfWeek, isSameMonth, startOfWeek, subMonths, subWeeks } from "date-fns";
 
 import type { CalendarEvent, CalendarView } from "~/types/calendar";
 
@@ -202,35 +202,15 @@ const viewTitle = computed(() => {
 });
 
 function getWeeksForMonth(date: Date) {
-  const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
-  const lastDayOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-  const startDate = startOfWeek(firstDayOfMonth, { weekStartsOn: 0 });
-  const endDate = endOfWeek(lastDayOfMonth, { weekStartsOn: 0 });
-  const weeks: Date[][] = [];
-  let currentDate = startDate;
-
-  while (currentDate <= endDate) {
-    const week: Date[] = [];
-    for (let i = 0; i < 7; i++) {
-      // Create a new Date object to avoid mutation
-      week.push(new Date(currentDate.getTime()));
-      currentDate = addDays(currentDate, 1);
-    }
-    weeks.push(week);
-  }
-
-  return weeks;
+  // Use our timezone-consistent function for month weeks
+  const { getLocalMonthWeeks } = useCalendar();
+  return getLocalMonthWeeks(date);
 }
 
 function getDaysForAgenda(date: Date) {
-  const days: Date[] = [];
-  for (let i = -15; i < 0; i++) {
-    days.push(addDays(date, i));
-  }
-  for (let i = 0; i < 15; i++) {
-    days.push(addDays(date, i));
-  }
-  return days;
+  // Use our timezone-consistent function for agenda days
+  const { getLocalAgendaDays } = useCalendar();
+  return getLocalAgendaDays(date);
 }
 </script>
 
@@ -248,19 +228,59 @@ function getDaysForAgenda(date: Date) {
       <div class="flex sm:flex-col max-sm:items-center justify-between gap-1.5">
         <div class="flex items-center gap-1.5">
           <h1 class="font-semibold text-xl">
-            <NuxtTime v-if="viewTitle === 'month'" :datetime="currentDate" month="long" year="numeric" />
-            <NuxtTime v-else-if="viewTitle === 'week-same-month'" :datetime="startOfWeek(currentDate, { weekStartsOn: 0 })" month="long" year="numeric" />
+            <NuxtTime
+              v-if="viewTitle === 'month'"
+              :datetime="currentDate"
+              month="long"
+              year="numeric"
+            />
+            <NuxtTime
+              v-else-if="viewTitle === 'week-same-month'"
+              :datetime="startOfWeek(currentDate, { weekStartsOn: 0 })"
+              month="long"
+              year="numeric"
+            />
             <span v-else-if="viewTitle === 'week-different-months'">
-              <NuxtTime :datetime="startOfWeek(currentDate, { weekStartsOn: 0 })" month="short" /> - 
-              <NuxtTime :datetime="endOfWeek(currentDate, { weekStartsOn: 0 })" month="short" year="numeric" />
+              <NuxtTime
+                :datetime="startOfWeek(currentDate, { weekStartsOn: 0 })"
+                month="short"
+              /> -
+              <NuxtTime
+                :datetime="endOfWeek(currentDate, { weekStartsOn: 0 })"
+                month="short"
+                year="numeric"
+              />
             </span>
-            <NuxtTime v-else-if="viewTitle === 'day'" :datetime="currentDate" month="long" day="numeric" year="numeric" />
-            <NuxtTime v-else-if="viewTitle === 'agenda-same-month'" :datetime="currentDate" month="long" year="numeric" />
+            <NuxtTime
+              v-else-if="viewTitle === 'day'"
+              :datetime="currentDate"
+              month="long"
+              day="numeric"
+              year="numeric"
+            />
+            <NuxtTime
+              v-else-if="viewTitle === 'agenda-same-month'"
+              :datetime="currentDate"
+              month="long"
+              year="numeric"
+            />
             <span v-else-if="viewTitle === 'agenda-different-months'">
-              <NuxtTime :datetime="currentDate" month="short" /> - 
-              <NuxtTime :datetime="addDays(currentDate, 30 - 1)" month="short" year="numeric" />
+              <NuxtTime
+                :datetime="currentDate"
+                month="short"
+              /> -
+              <NuxtTime
+                :datetime="addDays(currentDate, 30 - 1)"
+                month="short"
+                year="numeric"
+              />
             </span>
-            <NuxtTime v-else :datetime="currentDate" month="long" year="numeric" />
+            <NuxtTime
+              v-else
+              :datetime="currentDate"
+              month="long"
+              year="numeric"
+            />
           </h1>
         </div>
       </div>

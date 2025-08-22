@@ -116,6 +116,12 @@ function handleTouchStart(e: TouchEvent) {
   emit("touchstart", e);
   props.onTouchStart?.(e);
 }
+
+function handleKeydown(e: KeyboardEvent) {
+  if (e.key === "Enter" || e.key === " ") {
+    handleClick(e as unknown as MouseEvent);
+  }
+}
 </script>
 
 <template>
@@ -130,8 +136,7 @@ function handleTouchStart(e: TouchEvent) {
     @click="handleClick"
     @mousedown="handleMouseDown"
     @touchstart="handleTouchStart"
-    @keydown.enter="handleClick"
-    @keydown.space="handleClick"
+    @keydown="handleKeydown"
   >
     <div v-show="view === 'month'">
       <div class="flex items-center justify-between">
@@ -150,7 +155,17 @@ function handleTouchStart(e: TouchEvent) {
             All day
           </template>
           <template v-else>
-            <NuxtTime :datetime="displayStart" hour="numeric" minute="2-digit" :hour12="true" /> - <NuxtTime :datetime="displayEnd" hour="numeric" minute="2-digit" :hour12="true" />
+            <NuxtTime
+              :datetime="displayStart"
+              hour="numeric"
+              minute="2-digit"
+              :hour12="true"
+            /> - <NuxtTime
+              :datetime="displayEnd"
+              hour="numeric"
+              minute="2-digit"
+              :hour12="true"
+            />
           </template>
         </div>
         <div class="flex-shrink-0 h-5 flex items-center">
@@ -189,7 +204,17 @@ function handleTouchStart(e: TouchEvent) {
             </template>
             <template v-else>
               <span class="uppercase">
-                <NuxtTime :datetime="displayStart" hour="numeric" minute="2-digit" :hour12="true" /> - <NuxtTime :datetime="displayEnd" hour="numeric" minute="2-digit" :hour12="true" />
+                <NuxtTime
+                  :datetime="displayStart"
+                  hour="numeric"
+                  minute="2-digit"
+                  :hour12="true"
+                /> - <NuxtTime
+                  :datetime="displayEnd"
+                  hour="numeric"
+                  minute="2-digit"
+                  :hour12="true"
+                />
               </span>
             </template>
             <template v-if="event.location">
@@ -236,7 +261,17 @@ function handleTouchStart(e: TouchEvent) {
             </template>
             <template v-else>
               <span class="uppercase">
-                <NuxtTime :datetime="displayStart" hour="numeric" minute="2-digit" :hour12="true" /> - <NuxtTime :datetime="displayEnd" hour="numeric" minute="2-digit" :hour12="true" />
+                <NuxtTime
+                  :datetime="displayStart"
+                  hour="numeric"
+                  minute="2-digit"
+                  :hour12="true"
+                /> - <NuxtTime
+                  :datetime="displayEnd"
+                  hour="numeric"
+                  minute="2-digit"
+                  :hour12="true"
+                />
               </span>
             </template>
             <template v-if="event.location">

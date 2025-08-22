@@ -29,9 +29,6 @@ const emit = defineEmits<{
   (e: "reorder", payload: ReorderEvent): void;
 }>();
 
-// Use global stable date
-const { parseStableDate } = useStableDate();
-
 function isShoppingItem(item: BaseListItem): item is ShoppingListItem {
   return "quantity" in item && "unit" in item;
 }
@@ -85,7 +82,12 @@ function getPriorityColor(priority: Priority) {
           v-if="isTodoItem(item) && item.dueDate"
           class="text-xs text-gray-500 dark:text-gray-400"
         >
-          <NuxtTime :datetime="item.dueDate" year="numeric" month="short" day="numeric" />
+          <NuxtTime
+            :datetime="item.dueDate"
+            year="numeric"
+            month="short"
+            day="numeric"
+          />
         </span>
         <span
           v-if="isShoppingItem(item) && showQuantity && item.quantity"

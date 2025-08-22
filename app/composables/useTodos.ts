@@ -15,7 +15,7 @@ export function useTodos() {
   // Computed property to handle undefined case
   const currentTodos = computed(() => todos.value || []);
 
-  const fetchTodos = async (todoColumnId?: string) => {
+  const fetchTodos = async () => {
     loading.value = true;
     error.value = null;
     try {
