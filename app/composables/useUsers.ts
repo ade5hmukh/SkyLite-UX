@@ -8,13 +8,10 @@ export function useUsers() {
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  // Get users from Nuxt cache
   const { data: users } = useNuxtData<UserWithOrder[]>("users");
 
-  // Get current user from Nuxt cache
   const { data: currentUser } = useNuxtData<User | null>("current-user");
 
-  // Computed property to handle undefined case
   const currentUsers = computed(() => users.value || []);
 
   const fetchUsers = async () => {
@@ -42,10 +39,8 @@ export function useUsers() {
         body: userData,
       });
 
-      // Refresh cache to get updated data
       await refreshNuxtData("users");
 
-      // Also refresh todo columns cache as new users may have associated todo columns
       await refreshNuxtData("todo-columns");
 
       return newUser;
@@ -64,7 +59,6 @@ export function useUsers() {
         body: updates,
       });
 
-      // Refresh cache to get updated data
       await refreshNuxtData("users");
       await refreshNuxtData("todo-columns");
 
@@ -79,9 +73,8 @@ export function useUsers() {
 
   const selectUser = async (user: User) => {
     try {
-      // Store current user in cache using useAsyncData
       await useAsyncData("current-user", () => Promise.resolve(user), {
-        server: false, // Only on client since this is user selection
+        server: false,
         lazy: false,
       });
     }
@@ -94,7 +87,6 @@ export function useUsers() {
 
   const loadCurrentUser = async () => {
     try {
-      // Load current user from cache
       await useAsyncData("current-user", () => Promise.resolve(null), {
         server: false,
         lazy: false,
@@ -109,7 +101,6 @@ export function useUsers() {
 
   const clearCurrentUser = async () => {
     try {
-      // Clear current user from cache
       await useAsyncData("current-user", () => Promise.resolve(null), {
         server: false,
         lazy: false,
@@ -132,7 +123,6 @@ export function useUsers() {
         await clearCurrentUser();
       }
 
-      // Refresh cache to get updated data
       await refreshNuxtData("users");
       await refreshNuxtData("todo-columns");
 
@@ -192,7 +182,6 @@ export function useUsers() {
         body: { userIds: newOrder },
       });
 
-      // Refresh cache to get updated data
       await refreshNuxtData("users");
       await refreshNuxtData("todo-columns");
     }

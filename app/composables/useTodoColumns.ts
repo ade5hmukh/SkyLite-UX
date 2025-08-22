@@ -6,13 +6,10 @@ export function useTodoColumns() {
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  // Get todo columns from Nuxt cache
   const { data: todoColumns } = useNuxtData<TodoColumn[]>("todo-columns");
 
-  // Computed property to handle undefined case
   const currentTodoColumns = computed(() => todoColumns.value || []);
 
-  // Fetch all todo columns
   const fetchTodoColumns = async () => {
     loading.value = true;
     try {
@@ -29,7 +26,6 @@ export function useTodoColumns() {
     }
   };
 
-  // Create a new todo column
   const createTodoColumn = async (columnData: {
     name: string;
     userId?: string;
@@ -42,7 +38,6 @@ export function useTodoColumns() {
         body: columnData,
       });
 
-      // Refresh cache to get updated data
       await refreshNuxtData("todo-columns");
 
       error.value = null;
@@ -58,7 +53,6 @@ export function useTodoColumns() {
     }
   };
 
-  // Update a todo column
   const updateTodoColumn = async (columnId: string, updates: { name?: string }) => {
     try {
       const updatedColumn = await $fetch<TodoColumn>(`/api/todo-columns/${columnId}`, {
@@ -66,7 +60,6 @@ export function useTodoColumns() {
         body: updates,
       });
 
-      // Refresh cache to get updated data
       await refreshNuxtData("todo-columns");
 
       error.value = null;
@@ -79,7 +72,6 @@ export function useTodoColumns() {
     }
   };
 
-  // Delete a todo column
   const deleteTodoColumn = async (columnId: string) => {
     try {
       const response = await fetch(`/api/todo-columns/${columnId}`, {
@@ -89,7 +81,6 @@ export function useTodoColumns() {
         throw new Error("Failed to delete todo column");
       }
 
-      // Refresh cache to get updated data
       await refreshNuxtData("todo-columns");
 
       error.value = null;
@@ -102,19 +93,16 @@ export function useTodoColumns() {
     }
   };
 
-  // Reorder todo columns
   const reorderTodoColumns = async (fromIndex: number, toIndex: number) => {
     if (fromIndex === toIndex)
       return;
 
-    // Get current columns for optimistic update
     const columns = [...currentTodoColumns.value];
     const movedColumn = columns.splice(fromIndex, 1)[0];
     if (movedColumn) {
       columns.splice(toIndex, 0, movedColumn);
     }
 
-    // Update order values
     const reorders = columns.map((column, index) => ({
       id: column.id,
       order: index,
@@ -126,7 +114,6 @@ export function useTodoColumns() {
         body: { reorders },
       });
 
-      // Refresh cache to get updated data
       await refreshNuxtData("todo-columns");
 
       error.value = null;

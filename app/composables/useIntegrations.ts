@@ -6,21 +6,17 @@ import type { IntegrationService } from "~/types/integrations";
 import { createIntegrationService } from "~/types/integrations";
 
 export function useIntegrations() {
-  // Get integrations from Nuxt cache
   const { data: cachedIntegrations } = useNuxtData<Integration[]>("integrations");
 
-  // Local state for services and initialization
   const services = ref<Map<string, IntegrationService>>(new Map());
   const initialized = ref(false);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  // Computed property for integrations with fallback
   const integrations = computed(() => {
     return cachedIntegrations.value || [];
   });
 
-  // Initialize services when integrations data is available
   const initializeServices = async () => {
     if (!integrations.value.length || initialized.value)
       return;
@@ -44,7 +40,6 @@ export function useIntegrations() {
     }
   };
 
-  // Watch for integrations data changes and initialize services
   watch(integrations, async (newIntegrations) => {
     if (newIntegrations.length > 0) {
       await initializeServices();
@@ -53,7 +48,6 @@ export function useIntegrations() {
 
   const fetchIntegrations = async () => {
     try {
-      // Refresh the cached data
       await refreshNuxtData("integrations");
       consola.info("Integrations data refreshed successfully");
     }
@@ -73,10 +67,8 @@ export function useIntegrations() {
         body: integration,
       });
 
-      // Refresh the cache to include the new integration
       await refreshNuxtData("integrations");
 
-      // Initialize service for the new integration if enabled
       if (response.enabled) {
         const service = await createIntegrationService(response);
         if (service) {
@@ -85,10 +77,9 @@ export function useIntegrations() {
         }
       }
 
-      // Register the new integration with the server-side sync manager
       if (response.enabled) {
         try {
-          await $fetch("/api/sync/register-integration", {
+          await $fetch("/api/sync/register", {
             method: "POST",
             body: response,
           });
@@ -116,10 +107,8 @@ export function useIntegrations() {
         body: updates,
       });
 
-      // Refresh the cache to reflect the changes
       await refreshNuxtData("integrations");
 
-      // Update service if integration was enabled/disabled
       if (response.enabled) {
         const service = await createIntegrationService(response);
         if (service) {
@@ -127,9 +116,8 @@ export function useIntegrations() {
           await service.initialize();
         }
 
-        // Register the updated integration with the server-side sync manager
         try {
-          await $fetch("/api/sync/register-integration", {
+          await $fetch("/api/sync/register", {
             method: "POST",
             body: response,
           });
@@ -141,8 +129,6 @@ export function useIntegrations() {
       }
       else {
         services.value.delete(response.id);
-        // Note: We could add an endpoint to unregister from sync, but for now
-        // the sync manager will skip disabled integrations
       }
 
       consola.info("Integration updated successfully:", response.name);
@@ -161,10 +147,8 @@ export function useIntegrations() {
         method: "DELETE",
       });
 
-      // Remove service
       services.value.delete(id);
 
-      // Refresh the cache to reflect the deletion
       await refreshNuxtData("integrations");
 
       consola.info("Integration deleted successfully:", id);
@@ -199,13 +183,12 @@ export function useIntegrations() {
   };
 
   return {
-    // Data access
+
     integrations: readonly(integrations),
     loading: readonly(loading),
     error: readonly(error),
     initialized: readonly(initialized),
 
-    // Functions
     fetchIntegrations,
     refreshIntegrations,
     createIntegration,

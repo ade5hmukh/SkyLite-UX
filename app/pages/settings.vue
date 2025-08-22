@@ -54,7 +54,7 @@ onMounted(() => {
 });
 
 const filteredIntegrations = computed(() => {
-  return integrations.value.filter(integration => integration.type === activeIntegrationTab.value);
+  return (integrations.value as Integration[]).filter(integration => integration.type === activeIntegrationTab.value);
 });
 
 async function handleUserSave(userData: CreateUserInput) {
@@ -156,8 +156,6 @@ async function handleToggleIntegration(integrationId: string, enabled: boolean) 
     consola.error("Failed to toggle integration:", error);
   }
 }
-
-// Data is pre-loaded by appInit.ts plugin
 
 function getIntegrationIcon(type: string) {
   switch (type) {
@@ -451,7 +449,7 @@ function getIntegrationIconUrl(integration: Integration) {
       :integration="selectedIntegration"
       :is-open="isIntegrationDialogOpen"
       :active-type="activeIntegrationTab"
-      :existing-integrations="integrations"
+      :existing-integrations="integrations as Integration[]"
       :connection-test-result="connectionTestResult"
       @close="isIntegrationDialogOpen = false"
       @save="handleIntegrationSave"

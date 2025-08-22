@@ -19,7 +19,6 @@ const emit = defineEmits<{
   (e: "delete", todoId: string): void;
 }>();
 
-// Use global stable date
 const { parseStableDate } = useStableDate();
 
 const todoTitle = ref("");
@@ -45,7 +44,6 @@ watch(() => [props.isOpen, props.todo], ([isOpen, todo]) => {
         todoDescription.value = todo.description || "";
         todoPriority.value = todo.priority || "MEDIUM";
         if (todo.dueDate) {
-          // Use stable date parsing
           const date = todo.dueDate instanceof Date ? todo.dueDate : parseStableDate(todo.dueDate);
           todoDueDate.value = parseDate(date.toISOString().split("T")[0]!);
         }

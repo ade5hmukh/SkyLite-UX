@@ -12,7 +12,6 @@ const props = defineProps<{
   className?: string;
   initialView?: CalendarView;
   class?: string;
-  loading?: boolean;
   getIntegrationCapabilities?: (event: CalendarEvent) => { capabilities: string[]; serviceName?: string } | undefined;
 }>();
 
@@ -22,7 +21,6 @@ const _emit = defineEmits<{
   (e: "eventDelete", eventId: string): void;
 }>();
 
-// Use global stable date
 const { getStableDate } = useStableDate();
 const currentDate = useState<Date>("calendar-current-date", () => getStableDate());
 const view = ref<CalendarView>(props.initialView || "week");
@@ -41,7 +39,6 @@ const items: DropdownMenuItem[][] = [
       icon: "i-lucide-calendar-range",
       onSelect: () => {
         view.value = "week";
-        // Use a stable date reference to avoid hydration mismatches
         currentDate.value = getStableDate();
       },
     },
@@ -122,7 +119,6 @@ function handleNext() {
 }
 
 function handleToday() {
-  // Use a stable date reference to avoid hydration mismatches
   currentDate.value = getStableDate();
 }
 
@@ -162,12 +158,10 @@ function handleEventDelete(eventId: string) {
 }
 
 function handleCreateEvent() {
-  // Use a stable date reference to avoid hydration mismatches
   handleEventCreate(getStableDate());
 }
 
 const isCurrentMonth = computed(() => {
-  // Use a stable date reference to avoid hydration mismatches
   return isSameMonth(currentDate.value, getStableDate());
 });
 
@@ -202,13 +196,11 @@ const viewTitle = computed(() => {
 });
 
 function getWeeksForMonth(date: Date) {
-  // Use our timezone-consistent function for month weeks
   const { getLocalMonthWeeks } = useCalendar();
   return getLocalMonthWeeks(date);
 }
 
 function getDaysForAgenda(date: Date) {
-  // Use our timezone-consistent function for agenda days
   const { getLocalAgendaDays } = useCalendar();
   return getLocalAgendaDays(date);
 }

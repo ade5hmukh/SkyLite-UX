@@ -1,11 +1,12 @@
 <script setup lang="ts">
-import type { CreateTodoInput, TodoItem } from "~/types/database";
+import type { CreateTodoInput, Todo, TodoColumnBasic } from "~/types/database";
 
 import { useStableDate } from "~/composables/useStableDate";
 
 const props = defineProps<{
-  todo: TodoItem | null;
+  todo: Todo | null;
   isOpen: boolean;
+  todoColumns: TodoColumnBasic[];
 }>();
 
 const emit = defineEmits<{
@@ -14,7 +15,6 @@ const emit = defineEmits<{
   (e: "delete", todoId: string): void;
 }>();
 
-// Use global stable date
 const { parseStableDate } = useStableDate();
 
 const title = ref("");
@@ -33,10 +33,9 @@ const priorityOptions = [
 
 watch(() => props.todo, (newTodo) => {
   if (newTodo) {
-    title.value = newTodo.name || "";
+    title.value = newTodo.title || "";
     description.value = newTodo.description || "";
     priority.value = newTodo.priority || "MEDIUM";
-    // Use stable date parsing
     const date = newTodo.dueDate ? parseStableDate(newTodo.dueDate) : null;
     dueDate.value = date ? date.toISOString().slice(0, 16) : "";
     todoColumnId.value = newTodo.todoColumnId || undefined;

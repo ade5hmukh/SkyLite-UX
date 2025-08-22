@@ -10,28 +10,17 @@ import type { Integration } from "~/types/database";
 import { useStableDate } from "~/composables/useStableDate";
 import { useSyncManager } from "~/composables/useSyncManager";
 
-// Timezone is now registered in appInit.ts plugin at startup
-
 export function useCalendar() {
   const spanningEventLanes = new Map<string, number>();
 
-  // Timezone is now registered in appInit.ts plugin at startup
-  // We use a hybrid approach: timezone-aware comparison when available, UTC fallback when not
-  // This ensures better user experience while maintaining SSR consistency
-
-  // Get calendar events from Nuxt cache
   const { data: nativeEvents } = useNuxtData<CalendarEvent[]>("calendar-events");
 
-  // Get integrations for calendar data
   const { integrations } = useIntegrations();
 
-  // Get sync data for integrations
   const { getSyncDataByType, getCachedIntegrationData } = useSyncManager();
 
-  // Use global stable date
   const { getStableDate, parseStableDate } = useStableDate();
 
-  // UTC comparison helpers (kept for fallback scenarios)
   function getUtcMidnightTime(date: Date): number {
     return Date.UTC(
       date.getUTCFullYear(),
@@ -48,7 +37,6 @@ export function useCalendar() {
     return getUtcMidnightTime(a) === getUtcMidnightTime(b);
   }
 
-  // Unified ical.js-based comparison helpers
   function createICalTime(date: Date, isUTC: boolean = false): ical.Time {
     return ical.Time.fromJSDate(date, isUTC);
   }
@@ -59,18 +47,15 @@ export function useCalendar() {
       const timezone = ical.TimezoneService.get(browserTimezone);
 
       if (!timezone) {
-        // Fallback to UTC comparison if timezone not available
         return isSameUtcDay(a, b);
       }
 
-      // Convert both dates to the same timezone for comparison
-      const timeA = createICalTime(a, true); // Assume UTC input
-      const timeB = createICalTime(b, true); // Assume UTC input
+      const timeA = createICalTime(a, true);
+      const timeB = createICalTime(b, true);
 
       const localA = timeA.convertToZone(timezone);
       const localB = timeB.convertToZone(timezone);
 
-      // Compare year, month, and day in the local timezone
       return localA.year === localB.year
         && localA.month === localB.month
         && localA.day === localB.day;
@@ -87,12 +72,9 @@ export function useCalendar() {
       const timezone = ical.TimezoneService.get(browserTimezone);
 
       if (!timezone) {
-        // Fallback to UTC comparison if timezone not available
-        // Note: iCal DTEND is exclusive, so we use >= start and < end
         return day.getTime() >= start.getTime() && day.getTime() < end.getTime();
       }
 
-      // Convert all dates to the same timezone for comparison
       const timeDay = createICalTime(day, true);
       const timeStart = createICalTime(start, true);
       const timeEnd = createICalTime(end, true);
@@ -101,36 +83,25 @@ export function useCalendar() {
       const localStart = timeStart.convertToZone(timezone);
       const localEnd = timeEnd.convertToZone(timezone);
 
-      // Create midnight times for day comparison
       const dayMidnight = new Date(localDay.year, localDay.month - 1, localDay.day);
       const startMidnight = new Date(localStart.year, localStart.month - 1, localStart.day);
       const endMidnight = new Date(localEnd.year, localEnd.month - 1, localEnd.day);
 
-      // iCal standard: DTSTART is inclusive, DTEND is exclusive
-      // So an event from Aug 1 to Aug 3 should appear on Aug 1 and Aug 2, but not Aug 3
       return dayMidnight.getTime() >= startMidnight.getTime()
         && dayMidnight.getTime() < endMidnight.getTime();
     }
     catch (error) {
       consola.debug("ical.js comparison failed, using UTC fallback:", error);
-      // Note: iCal DTEND is exclusive, so we use >= start and < end
       return day.getTime() >= start.getTime() && day.getTime() < end.getTime();
     }
   }
 
-  // Calendar date construction functions (timezone-consistent)
   function createLocalDate(year: number, month: number, day: number): Date {
-    // Create a date in the local timezone using the browser's timezone
-    // This ensures consistency with our timezone-aware event filtering
-
-    // Convert to UTC while preserving the intended local time
-    // This matches the pattern used in our server-side UTC conversion
     const utcTime = Date.UTC(year, month, day);
     return new Date(utcTime);
   }
 
   function getLocalWeekDays(startDate: Date): Date[] {
-    // Build week days using local timezone for consistency with event filtering
     const days: Date[] = [];
     const start = getLocalTimeFromUTC(startDate);
 
@@ -144,17 +115,14 @@ export function useCalendar() {
   }
 
   function getLocalMonthWeeks(date: Date): Date[][] {
-    // Build month weeks using local timezone for consistency with event filtering
     const localDate = getLocalTimeFromUTC(date);
     const firstDayOfMonth = new Date(localDate.getFullYear(), localDate.getMonth(), 1);
     const lastDayOfMonth = new Date(localDate.getFullYear(), localDate.getMonth() + 1, 0);
 
-    // Find the start of the week containing the first day of month
     const startDate = new Date(firstDayOfMonth.getTime());
     const dayOfWeek = startDate.getDay();
     startDate.setDate(startDate.getDate() - dayOfWeek);
 
-    // Find the end of the week containing the last day of month
     const endDate = new Date(lastDayOfMonth.getTime());
     const endDayOfWeek = endDate.getDay();
     endDate.setDate(endDate.getDate() + (6 - endDayOfWeek));
@@ -176,18 +144,15 @@ export function useCalendar() {
   }
 
   function getLocalAgendaDays(date: Date): Date[] {
-    // Build agenda days using local timezone for consistency with event filtering
     const days: Date[] = [];
     const localDate = getLocalTimeFromUTC(date);
 
-    // Add 15 days before the current date
     for (let i = -15; i < 0; i++) {
       const day = new Date(localDate.getTime());
       day.setDate(localDate.getDate() + i);
       days.push(day);
     }
 
-    // Add 15 days after the current date
     for (let i = 0; i < 15; i++) {
       const day = new Date(localDate.getTime());
       day.setDate(localDate.getDate() + i);
@@ -197,29 +162,21 @@ export function useCalendar() {
     return days;
   }
 
-  // Timestamp handling functions for UI components
   function getLocalTimeFromUTC(utcDate: Date): Date {
-    // Convert UTC date to local time for display using ical.js
     try {
-      // Get browser's timezone
       const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
 
-      // Try to get the registered timezone
       const timezone = ical.TimezoneService.get(browserTimezone);
       if (timezone) {
-        // Create an ical.js Time object from the UTC date
-        const utcTime = createICalTime(utcDate, true); // true = UTC
+        const utcTime = createICalTime(utcDate, true);
 
-        // Convert to the registered timezone
         const localTime = utcTime.convertToZone(timezone);
         return localTime.toJSDate();
       }
 
-      // Fallback to original method if timezone not registered
       return new Date(utcDate.getTime());
     }
     catch (error) {
-      // Fallback to original method if ical.js conversion fails
       consola.warn("ical.js timezone conversion failed, using fallback:", error);
       return new Date(utcDate.getTime());
     }
@@ -302,37 +259,27 @@ export function useCalendar() {
     const end = parseStableDate(event.end);
 
     if (event.allDay) {
-      // For all-day events, follow iCal standard: DTEND is exclusive
-      // An event with DTEND:20251027 actually ends on 20251026
-      // So we need to subtract one day from the stored end date
       const endDate = new Date(end.getTime());
       endDate.setDate(endDate.getDate() - 1);
 
-      // Format as YYYY-MM-DD
       const year = endDate.getFullYear();
       const month = (endDate.getMonth() + 1).toString().padStart(2, "0");
       const day = endDate.getDate().toString().padStart(2, "0");
       return `${year}-${month}-${day}`;
     }
     else {
-      // For timed events, check if they span midnight UTC but should be displayed as single-day
       const startLocal = getLocalTimeFromUTC(start);
       const endLocal = getLocalTimeFromUTC(end);
 
-      // If the event starts and ends on the same local day (even if it spans midnight UTC),
-      // show the end date as the same as the start date
       const startDay = new Date(startLocal.getTime());
       startDay.setHours(0, 0, 0, 0);
       const endDay = new Date(endLocal.getTime());
       endDay.setHours(0, 0, 0, 0);
 
       if (startDay.getTime() === endDay.getTime()) {
-        // Same local day, show end date as start date
         return start.toISOString().split("T")[0]!;
       }
       else {
-        // Different local days, this is a true multi-day event
-        // Return the LOCAL end date by constructing the date string from local components
         const year = endLocal.getFullYear();
         const month = (endLocal.getMonth() + 1).toString().padStart(2, "0");
         const day = endLocal.getDate().toString().padStart(2, "0");
@@ -349,7 +296,6 @@ export function useCalendar() {
   }
 
   function convertLocalToUTC(localDate: Date): Date {
-    // Convert local time to UTC while preserving the intended local time
     const utcTime = Date.UTC(
       localDate.getFullYear(),
       localDate.getMonth(),
@@ -362,23 +308,19 @@ export function useCalendar() {
     return new Date(utcTime);
   }
 
-  // Computed property that combines native and integration events
   const allEvents = computed(() => {
     const events: CalendarEvent[] = [];
 
-    // Add native events
     if (nativeEvents.value) {
       events.push(...nativeEvents.value);
     }
 
-    // Add integration events
     const calendarIntegrations = (integrations.value as readonly Integration[] || []).filter(integration =>
       integration.type === "calendar" && integration.enabled,
     );
 
     calendarIntegrations.forEach((integration) => {
       try {
-        // Get cached integration data using the same cache key as sync manager
         const integrationEvents = getCachedIntegrationData("calendar", integration.id) as CalendarEvent[];
         if (integrationEvents && Array.isArray(integrationEvents)) {
           events.push(...integrationEvents);
@@ -394,18 +336,14 @@ export function useCalendar() {
     return result;
   });
 
-  // Computed property for sync status of calendar integrations
   const calendarSyncStatus = computed(() => {
     return getSyncDataByType("calendar", []);
   });
 
-  // Function to refresh calendar data
   const refreshCalendarData = async () => {
     try {
-      // Refresh native events
       await refreshNuxtData("calendar-events");
 
-      // Note: Integration data is refreshed automatically via sync manager
       consola.info("Calendar data refreshed successfully");
     }
     catch (error) {
@@ -413,7 +351,6 @@ export function useCalendar() {
     }
   };
 
-  // Function to get events for a specific integration
   const getIntegrationEvents = (integrationId: string): CalendarEvent[] => {
     try {
       const events = getCachedIntegrationData("calendar", integrationId) as CalendarEvent[];
@@ -439,7 +376,7 @@ export function useCalendar() {
       const userColors = event.users
         .map(user => user.color)
         .filter(color => color && color !== null)
-        .sort() as string[]; // Sort colors for deterministic ordering
+        .sort() as string[];
 
       if (userColors.length > 1) {
         return userColors;
@@ -462,7 +399,6 @@ export function useCalendar() {
     const eventMap = new Map<string, CalendarEvent>();
 
     events.forEach((event) => {
-      // Use stable date parsing for consistent SSR/client rendering
       const startTime = parseStableDate(event.start).getTime();
       const endTime = parseStableDate(event.end).getTime();
       const key = `${event.title}-${startTime}-${endTime}-${event.location || ""}-${event.description || ""}`;
@@ -470,18 +406,14 @@ export function useCalendar() {
       if (eventMap.has(key)) {
         const existingEvent = eventMap.get(key)!;
 
-        // Merge users without changing the event structure
         const existingUserIds = new Set(existingEvent.users?.map(u => u.id) || []);
         const newUsers = event.users?.filter(u => !existingUserIds.has(u.id)) || [];
         const allUsers = [...(existingEvent.users || []), ...newUsers];
-        // Sort users by ID for deterministic ordering
         existingEvent.users = allUsers.sort((a, b) => a.id.localeCompare(b.id));
 
-        // Update color based on combined users
         existingEvent.color = getEventUserColors(existingEvent);
       }
       else {
-        // Create a new event with stable properties
         const newEvent = {
           ...event,
           color: getEventUserColors(event),
@@ -490,7 +422,6 @@ export function useCalendar() {
       }
     });
 
-    // Sort events by start time to ensure consistent ordering
     const result = Array.from(eventMap.values()).sort((a, b) => {
       const aStart = parseStableDate(a.start).getTime();
       const bStart = parseStableDate(b.start).getTime();
@@ -586,7 +517,6 @@ export function useCalendar() {
 
           const visibleColors: Array<{ color: string; start: number; end: number }> = [];
 
-          // Edge case: when days == colors
           if (totalDays === color.length) {
             const currentColor = color[dayDiff];
             const nextColor = color[dayDiff + 1];
@@ -616,7 +546,6 @@ export function useCalendar() {
             }
           }
           else {
-            // Original logic for overlapping colors
             color.forEach((c, colorIndex) => {
               const colorStartDay = colorIndex * daysPerColor;
               const colorEndDay = (colorIndex + 1) * daysPerColor;
@@ -634,7 +563,6 @@ export function useCalendar() {
             });
           }
 
-          // Reverse colors and flip percentages to compensate for -45deg visual reversal
           const reversedColors = visibleColors.reverse();
           colorStops = reversedColors.map(({ color: c, start, end }) => {
             const lightenedColor = /^#(?:[0-9A-F]{3}){1,2}$/i.test(c) ? lightenColor(c, 0.4) : c;
@@ -644,7 +572,6 @@ export function useCalendar() {
           }).join(", ");
         }
         else {
-          // Non-spanning event - using original logic
           const stripeWidth = 100 / color.length;
           colorStops = color.map((c, index) => {
             const start = index * stripeWidth;
@@ -700,15 +627,12 @@ export function useCalendar() {
   }
 
   function isToday(date: Date) {
-    // Use UTC-normalized day for deterministic SSR/CSR
     return isSameUtcDay(date, getStableDate());
   }
 
   function isFirstDay(day: Date, event: CalendarEvent) {
-    // Use stable date parsing for consistent SSR/client rendering
     const eventStart = parseStableDate(event.start);
 
-    // Always use timezone-aware comparison with ical.js convertToZone
     const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const timezone = ical.TimezoneService.get(browserTimezone);
 
@@ -721,43 +645,34 @@ export function useCalendar() {
   }
 
   function isLastDay(day: Date, event: CalendarEvent) {
-    // Use stable date parsing for consistent SSR/client rendering
     const eventStart = parseStableDate(event.start);
     const eventEnd = parseStableDate(event.end);
 
-    // Always use timezone-aware comparison with ical.js convertToZone
     const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const timezone = ical.TimezoneService.get(browserTimezone);
 
     if (!timezone) {
       consola.warn("Browser timezone not registered with ical.js, using UTC fallback for isLastDay");
-      // For single-day events, the last day is the same as the first day
       if (isSameUtcDay(eventStart, eventEnd)) {
         return isSameUtcDay(day, eventStart);
       }
-      // iCal DTEND is exclusive, so the last day is the day before the end date
       const dayBeforeEnd = new Date(eventEnd.getTime() - 24 * 60 * 60 * 1000);
       return isSameUtcDay(day, dayBeforeEnd);
     }
 
-    // For single-day events, the last day is the same as the first day
     if (isSameLocalDay(eventStart, eventEnd)) {
       return isSameLocalDay(day, eventStart);
     }
-    
-    // iCal DTEND is exclusive, so the last day is the day before the end date
-    // An event ending on Aug 3 should have its last day on Aug 2
+
     const dayBeforeEnd = new Date(eventEnd.getTime() - 24 * 60 * 60 * 1000);
     return isSameLocalDay(day, dayBeforeEnd);
   }
 
   function isFirstVisibleDay(day: Date, event: CalendarEvent, visibleDays: Date[]): boolean {
-    // If it's the actual first day, always show title
     if (isFirstDay(day, event)) {
       return true;
     }
 
-    // Get first visible day in the view
     const firstVisibleDay = visibleDays[0];
     if (!firstVisibleDay) {
       return false;
@@ -765,13 +680,11 @@ export function useCalendar() {
 
     const eventStart = parseStableDate(event.start);
 
-    // Always use timezone-aware comparison with ical.js convertToZone
     const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
     const timezone = ical.TimezoneService.get(browserTimezone);
 
     if (!timezone) {
       consola.warn("Browser timezone not registered with ical.js, using UTC fallback for isFirstVisibleDay");
-      // Fallback to UTC comparison
       if (getUtcMidnightTime(eventStart) < getUtcMidnightTime(firstVisibleDay)) {
         const eventDaysInView = visibleDays.filter((visibleDay) => {
           const eventsForDay = getAllEventsForDay([event], visibleDay);
@@ -783,7 +696,6 @@ export function useCalendar() {
       return false;
     }
 
-    // Use local midnight for timezone-aware events
     const eventStartLocal = getLocalTimeFromUTC(eventStart);
     const eventStartDay = new Date(eventStartLocal.getTime());
     eventStartDay.setHours(0, 0, 0, 0);
@@ -793,13 +705,11 @@ export function useCalendar() {
     firstVisibleDayMidnight.setHours(0, 0, 0, 0);
 
     if (eventStartDay.getTime() < firstVisibleDayMidnight.getTime()) {
-      // Find the first day this event appears in the current view
       const eventDaysInView = visibleDays.filter((visibleDay) => {
         const eventsForDay = getAllEventsForDay([event], visibleDay);
         return eventsForDay.length > 0;
       });
 
-      // Return true if this is the first day the event appears in current view
       const firstEventDay = eventDaysInView[0];
       return firstEventDay ? isSameLocalDay(day, firstEventDay) : false;
     }
@@ -867,7 +777,6 @@ export function useCalendar() {
   }
 
   function getMiniCalendarWeeks(currentDate: Date): Date[][] {
-    // Use our timezone-consistent function for mini calendar weeks
     return getLocalMonthWeeks(currentDate);
   }
 
@@ -877,9 +786,6 @@ export function useCalendar() {
         const eventStart = parseStableDate(event.start);
         const eventEnd = parseStableDate(event.end);
 
-        // Use unified ical.js-based comparison logic
-        // Note: iCal DTEND is exclusive, so we don't check isSameLocalDay(day, eventEnd)
-        // An event ending on Aug 3 should not appear on Aug 3 (it ends at the start of Aug 3)
         return (
           isSameLocalDay(day, eventStart)
           || isLocalDayInRange(day, eventStart, eventEnd)
@@ -895,14 +801,11 @@ export function useCalendar() {
   function isMultiDayEvent(event: CalendarEvent): boolean {
     const eventStart = parseStableDate(event.start);
     const eventEnd = parseStableDate(event.end);
-    
-    // All-day events are always multi-day if they span multiple calendar days
+
     if (event.allDay) {
       return !isSameLocalDay(eventStart, eventEnd);
     }
-    
-    // For timed events, check if they span across calendar days in local timezone
-    // An event from 11 PM to 1 AM should be considered multi-day
+
     return !isSameLocalDay(eventStart, eventEnd);
   }
 
@@ -911,13 +814,9 @@ export function useCalendar() {
       const eventStart = parseStableDate(event.start);
       const eventEnd = parseStableDate(event.end);
 
-      // Use unified ical.js-based comparison logic
-      // iCal standard: DTSTART is inclusive, DTEND is exclusive
       const isSameStart = isSameLocalDay(day, eventStart);
       const isInRange = isLocalDayInRange(day, eventStart, eventEnd);
 
-      // An event should appear on its start day OR any day within its range
-      // The isLocalDayInRange function now correctly handles the exclusive end date
       return isSameStart || isInRange;
     });
 
@@ -936,8 +835,8 @@ export function useCalendar() {
     return {
       id: `__placeholder_${position}`,
       title: "",
-      start: new Date(0), // Use epoch date for consistency
-      end: new Date(0), // Use epoch date for consistency
+      start: new Date(0),
+      end: new Date(0),
       allDay: false,
       isPlaceholder: true,
     };
@@ -946,7 +845,6 @@ export function useCalendar() {
   function assignSpanningEventLanes(allEvents: CalendarEvent[]): Map<string, number> {
     const spanningEvents = allEvents.filter(isMultiDayEvent);
 
-    // Sort spanning events by start time, then by ID for consistency
     const sortedSpanningEvents = spanningEvents.sort((a, b) => {
       const aStart = parseStableDate(a.start).getTime();
       const bStart = parseStableDate(b.start).getTime();
@@ -956,7 +854,6 @@ export function useCalendar() {
       return a.id.localeCompare(b.id);
     });
 
-    // Track occupied lanes by date ranges
     const lanes: Array<{ eventId: string; start: Date; end: Date }> = [];
     const eventLaneMap = new Map<string, number>();
 
@@ -964,19 +861,16 @@ export function useCalendar() {
       const eventStart = parseStableDate(event.start);
       const eventEnd = parseStableDate(event.end);
 
-      // Find the first available lane that doesn't conflict
       let laneIndex = 0;
       let placed = false;
 
       while (!placed) {
         if (laneIndex >= lanes.length) {
-          // Create a new lane
           lanes.push({ eventId: event.id, start: eventStart, end: eventEnd });
           eventLaneMap.set(event.id, laneIndex);
           placed = true;
         }
         else {
-          // Check if this lane is free for our date range
           const laneEvent = lanes[laneIndex];
           if (!laneEvent) {
             laneIndex++;
@@ -985,11 +879,9 @@ export function useCalendar() {
           const laneStart = laneEvent.start;
           const laneEnd = laneEvent.end;
 
-          // Events don't overlap if one ends before the other starts
           const noOverlap = eventEnd <= laneStart || eventStart >= laneEnd;
 
           if (noOverlap) {
-            // Lane is available, update it with our event
             lanes[laneIndex] = { eventId: event.id, start: eventStart, end: eventEnd };
             eventLaneMap.set(event.id, laneIndex);
             placed = true;
@@ -1001,7 +893,6 @@ export function useCalendar() {
       }
     });
 
-    // Update global lane assignments
     spanningEventLanes.clear();
     eventLaneMap.forEach((lane, eventId) => {
       spanningEventLanes.set(eventId, lane);
@@ -1014,7 +905,6 @@ export function useCalendar() {
     const spanningEvents = events.filter(isMultiDayEvent);
     const singleDayEvents = events.filter(event => !isMultiDayEvent(event));
 
-    // Sort single-day events by time
     const sortedSingleDay = singleDayEvents.sort((a, b) => {
       const timeComparison = parseStableDate(a.start).getTime() - parseStableDate(b.start).getTime();
       if (timeComparison !== 0)
@@ -1022,7 +912,6 @@ export function useCalendar() {
       return a.id.localeCompare(b.id);
     });
 
-    // Group spanning events by their assigned lanes
     const spanningByLane = new Map<number, CalendarEvent>();
     spanningEvents.forEach((event) => {
       const lane = spanningEventLanes.get(event.id) ?? 999;
@@ -1034,16 +923,13 @@ export function useCalendar() {
 
     const maxLane = Math.max(...Array.from(spanningByLane.keys()), -1);
 
-    // Fill positions 0 through maxLane, ensuring spanning events are in correct positions
     for (let position = 0; position <= maxLane; position++) {
       const spanningEventInLane = spanningByLane.get(position);
 
       if (spanningEventInLane) {
-        // Place the spanning event in its assigned lane
         result.push(spanningEventInLane);
       }
       else if (singleDayIndex < sortedSingleDay.length) {
-        // Use a single-day event as padding to maintain spanning event positions
         const singleDayEvent = sortedSingleDay[singleDayIndex];
         if (singleDayEvent) {
           result.push(singleDayEvent);
@@ -1051,12 +937,10 @@ export function useCalendar() {
         singleDayIndex++;
       }
       else {
-        // No single-day events available for padding, use an invisible placeholder
         result.push(createPlaceholderEvent(position));
       }
     }
 
-    // Add any remaining single-day events
     while (singleDayIndex < sortedSingleDay.length) {
       const remainingEvent = sortedSingleDay[singleDayIndex];
       if (remainingEvent) {
@@ -1087,16 +971,13 @@ export function useCalendar() {
   }
 
   return {
-    // Data access
     allEvents: readonly(allEvents),
     calendarSyncStatus: readonly(calendarSyncStatus),
     nativeEvents: readonly(nativeEvents),
 
-    // Data management functions
     refreshCalendarData,
     getIntegrationEvents,
 
-    // Utility functions
     isToday,
     isFirstDay,
     isLastDay,
@@ -1123,7 +1004,6 @@ export function useCalendar() {
     combineEvents,
     getEventUserColors,
 
-    // Timestamp handling functions
     getLocalTimeFromUTC,
     getLocalTimeString,
     getLocalDateString,
@@ -1136,7 +1016,6 @@ export function useCalendar() {
     isSameLocalDay,
     isLocalDayInRange,
 
-    // Calendar date construction functions (timezone-consistent)
     createLocalDate,
     getLocalWeekDays,
     getLocalMonthWeeks,

@@ -2,17 +2,14 @@ import { consola } from "consola";
 
 import type { CreateShoppingListInput, CreateShoppingListItemInput, ShoppingListItem, ShoppingListWithItemsAndCount, UpdateShoppingListItemInput } from "~/types/database";
 
-// Extended type to include order property for shopping lists
 type ShoppingListWithOrder = ShoppingListWithItemsAndCount & { order: number };
 
 export function useShoppingLists() {
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  // Get shopping lists from Nuxt cache
   const { data: shoppingLists } = useNuxtData<ShoppingListWithOrder[]>("native-shopping-lists");
 
-  // Computed property to handle undefined case
   const currentShoppingLists = computed(() => shoppingLists.value || []);
 
   const getShoppingLists = async () => {
@@ -39,7 +36,6 @@ export function useShoppingLists() {
         body: listData,
       });
 
-      // Refresh cache to get updated data
       await refreshNuxtData("native-shopping-lists");
 
       return newList;
@@ -58,7 +54,6 @@ export function useShoppingLists() {
         body: updates,
       });
 
-      // Refresh cache to get updated data
       await refreshNuxtData("native-shopping-lists");
 
       return updatedList;
@@ -77,7 +72,6 @@ export function useShoppingLists() {
         body: updates,
       });
 
-      // Refresh cache to get updated data
       await refreshNuxtData("native-shopping-lists");
 
       return updatedItem;
@@ -96,7 +90,6 @@ export function useShoppingLists() {
         body: itemData,
       });
 
-      // Refresh cache to get updated data
       await refreshNuxtData("native-shopping-lists");
 
       return newItem;
@@ -117,7 +110,6 @@ export function useShoppingLists() {
         throw new Error("Failed to delete shopping list");
       }
 
-      // Refresh cache to get updated data
       await refreshNuxtData("native-shopping-lists");
     }
     catch (err) {
@@ -178,7 +170,6 @@ export function useShoppingLists() {
         body: { listIds: newOrder },
       });
 
-      // Refresh cache to get updated data
       await refreshNuxtData("native-shopping-lists");
     }
     catch (err) {
@@ -246,7 +237,6 @@ export function useShoppingLists() {
         body: { itemIds: newOrder },
       });
 
-      // Refresh cache to get updated data
       await refreshNuxtData("native-shopping-lists");
     }
     catch (err) {
@@ -274,7 +264,6 @@ export function useShoppingLists() {
         body: { action: "delete" },
       });
 
-      // Refresh cache to get updated data
       await refreshNuxtData("native-shopping-lists");
     }
     catch (err) {

@@ -1,6 +1,5 @@
 import { consola } from "consola";
 
-// Types for sync events
 type SyncEvent = {
   type: "integration_sync" | "connection_established" | "sync_status" | "heartbeat";
   integrationId?: string;
@@ -29,7 +28,6 @@ export default defineNuxtPlugin(() => {
   const connectionStatus = useState<"connecting" | "connected" | "disconnected" | "error">("sync-connection-status", () => "disconnected");
   const lastHeartbeat = useState<Date | null>("sync-last-heartbeat", () => null);
 
-  // Use native EventSource for SSE connection
   let eventSource: EventSource | null = null;
   const eventSourceData = ref<string | null>(null);
   const eventSourceStatus = ref<"CONNECTING" | "OPEN" | "CLOSED">("CLOSED");
@@ -65,10 +63,8 @@ export default defineNuxtPlugin(() => {
     }
   }
 
-  // Connect on plugin initialization
   connectEventSource();
 
-  // Auto-reconnection logic
   let reconnectAttempts = 0;
   const maxReconnectAttempts = 3;
   const reconnectDelay = 1000;
@@ -87,7 +83,6 @@ export default defineNuxtPlugin(() => {
     }, reconnectDelay * reconnectAttempts);
   }
 
-  // Watch for connection status changes
   watch(eventSourceStatus, (newStatus) => {
     switch (newStatus) {
       case "CONNECTING":
@@ -95,7 +90,7 @@ export default defineNuxtPlugin(() => {
         break;
       case "OPEN":
         connectionStatus.value = "connected";
-        reconnectAttempts = 0; // Reset reconnect attempts on successful connection
+        reconnectAttempts = 0;
         break;
       case "CLOSED":
         connectionStatus.value = "disconnected";
@@ -106,7 +101,6 @@ export default defineNuxtPlugin(() => {
     }
   });
 
-  // Watch for SSE data and process events
   watch(eventSourceData, (rawData) => {
     if (!rawData)
       return;
@@ -130,7 +124,6 @@ export default defineNuxtPlugin(() => {
 
         case "integration_sync":
           if (event.integrationId) {
-            // Store sync data in Nuxt cache
             syncData.value[event.integrationId] = {
               data: event.data,
               lastSync: new Date(event.timestamp),
@@ -138,7 +131,6 @@ export default defineNuxtPlugin(() => {
               error: event.error,
             };
 
-            // Trigger cache updates for specific integration types
             if (event.integrationType && event.success) {
               updateIntegrationCache(event.integrationType, event.integrationId, event.data);
             }
@@ -157,7 +149,6 @@ export default defineNuxtPlugin(() => {
     }
   });
 
-  // Watch for connection errors
   watch(eventSourceError, (error) => {
     if (error) {
       consola.error("Sync stream error:", error);
@@ -165,13 +156,11 @@ export default defineNuxtPlugin(() => {
     }
   });
 
-  // Function to update integration-specific caches
   function updateIntegrationCache(integrationType: string, integrationId: string, data: unknown) {
     const nuxtApp = useNuxtApp();
 
     switch (integrationType) {
       case "calendar":
-        // Update calendar events cache
         nuxtApp.payload.data = {
           ...nuxtApp.payload.data,
           [`calendar-events-${integrationId}`]: data,
@@ -179,7 +168,6 @@ export default defineNuxtPlugin(() => {
         break;
 
       case "shopping":
-        // Update shopping lists cache
         nuxtApp.payload.data = {
           ...nuxtApp.payload.data,
           [`shopping-lists-${integrationId}`]: data,
@@ -187,7 +175,6 @@ export default defineNuxtPlugin(() => {
         break;
 
       case "todo":
-        // Update todos cache
         nuxtApp.payload.data = {
           ...nuxtApp.payload.data,
           [`todos-${integrationId}`]: data,
@@ -196,7 +183,6 @@ export default defineNuxtPlugin(() => {
     }
   }
 
-  // Cleanup function
   function cleanup() {
     if (eventSource) {
       eventSource.close();
@@ -204,43 +190,34 @@ export default defineNuxtPlugin(() => {
     }
   }
 
-  // Cleanup on page unload
   if (import.meta.client) {
     window.addEventListener("beforeunload", cleanup);
   }
 
-  // Provide composables for components to access sync data
   return {
     provide: {
-      // Get sync data for a specific integration
       getSyncData: (integrationId: string) => {
         return syncData.value[integrationId];
       },
 
-      // Get all sync data
       getAllSyncData: () => {
         return syncData.value;
       },
 
-      // Get connection status
       getSyncConnectionStatus: () => {
         return connectionStatus.value;
       },
 
-      // Get last heartbeat time
       getLastHeartbeat: () => {
         return lastHeartbeat.value;
       },
 
-      // Check if sync is connected
       isSyncConnected: () => {
         return connectionStatus.value === "connected";
       },
 
-      // Get cached data for integration type
       getCachedIntegrationData: (integrationType: string, integrationId: string) => {
         const nuxtApp = useNuxtApp();
-        // Use consistent cache keys with appInit.ts and sync manager
         let cacheKey: string;
         if (integrationType === "calendar") {
           cacheKey = `${integrationType}-events-${integrationId}`;
@@ -257,7 +234,6 @@ export default defineNuxtPlugin(() => {
         return nuxtApp.payload.data[cacheKey];
       },
 
-      // Manual reconnect function
       reconnectSync: () => {
         cleanup();
         reconnectAttempts = 0;

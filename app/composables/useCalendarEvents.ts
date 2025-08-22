@@ -6,10 +6,8 @@ export function useCalendarEvents() {
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  // Get calendar events from Nuxt cache
   const { data: events } = useNuxtData<CalendarEvent[]>("calendar-events");
 
-  // Computed property to handle undefined case
   const currentEvents = computed(() => events.value || []);
 
   const fetchEvents = async () => {
@@ -37,7 +35,6 @@ export function useCalendarEvents() {
         body: eventData,
       });
 
-      // Refresh cache to get updated data
       await refreshNuxtData("calendar-events");
 
       return newEvent;
@@ -56,7 +53,6 @@ export function useCalendarEvents() {
         body: updates,
       });
 
-      // Refresh cache to get updated data
       await refreshNuxtData("calendar-events");
 
       return updatedEvent;
@@ -74,7 +70,6 @@ export function useCalendarEvents() {
         method: "DELETE",
       });
 
-      // Refresh cache to get updated data
       await refreshNuxtData("calendar-events");
 
       return true;

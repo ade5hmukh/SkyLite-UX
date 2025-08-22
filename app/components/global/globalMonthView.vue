@@ -24,7 +24,6 @@ const emit = defineEmits<{
 
 const { isToday, isFirstDay, isLastDay, isFirstVisibleDay, handleEventClick: _handleEventClick, scrollToDate, getAllEventsForDay, isPlaceholderEvent, assignSpanningEventLanes, sortEvents, computedEventHeight: getEventHeight, isMultiDayEvent } = useCalendar();
 
-// Use global stable date
 const { getStableDate } = useStableDate();
 
 const computedEventHeight = computed(() => getEventHeight("month", props.eventHeight));
@@ -40,13 +39,11 @@ const allEvents = computed(() => {
 });
 
 onMounted(() => {
-  // Use a stable date reference to avoid hydration mismatches
   scrollToDate(getStableDate(), "month");
 });
 
 watch(() => props.weeks, () => {
   nextTick(() => {
-    // Use a stable date reference to avoid hydration mismatches
     scrollToDate(getStableDate(), "month");
   });
 });

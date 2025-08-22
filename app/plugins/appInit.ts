@@ -3,27 +3,34 @@ import ical from "ical.js";
 
 import type { CalendarEvent } from "~/types/calendar";
 import type { Integration, ShoppingListWithItemsAndCount, TodoColumn, TodoWithUser, User } from "~/types/database";
+import type { CalendarIntegrationService, IntegrationService } from "~/types/integrations";
 
 import { integrationConfigs } from "~/integrations/integrationConfig";
+import { setBrowserTimezone, setTimezoneRegistered } from "~/types/global";
 import { createIntegrationService, registerIntegration } from "~/types/integrations";
+
+type ShoppingIntegrationService = IntegrationService & {
+  getShoppingLists: () => Promise<ShoppingListWithItemsAndCount[]>;
+};
+
+type TodoIntegrationService = IntegrationService & {
+  getTodos: () => Promise<TodoWithUser[]>;
+};
 
 export default defineNuxtPlugin(async () => {
   consola.start("AppInit plugin: Initializing application...");
 
-  // Initialize timezone registration (browser-side only)
   if (import.meta.client) {
     consola.info("AppInit plugin: Initializing timezone registration...");
 
     try {
-      // Get browser's timezone (e.g., "America/Chicago")
       const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
       consola.info("AppInit plugin: Detected browser timezone:", browserTimezone);
 
-      // Fetch VTIMEZONE block from the API using Nuxt's useFetch
       const apiUrl = `https://tz.add-to-calendar-technology.com/api/${encodeURIComponent(browserTimezone)}.ics`;
       const { data: vtimezoneBlock, error } = await useFetch(apiUrl, {
         key: `timezone-${browserTimezone}`,
-        server: false, // Only fetch on client-side
+        server: false,
         default: () => null,
       });
 
@@ -35,7 +42,6 @@ export default defineNuxtPlugin(async () => {
         throw new Error("No timezone data received");
       }
 
-      // Parse and register the timezone with ical.js
       const timezoneComponent = new ical.Component(vtimezoneBlock.value as string);
       const timezone = new ical.Timezone({
         tzid: browserTimezone,
@@ -45,14 +51,12 @@ export default defineNuxtPlugin(async () => {
       ical.TimezoneService.register(timezone);
       consola.success("AppInit plugin: Successfully registered timezone:", browserTimezone);
 
-      // Store timezone info globally for calendar functions to check
-      (globalThis as any).__TIMEZONE_REGISTERED__ = true;
-      (globalThis as any).__BROWSER_TIMEZONE__ = browserTimezone;
+      setTimezoneRegistered(true);
+      setBrowserTimezone(browserTimezone);
     }
     catch (error) {
       consola.warn("AppInit plugin: Failed to register timezone, calendar will use fallback:", error);
-      // Mark timezone as not registered so calendar functions know to use fallback
-      (globalThis as any).__TIMEZONE_REGISTERED__ = false;
+      setTimezoneRegistered(false);
     }
   }
 
@@ -73,7 +77,7 @@ export default defineNuxtPlugin(async () => {
       }),
 
       useAsyncData("current-user", () => Promise.resolve(null), {
-        server: false, // Current user is client-only
+        server: false,
         lazy: false,
       }),
 
@@ -111,7 +115,7 @@ export default defineNuxtPlugin(async () => {
     consola.success("AppInit plugin: Local data loaded successfully");
 
     consola.info("AppInit plugin: Loading integration data concurrently...");
-    const integrationDataPromises: Promise<any>[] = [];
+    const integrationDataPromises: ReturnType<typeof useAsyncData>[] = [];
 
     if (integrationsResult.data.value) {
       const enabledIntegrations = integrationsResult.data.value.filter(integration => integration.enabled);
@@ -122,7 +126,6 @@ export default defineNuxtPlugin(async () => {
 
         try {
           if (integration.type === "calendar") {
-            // Use cache key: calendar-events-{integrationId}
             integrationDataPromises.push(
               useAsyncData(`calendar-events-${integration.id}`, async () => {
                 try {
@@ -133,7 +136,7 @@ export default defineNuxtPlugin(async () => {
                   }
 
                   await service.initialize();
-                  const events = await (service as any).getEvents();
+                  const events = await (service as CalendarIntegrationService).getEvents();
                   return events || [];
                 }
                 catch (err) {
@@ -147,7 +150,6 @@ export default defineNuxtPlugin(async () => {
             );
           }
           else if (integration.type === "shopping") {
-            // Use cache key: shopping-lists-{integrationId}
             integrationDataPromises.push(
               useAsyncData(`shopping-lists-${integration.id}`, async () => {
                 try {
@@ -158,7 +160,7 @@ export default defineNuxtPlugin(async () => {
                   }
 
                   await service.initialize();
-                  const lists = await (service as any).getShoppingLists();
+                  const lists = await (service as ShoppingIntegrationService).getShoppingLists();
                   return lists || [];
                 }
                 catch (err) {
@@ -172,7 +174,6 @@ export default defineNuxtPlugin(async () => {
             );
           }
           else if (integration.type === "todo") {
-            // Use cache key: todos-{integrationId}
             integrationDataPromises.push(
               useAsyncData(`todos-${integration.id}`, async () => {
                 try {
@@ -183,7 +184,7 @@ export default defineNuxtPlugin(async () => {
                   }
 
                   await service.initialize();
-                  const todos = await (service as any).getTodos();
+                  const todos = await (service as TodoIntegrationService).getTodos();
                   return todos || [];
                 }
                 catch (err) {

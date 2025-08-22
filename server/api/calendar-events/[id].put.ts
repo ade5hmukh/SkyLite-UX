@@ -13,9 +13,6 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Trust the frontend's ical.js timezone conversion
-    // The frontend now properly converts local time to UTC using ical.js
-    // No additional manipulation needed - save the dates as-is
     const utcStart = new Date(start);
     const utcEnd = new Date(end);
 

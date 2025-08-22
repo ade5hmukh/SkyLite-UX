@@ -1,3 +1,5 @@
+import type { Integration } from "~/types/database";
+
 type IntegrationSyncData = {
   [integrationId: string]: {
     data: unknown;
@@ -10,39 +12,31 @@ type IntegrationSyncData = {
 export function useSyncManager() {
   const nuxtApp = useNuxtApp();
 
-  // Access the sync data from the plugin
   const syncData = useState<IntegrationSyncData>("sync-data");
   const connectionStatus = useState<"connecting" | "connected" | "disconnected" | "error">("sync-connection-status");
   const lastHeartbeat = useState<Date | null>("sync-last-heartbeat");
 
-  // Get sync data for a specific integration
   const getSyncData = (integrationId: string) => {
     return syncData.value?.[integrationId];
   };
 
-  // Get all sync data
   const getAllSyncData = () => {
     return syncData.value || {};
   };
 
-  // Get connection status
   const getConnectionStatus = () => {
     return connectionStatus.value || "disconnected";
   };
 
-  // Get last heartbeat time
   const getLastHeartbeat = () => {
     return lastHeartbeat.value;
   };
 
-  // Check if sync is connected
   const isConnected = () => {
     return connectionStatus.value === "connected";
   };
 
-  // Get cached data for integration type
   const getCachedIntegrationData = (integrationType: string, integrationId: string) => {
-    // Use consistent cache keys with appInit.ts and sync manager
     let cacheKey: string;
     if (integrationType === "calendar") {
       cacheKey = `${integrationType}-events-${integrationId}`;
@@ -59,14 +53,12 @@ export function useSyncManager() {
     return nuxtApp.payload.data[cacheKey];
   };
 
-  // Manual reconnect function
   const reconnect = () => {
     if (nuxtApp.$reconnectSync && typeof nuxtApp.$reconnectSync === "function") {
       nuxtApp.$reconnectSync();
     }
   };
 
-  // Get sync status for all integrations
   const getSyncStatus = () => {
     const data = getAllSyncData();
     const status = {
@@ -105,37 +97,32 @@ export function useSyncManager() {
     return status;
   };
 
-  // Get sync data for integrations by type
-  const getSyncDataByType = (integrationType: string, integrationsList?: any[]) => {
+  const getSyncDataByType = (integrationType: string, integrationsList?: Integration[]) => {
     const data = getAllSyncData();
     const integrations = integrationsList || [];
 
     return integrations
-      .filter((integration: any) => integration.type === integrationType)
-      .map((integration: any) => ({
+      .filter((integration: Integration) => integration.type === integrationType)
+      .map((integration: Integration) => ({
         integration,
         syncData: data[integration.id],
         cachedData: getCachedIntegrationData(integrationType, integration.id),
       }))
-      .filter((item: any) => item.syncData); // Only return integrations with sync data
+      .filter(item => item.syncData);
   };
 
-  // Get sync data for shopping integrations
-  const getShoppingSyncData = (integrationsList?: any[]) => {
+  const getShoppingSyncData = (integrationsList?: Integration[]) => {
     return getSyncDataByType("shopping", integrationsList);
   };
 
-  // Get sync data for calendar integrations
-  const getCalendarSyncData = (integrationsList?: any[]) => {
+  const getCalendarSyncData = (integrationsList?: Integration[]) => {
     return getSyncDataByType("calendar", integrationsList);
   };
 
-  // Get sync data for todo integrations
-  const getTodoSyncData = (integrationsList?: any[]) => {
+  const getTodoSyncData = (integrationsList?: Integration[]) => {
     return getSyncDataByType("todo", integrationsList);
   };
 
-  // Check if an integration has fresh data (within last 5 minutes)
   const hasFreshData = (integrationId: string) => {
     const data = getSyncData(integrationId);
     if (!data || !data.success)
@@ -145,14 +132,13 @@ export function useSyncManager() {
     return data.lastSync > fiveMinutesAgo;
   };
 
-  // Get connection health status
   const getConnectionHealth = () => {
     const status = getConnectionStatus();
     const heartbeat = getLastHeartbeat();
 
     if (status === "connected" && heartbeat) {
       const heartbeatAge = Date.now() - heartbeat.getTime();
-      const isHealthy = heartbeatAge < 60000; // Heartbeat within last minute
+      const isHealthy = heartbeatAge < 60000;
 
       return {
         status,
@@ -171,12 +157,10 @@ export function useSyncManager() {
   };
 
   return {
-    // Data access
     syncData: readonly(syncData),
     connectionStatus: readonly(connectionStatus),
     lastHeartbeat: readonly(lastHeartbeat),
 
-    // Functions
     getSyncData,
     getAllSyncData,
     getConnectionStatus,

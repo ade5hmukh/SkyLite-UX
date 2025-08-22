@@ -9,7 +9,6 @@ import type { Integration, ShoppingList, Todo } from "../../app/types/database";
 import { integrationConfigs } from "../../app/integrations/integrationConfig";
 import { createIntegrationService, registerIntegration } from "../../app/types/integrations";
 
-// Types for sync management
 type SyncInterval = {
   integrationId: string;
   interval: NodeJS.Timeout;
@@ -33,7 +32,6 @@ type ConnectedClient = {
   lastActivity: Date;
 };
 
-// Define specific integration service types
 type ShoppingIntegrationService = {
   getShoppingLists: () => Promise<ShoppingList[]>;
   addItemToList?: (listId: string, item: unknown) => Promise<unknown>;
@@ -61,29 +59,24 @@ type TypedIntegrationService
     | TodoIntegrationService
     | CalendarIntegrationService;
 
-// Global state for sync management
 const syncIntervals = new Map<string, SyncInterval>();
 const connectedClients = new Set<ConnectedClient>();
 const integrationServices = new Map<string, TypedIntegrationService>();
 
-// Initialize the sync manager
 export default defineNitroPlugin(async (nitroApp) => {
   consola.info("Initializing sync manager...");
 
-  // Register integrations for server-side sync
   consola.info("Registering integrations for server-side sync...");
   integrationConfigs.forEach((config) => {
     registerIntegration(config);
   });
   consola.success(`Registered ${integrationConfigs.length} integrations for server-side sync`);
 
-  // Set up periodic cleanup of disconnected clients
   setInterval(() => {
     const now = new Date();
     const disconnectedClients: ConnectedClient[] = [];
 
     connectedClients.forEach((client) => {
-      // Remove clients inactive for more than 5 minutes
       if (now.getTime() - client.lastActivity.getTime() > 5 * 60 * 1000) {
         disconnectedClients.push(client);
       }
@@ -96,19 +89,16 @@ export default defineNitroPlugin(async (nitroApp) => {
     if (disconnectedClients.length > 0) {
       consola.info(`Cleaned up ${disconnectedClients.length} disconnected clients`);
     }
-  }, 60 * 1000); // Check every minute
+  }, 60 * 1000);
 
-  // Initialize sync for existing integrations
   await initializeIntegrationSync();
 
-  // Handle nitro app lifecycle
   nitroApp.hooks.hook("close", () => {
     consola.info("Shutting down sync manager...");
     clearAllSyncIntervals();
   });
 });
 
-// Initialize sync for all enabled integrations
 async function initializeIntegrationSync() {
   try {
     const prisma = await import("../../app/lib/prisma").then(m => m.default);
@@ -127,7 +117,6 @@ async function initializeIntegrationSync() {
   }
 }
 
-// Set up sync for a specific integration
 export async function setupIntegrationSync(integration: Integration) {
   try {
     const config = integrationConfigs.find(
@@ -139,10 +128,8 @@ export async function setupIntegrationSync(integration: Integration) {
       return;
     }
 
-    // Clear existing interval if any
     clearIntegrationSync(integration.id);
 
-    // Create integration service
     const service = await createIntegrationService(integration);
     if (!service) {
       consola.warn(`Failed to create service for integration ${integration.id}`);
@@ -152,7 +139,6 @@ export async function setupIntegrationSync(integration: Integration) {
     await service.initialize();
     integrationServices.set(integration.id, service as unknown as TypedIntegrationService);
 
-    // Set up sync interval (treating syncInterval as minutes)
     const interval = setInterval(async () => {
       await performIntegrationSync(integration, config, service as unknown as TypedIntegrationService);
     }, config.syncInterval * 60 * 1000);
@@ -171,7 +157,6 @@ export async function setupIntegrationSync(integration: Integration) {
   }
 }
 
-// Perform sync for a specific integration
 async function performIntegrationSync(
   integration: Integration,
   config: typeof integrationConfigs[0],
@@ -185,7 +170,6 @@ async function performIntegrationSync(
   try {
     consola.debug(`Syncing integration ${integration.name} (${integration.id})...`);
 
-    // Fetch fresh data based on integration type
     switch (integration.type) {
       case "calendar":
         data = await (service as CalendarIntegrationService).getEvents();
@@ -209,13 +193,11 @@ async function performIntegrationSync(
     consola.error(`Failed to sync integration ${integration.name} (${integration.id}):`, err);
   }
   finally {
-    // Update last sync time
     const syncInterval = syncIntervals.get(integration.id);
     if (syncInterval) {
       syncInterval.lastSync = syncStart;
     }
 
-    // Broadcast sync event to connected clients
     const syncEvent: SyncEvent = {
       type: "integration_sync",
       integrationId: integration.id,
@@ -231,7 +213,6 @@ async function performIntegrationSync(
   }
 }
 
-// Broadcast event to all connected clients
 function broadcastToClients(event: SyncEvent) {
   if (connectedClients.size === 0) {
     return;
@@ -242,10 +223,8 @@ function broadcastToClients(event: SyncEvent) {
 
   connectedClients.forEach((client) => {
     try {
-      // Update last activity
       client.lastActivity = new Date();
 
-      // Send the event
       client.event.node.res.write(eventData);
     }
     catch (err) {
@@ -254,13 +233,11 @@ function broadcastToClients(event: SyncEvent) {
     }
   });
 
-  // Clean up disconnected clients
   disconnectedClients.forEach((client) => {
     connectedClients.delete(client);
   });
 }
 
-// Clear sync for a specific integration
 function clearIntegrationSync(integrationId: string) {
   const syncInterval = syncIntervals.get(integrationId);
   if (syncInterval) {
@@ -271,7 +248,6 @@ function clearIntegrationSync(integrationId: string) {
   }
 }
 
-// Clear all sync intervals
 function clearAllSyncIntervals() {
   syncIntervals.forEach((syncInterval) => {
     clearInterval(syncInterval.interval);
@@ -282,7 +258,6 @@ function clearAllSyncIntervals() {
   consola.info("Cleared all sync intervals");
 }
 
-// Register a new client connection
 export function registerClient(event: H3Event) {
   const client: ConnectedClient = {
     event,
@@ -292,7 +267,6 @@ export function registerClient(event: H3Event) {
   consola.info(`New client connected. Total clients: ${connectedClients.size}`);
 }
 
-// Unregister a client connection
 export function unregisterClient(event: H3Event) {
   const clientToRemove = Array.from(connectedClients).find(
     client => client.event === event,
@@ -303,7 +277,6 @@ export function unregisterClient(event: H3Event) {
   }
 }
 
-// Public API for managing integrations
 export const syncManager = {
   setupIntegrationSync,
   clearIntegrationSync,

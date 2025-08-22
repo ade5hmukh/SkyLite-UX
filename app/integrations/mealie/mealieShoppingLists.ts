@@ -15,7 +15,6 @@ export class MealieService implements IntegrationService {
   private apiKey: string;
   private baseUrl: string;
 
-  // Global stable date function
   private parseStableDate: (dateInput: string | Date | undefined, fallback?: Date) => Date;
 
   private status: IntegrationStatus = {
@@ -31,11 +30,9 @@ export class MealieService implements IntegrationService {
     this.baseUrl = baseUrl;
     this.serverService = new ServerMealieService(integrationId);
 
-    // Initialize stable date function
     const { parseStableDate } = useStableDate();
     this.parseStableDate = parseStableDate;
 
-    // Update status with stable date
     const { getStableDate } = useStableDate();
     this.status.lastChecked = getStableDate();
   }

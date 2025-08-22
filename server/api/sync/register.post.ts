@@ -9,10 +9,8 @@ export default defineEventHandler(async (event) => {
 
     consola.info(`Registering integration for sync: ${integration.name} (${integration.id})`);
 
-    // Import the sync manager functions
     const { setupIntegrationSync } = await import("../../plugins/syncManager");
 
-    // Set up sync for the new integration
     await setupIntegrationSync(integration);
 
     consola.success(`Successfully registered integration for sync: ${integration.name}`);

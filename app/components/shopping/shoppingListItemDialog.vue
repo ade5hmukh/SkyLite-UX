@@ -15,7 +15,6 @@ const emit = defineEmits<{
   (e: "delete", itemId: string): void;
 }>();
 
-// Type for form data - can be string or number based on field type
 type FormData = Record<string, string | number>;
 
 const formData = ref<FormData>({});

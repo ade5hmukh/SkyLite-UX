@@ -14,15 +14,8 @@ import { useStableDate } from "~/composables/useStableDate";
 import { getFieldsForItem, getIntegrationFields } from "~/integrations/integrationConfig";
 import { integrationRegistry } from "~/types/integrations";
 
-// Use global stable date
 const { parseStableDate, getStableDate } = useStableDate();
 
-const { data: shoppingLists } = useNuxtData<ShoppingList[]>("native-shopping-lists");
-
-const isShoppingListDialogOpen = ref(false);
-const selectedShoppingList = ref<ShoppingList | null>(null);
-
-// Helper function to get date with fallback
 function getDateWithFallback(dateString: string | Date | null): Date {
   if (!dateString)
     return getStableDate();
@@ -52,19 +45,13 @@ const {
   clearCompletedItems: clearIntegrationCompletedItems,
 } = useShoppingIntegrations();
 
-const { getIntegrationsByType } = useIntegrations();
-
 const listDialog = ref(false);
 const itemDialog = ref(false);
 const selectedListId = ref<string>("");
 const editingList = ref<ShoppingList | null>(null);
 const editingItem = ref<ShoppingListItem | null>(null);
 
-const { showError, showWarning, showSuccess } = useAlertToast();
-
-const enabledIntegrationsByType = computed(() => {
-  return getIntegrationsByType("shopping");
-});
+const { showError, showWarning } = useAlertToast();
 
 type RawIntegrationList = {
   readonly id: string;
@@ -166,10 +153,6 @@ const transformedShoppingLists = computed(() => {
     integrationIcon: list.integrationIcon,
   })) as (ShoppingList & { source?: "native" | "integration"; integrationIcon?: string; integrationName?: string; integrationId?: string })[];
 });
-
-// Data is pre-loaded by appInit.ts plugin
-
-// Error handling is now managed by the unified cache system
 
 function openCreateList() {
   editingList.value = null;
@@ -523,16 +506,12 @@ function getFilteredFieldsForItem(item: ShoppingListItem, integrationType: strin
 
   return getFieldsForItem(item, integrationType, baseFields) as DialogField[];
 }
-
-// Sync is now handled automatically by the sync manager
 </script>
 
 <template>
   <div class="flex h-[calc(100vh-2rem)] w-full flex-col rounded-lg">
     <div class="py-5 sm:px-4 sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
       <GlobalDateHeader />
-
-      <!-- Sync is now handled automatically by the sync manager -->
     </div>
 
     <div class="flex-1 overflow-y-auto">

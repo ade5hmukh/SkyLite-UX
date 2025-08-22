@@ -2,17 +2,14 @@ import { consola } from "consola";
 
 import type { CreateTodoInput, TodoWithUser, UpdateTodoInput } from "~/types/database";
 
-// Extended type to include order property for todos
 type TodoWithOrder = TodoWithUser & { order: number };
 
 export function useTodos() {
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  // Get todos from Nuxt cache
   const { data: todos } = useNuxtData<TodoWithOrder[]>("todos");
 
-  // Computed property to handle undefined case
   const currentTodos = computed(() => todos.value || []);
 
   const fetchTodos = async () => {
@@ -40,7 +37,6 @@ export function useTodos() {
         body: todoData,
       });
 
-      // Refresh cache to get updated data
       await refreshNuxtData("todos");
 
       return newTodo;
@@ -59,7 +55,6 @@ export function useTodos() {
         body: updates,
       });
 
-      // Refresh cache to get updated data
       await refreshNuxtData("todos");
 
       return updatedTodo;
@@ -84,7 +79,6 @@ export function useTodos() {
         throw new Error("Failed to delete todo");
       }
 
-      // Refresh cache to get updated data
       await refreshNuxtData("todos");
     }
     catch (err) {
@@ -96,12 +90,10 @@ export function useTodos() {
 
   const reorderTodo = async (todoId: string, direction: "up" | "down", todoColumnId: string | null) => {
     try {
-      // Find the todo
       const currentTodo = currentTodos.value.find(t => t.id === todoId);
       if (!currentTodo)
         return;
 
-      // Get all todos for the same column and completion state
       const sameSectionTodos = currentTodos.value
         .filter(t =>
           t.todoColumnId === todoColumnId
@@ -121,20 +113,18 @@ export function useTodos() {
         targetIndex = currentIndex + 1;
       }
       else {
-        return; // No change needed
+        return;
       }
 
       const targetTodo = sameSectionTodos[targetIndex];
       if (!targetTodo)
         return;
 
-      // Make API call
       await $fetch("/api/todos/reorder", {
         method: "POST",
         body: { todoId, direction, todoColumnId },
       });
 
-      // Refresh cache to get updated data
       await refreshNuxtData("todos");
     }
     catch (err) {
@@ -146,19 +136,16 @@ export function useTodos() {
 
   const clearCompleted = async (columnId: string) => {
     try {
-      // Find all completed todos for this column
       const completedTodos = currentTodos.value.filter(t => t.todoColumnId === columnId && t.completed);
 
       if (completedTodos.length === 0)
         return;
 
-      // Delete all completed todos
       await $fetch(`/api/todo-columns/${columnId}/todos/clear-completed`, {
         method: "POST",
         body: { action: "delete" },
       });
 
-      // Refresh cache to get updated data
       await refreshNuxtData("todos");
     }
     catch (err) {

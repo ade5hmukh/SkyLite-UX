@@ -24,7 +24,6 @@ export type IntegrationStatus = {
 
 export type CalendarIntegrationService = IntegrationService & {
   getEvents: () => Promise<CalendarEvent[]>;
-  // Future: addEvent, updateEvent, deleteEvent
 };
 
 export type IntegrationConfig = {

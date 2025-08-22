@@ -1,8 +1,6 @@
 <script setup lang="ts">
 import type { BaseListItem, Priority, ShoppingListItem, TodoListItem } from "~/types/database";
 
-import { useStableDate } from "~/composables/useStableDate";
-
 type ToggleEvent = {
   itemId: string;
   checked: boolean;

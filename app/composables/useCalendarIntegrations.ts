@@ -2,6 +2,7 @@ import { consola } from "consola";
 import { computed, readonly } from "vue";
 
 import type { CalendarEvent } from "~/types/calendar";
+import type { Integration } from "~/types/database";
 import type { CalendarIntegrationService, IntegrationService } from "~/types/integrations";
 
 import { useCalendar } from "./useCalendar";
@@ -18,14 +19,12 @@ export function useCalendarIntegrations() {
   const { integrations, loading: integrationsLoading, error: integrationsError, getService } = useIntegrations();
   const { users } = useUsers();
 
-  // Get calendar integrations
   const calendarIntegrations = computed(() =>
-    integrations.value.filter(integration =>
+    (integrations.value as Integration[]).filter(integration =>
       integration.type === "calendar" && integration.enabled,
     ),
   );
 
-  // Get calendar services
   const calendarServices = computed(() => {
     const services: Map<string, CalendarIntegrationService> = new Map();
     calendarIntegrations.value.forEach((integration) => {
@@ -37,13 +36,11 @@ export function useCalendarIntegrations() {
     return services;
   });
 
-  // Get processed calendar events from integrations with user data and colors
   const processedCalendarEvents = computed(() => {
     const allEvents: CalendarEvent[] = [];
 
     calendarIntegrations.value.forEach((integration) => {
       try {
-        // Get events from cache using the same cache key as sync manager
         const events = getIntegrationEvents(integration.id);
         if (!events || !Array.isArray(events))
           return;
@@ -77,13 +74,11 @@ export function useCalendarIntegrations() {
     return combineEvents(allEvents);
   });
 
-  // Get sync status for calendar integrations
   const calendarSyncStatus = computed(() => {
     const { getCalendarSyncData } = useSyncManager();
     return getCalendarSyncData();
   });
 
-  // Function to get events for a specific integration with processing
   const getProcessedIntegrationEvents = (integrationId: string): CalendarEvent[] => {
     const integration = calendarIntegrations.value.find(i => i.id === integrationId);
     if (!integration)
@@ -122,17 +117,14 @@ export function useCalendarIntegrations() {
   };
 
   return {
-    // Data access
     calendarEvents: readonly(processedCalendarEvents),
     calendarIntegrations: readonly(calendarIntegrations),
     calendarServices: readonly(calendarServices),
     calendarSyncStatus: readonly(calendarSyncStatus),
 
-    // Loading states
     integrationsLoading: readonly(integrationsLoading),
     integrationsError: readonly(integrationsError),
 
-    // Functions
     getProcessedIntegrationEvents,
   };
 }

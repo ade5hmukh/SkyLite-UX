@@ -22,14 +22,13 @@ export class ICalServerService {
     let end: Date;
 
     if (dtstart && dtend) {
-      // All events: convert to UTC using ical.js timezone handling
       const startTime = dtstart.convertToZone(ical.TimezoneService.get("UTC"));
       const endTime = dtend.convertToZone(ical.TimezoneService.get("UTC"));
-      
+
       start = startTime.toJSDate();
       end = endTime.toJSDate();
-    } else {
-      // Fallback for missing dates
+    }
+    else {
       start = new Date();
       end = new Date();
     }

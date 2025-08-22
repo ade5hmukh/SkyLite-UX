@@ -8,18 +8,14 @@ import { useCalendarEvents } from "~/composables/useCalendarEvents";
 import { useIntegrations } from "~/composables/useIntegrations";
 import { integrationRegistry } from "~/types/integrations";
 
-const { allEvents, getEventUserColors, refreshCalendarData } = useCalendar();
+const { allEvents, getEventUserColors } = useCalendar();
 const { showError, showSuccess } = useAlertToast();
-
-// allEvents is now provided by useCalendar composable
-// No need for separate loading/error states as they're handled by the unified system
 
 async function handleEventAdd(event: CalendarEvent) {
   try {
     if (!event.integrationId) {
       const eventColor = getEventUserColors(event);
 
-      // Use the useCalendarEvents composable for local events
       const { createEvent } = useCalendarEvents();
       await createEvent({
         title: event.title,
@@ -35,7 +31,6 @@ async function handleEventAdd(event: CalendarEvent) {
       showSuccess("Event Created", "Local event created successfully");
     }
     else {
-      // TODO: Implement add event to integration if supported
       showError("Not Supported", "Adding events to this integration is not yet supported");
     }
   }
@@ -64,7 +59,6 @@ async function handleEventUpdate(event: CalendarEvent) {
       showSuccess("Event Updated", "Local event updated successfully");
     }
     else {
-      // TODO: Implement update event in integration if supported
       showError("Not Supported", "Updating events in this integration is not yet supported");
     }
   }
@@ -88,7 +82,6 @@ async function handleEventDelete(eventId: string) {
       showSuccess("Event Deleted", "Local event deleted successfully");
     }
     else {
-      // TODO: Implement delete event from integration if supported
       showError("Not Supported", "Deleting events from this integration is not yet supported");
     }
   }
@@ -101,7 +94,6 @@ function getEventIntegrationCapabilities(event: CalendarEvent): { capabilities: 
   if (!event.integrationId)
     return undefined;
 
-  // Get integrations from the unified useCalendar composable
   const { integrations } = useIntegrations();
   const integration = (integrations.value as readonly Integration[] || []).find(i => i.id === event.integrationId);
   if (!integration)
@@ -118,7 +110,7 @@ function getEventIntegrationCapabilities(event: CalendarEvent): { capabilities: 
 <template>
   <div>
     <CalendarMainView
-      :events="allEvents"
+      :events="allEvents as CalendarEvent[]"
       initial-view="week"
       class="h-[calc(100vh-2rem)]"
       :get-integration-capabilities="getEventIntegrationCapabilities"

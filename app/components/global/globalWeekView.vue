@@ -15,7 +15,6 @@ const emit = defineEmits<{
   (e: "eventClick", event: CalendarEvent, mouseEvent: MouseEvent): void;
 }>();
 
-// Use global stable date
 const { getStableDate } = useStableDate();
 
 const { isToday, getAllEventsForDay, assignSpanningEventLanes, sortEvents, handleEventClick: _handleEventClick, getLocalWeekDays } = useCalendar();
@@ -36,7 +35,6 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
   _handleEventClick(event, e, emit);
 }
 
-// Helper function to get events for a specific day and position
 function getEventForDayAndPosition(day: Date, position: number): CalendarEvent | null {
   const dayEvents = getAllEventsForDay(props.events, day);
   const sortedEvents = sortEvents(dayEvents);

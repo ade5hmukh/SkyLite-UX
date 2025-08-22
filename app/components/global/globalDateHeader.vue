@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { useStableDate } from "~/composables/useStableDate";
 
-// Use global stable date
 const { getStableDate } = useStableDate();
 
 const now = computed(() => getStableDate());

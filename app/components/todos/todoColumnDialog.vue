@@ -12,11 +12,9 @@ const emit = defineEmits<{
   (e: "delete", columnId: string): void;
 }>();
 
-// Column form state
 const columnName = ref("");
 const columnError = ref<string | null>(null);
 
-// Watch for modal open/close and column changes
 const watchSource = computed(() => ({ isOpen: props.isOpen, column: props.column }));
 watch(watchSource, ({ isOpen, column }) => {
   if (isOpen) {
@@ -61,7 +59,6 @@ function handleDelete() {
       class="w-[425px] max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg"
       @click.stop
     >
-      <!-- Header -->
       <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
         <h3 class="text-base font-semibold leading-6">
           {{ column?.id ? 'Edit Column' : 'Create Column' }}
@@ -75,7 +72,6 @@ function handleDelete() {
         />
       </div>
 
-      <!-- Content -->
       <div class="p-4 space-y-6">
         <div v-if="columnError" class="bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 rounded-md px-3 py-2 text-sm">
           {{ columnError }}

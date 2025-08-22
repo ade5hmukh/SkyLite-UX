@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { format, isSameMonth } from "date-fns";
+import { isSameMonth } from "date-fns";
 
 import type { CalendarEvent } from "~/types/calendar";
 
@@ -58,28 +58,48 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
             {{ day }}
           </div>
         </div>
+
         <div class="grid grid-cols-7 gap-1">
-          <button
-            v-for="day in miniCalendarWeeks.flat()"
-            :key="day.toISOString()"
-            type="button"
-            class="relative aspect-square flex items-center justify-center text-sm transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
-            :class="{
-              'text-gray-400 dark:text-gray-600': !isSameMonth(day, currentDate),
-              'text-gray-900 dark:text-gray-100': isSameMonth(day, currentDate) && !isToday(day) && !isSelectedDate(day),
-              'bg-primary text-white font-semibold': isSelectedDate(day),
-              'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 font-medium': isToday(day) && !isSelectedDate(day),
-            }"
-            @click="handleDateSelect(day)"
-          >
-            <NuxtTime :datetime="day" day="numeric" />
-            <span
-              v-show="getAllEventsForDay(events, day).length > 0"
-              class="absolute bottom-1 left-1/2 transform -translate-x-1/2"
-            >
-              <span class="w-1 h-1 bg-current rounded-full opacity-60" />
-            </span>
-          </button>
+          <template v-for="day in miniCalendarWeeks.flat()" :key="day.toISOString()">
+            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 shadow-sm border border-gray-200 dark:border-gray-700">
+              <UChip
+                v-if="getAllEventsForDay(events, day).length > 0"
+                size="xl"
+                color="primary"
+                position="bottom-left"
+                class="w-full h-full flex items-center justify-center"
+              >
+                <button
+                  type="button"
+                  class="w-full h-full flex items-center justify-center text-sm transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+                  :class="{
+                    'text-gray-400 dark:text-gray-600': !isSameMonth(day, currentDate),
+                    'text-gray-900 dark:text-gray-100': isSameMonth(day, currentDate) && !isToday(day) && !isSelectedDate(day),
+                    'bg-primary text-white font-semibold': isSelectedDate(day),
+                    'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 font-medium': isToday(day) && !isSelectedDate(day),
+                  }"
+                  @click="handleDateSelect(day)"
+                >
+                  <NuxtTime :datetime="day" day="numeric" />
+                </button>
+              </UChip>
+
+              <button
+                v-else
+                type="button"
+                class="w-full h-full flex items-center justify-center text-sm transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+                :class="{
+                  'text-gray-400 dark:text-gray-600': !isSameMonth(day, currentDate),
+                  'text-gray-900 dark:text-gray-100': isSameMonth(day, currentDate) && !isToday(day) && !isSelectedDate(day),
+                  'bg-primary text-white font-semibold': isSelectedDate(day),
+                  'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 font-medium': isToday(day) && !isSelectedDate(day),
+                }"
+                @click="handleDateSelect(day)"
+              >
+                <NuxtTime :datetime="day" day="numeric" />
+              </button>
+            </div>
+          </template>
         </div>
       </div>
     </div>

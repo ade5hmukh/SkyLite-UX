@@ -17,7 +17,6 @@ const emit = defineEmits<{
 
 const { isToday, handleEventClick: _handleEventClick, scrollToDate, getAgendaEventsForDay } = useCalendar();
 
-// Use global stable date
 const { getStableDate } = useStableDate();
 
 const hasEvents = computed(() => {
@@ -29,13 +28,11 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
 }
 
 onMounted(() => {
-  // Use a stable date reference to avoid hydration mismatches
   scrollToDate(getStableDate(), "agenda");
 });
 
 watch(() => props.days, () => {
   nextTick(() => {
-    // Use a stable date reference to avoid hydration mismatches
     scrollToDate(getStableDate(), "agenda");
   });
 });

@@ -22,32 +22,25 @@ const emit = defineEmits<{
   (e: "touchstart", event: TouchEvent): void;
 }>();
 
-// Use global stable date
 const { getStableDate, parseStableDate } = useStableDate();
 
 const displayStart = computed(() => {
-  // Handle both Date objects and date strings with SSR-friendly conversion
   if (props.event.start instanceof Date) {
     return props.event.start;
   }
-  // For SSR consistency, parse the date string deterministically
   const dateString = props.event.start;
   if (typeof dateString === "string") {
-    // Ensure consistent parsing by using ISO string format
     return parseStableDate(dateString);
   }
   return getStableDate();
 });
 
 const displayEnd = computed(() => {
-  // Handle both Date objects and date strings with SSR-friendly conversion
   if (props.event.end instanceof Date) {
     return props.event.end;
   }
-  // For SSR consistency, parse the date string deterministically
   const dateString = props.event.end;
   if (typeof dateString === "string") {
-    // Ensure consistent parsing by using ISO string format
     return parseStableDate(dateString);
   }
   return getStableDate();
@@ -75,28 +68,22 @@ const eventColorClasses = computed(() => {
 const eventUsers = computed(() => props.event.users || []);
 
 const isAllDay = computed(() => {
-  // Determine if event is all-day in a consistent way
-  // Check both the allDay property and if start/end times are at midnight
   if (props.event.allDay) {
     return true;
   }
 
-  // Check if start and end times are at midnight (all-day events)
   const startHours = displayStart.value.getHours();
   const startMinutes = displayStart.value.getMinutes();
   const endHours = displayEnd.value.getHours();
   const endMinutes = displayEnd.value.getMinutes();
 
-  // Consider it all-day if both start and end are at midnight
   return startHours === 0 && startMinutes === 0 && endHours === 0 && endMinutes === 0;
 });
 
 function isPast(date: Date) {
-  // Use a stable date reference to avoid hydration mismatches
   return date < getStableDate();
 }
 
-// Helper function to determine if event is past using stable date parsing
 function isEventPast(event: CalendarEvent): boolean {
   const endDate = event.end instanceof Date ? event.end : parseStableDate(event.end);
   return isPast(endDate);

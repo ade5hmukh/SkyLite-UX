@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import type { BaseListItem, ShoppingList, TodoList } from "../../types/database";
 
-// Extended list type with integration properties
 type ListWithIntegration = (ShoppingList | TodoList) & {
   source?: "native" | "integration";
   integrationIcon?: string;
@@ -77,7 +76,6 @@ const showItemEdit = computed(() => {
   return props.showEditItem;
 });
 
-// Helper function to check if list has integration properties
 function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIntegration & { source: "integration" | "native" } {
   return "source" in list && (list.source === "integration" || list.source === "native");
 }

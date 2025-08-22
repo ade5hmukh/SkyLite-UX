@@ -1,30 +1,23 @@
 <script setup lang="ts">
 import { consola } from "consola";
 
-import type { BaseListItem, TodoColumn, TodoItem, TodoList, TodoListItem } from "~/types/database";
+import type { BaseListItem, Todo, TodoColumn, TodoList, TodoListItem } from "~/types/database";
 
 import GlobalList from "~/components/global/globalList.vue";
 import TodoColumnDialog from "~/components/todos/todoColumnDialog.vue";
 import TodoItemDialog from "~/components/todos/todoItemDialog.vue";
 import { useStableDate } from "~/composables/useStableDate";
+import { useTodoColumns } from "~/composables/useTodoColumns";
+import { useTodos } from "~/composables/useTodos";
 
-// Use global stable date
 const { parseStableDate, getStableDate } = useStableDate();
 
 const { data: todoColumns } = useNuxtData<TodoColumn[]>("todo-columns");
-const { data: todos } = useNuxtData<TodoItem[]>("todos");
+const { data: todos } = useNuxtData<Todo[]>("todos");
+const { updateTodo, createTodo, deleteTodo, toggleTodo, reorderTodo, clearCompleted, loading: todosLoading } = useTodos();
+const { updateTodoColumn, createTodoColumn, deleteTodoColumn, reorderTodoColumns, loading: columnsLoading } = useTodoColumns();
 
-const isTodoDialogOpen = ref(false);
-const isColumnDialogOpen = ref(false);
-const selectedTodo = ref<TodoItem | null>(null);
-const selectedColumn = ref<TodoColumn | null>(null);
-
-// Helper function to get due date with fallback
-function getDueDate(todo: TodoItem): Date {
-  return todo.dueDate ? parseStableDate(todo.dueDate) : getStableDate();
-}
-
-const mutableTodoColumns = computed(() => todoColumns.value.map(col => ({
+const mutableTodoColumns = computed(() => todoColumns.value?.map(col => ({
   ...col,
   user: col.user === null
     ? undefined
@@ -33,7 +26,7 @@ const mutableTodoColumns = computed(() => todoColumns.value.map(col => ({
         name: col.user.name,
         avatar: col.user.avatar,
       },
-})));
+})) || []);
 
 const todoItemDialog = ref(false);
 const todoColumnDialog = ref(false);
@@ -45,6 +38,9 @@ const editingTodoTyped = computed<TodoListItem | undefined>(() =>
 );
 
 const todoLists = computed<TodoList[]>(() => {
+  if (!todoColumns.value || !todos.value)
+    return [];
+
   return todoColumns.value.map(column => ({
     id: column.id,
     name: column.name,
@@ -52,7 +48,7 @@ const todoLists = computed<TodoList[]>(() => {
     createdAt: parseStableDate(column.createdAt),
     updatedAt: parseStableDate(column.updatedAt),
     isDefault: column.isDefault,
-    items: todos.value
+    items: todos.value!
       .filter(todo => todo.todoColumnId === column.id)
       .sort((a, b) => (a.order || 0) - (b.order || 0))
       .map(todo => ({
@@ -77,6 +73,8 @@ function openCreateTodo(todoColumnId?: string) {
 }
 
 function openEditTodo(item: BaseListItem) {
+  if (!todos.value)
+    return;
   const todo = todos.value.find(t => t.id === item.id);
   if (!todo)
     return;
@@ -189,6 +187,9 @@ const reorderingTodos = ref(new Set<string>());
 const reorderingColumns = ref(new Set<string>());
 
 async function handleReorderColumn(columnIndex: number, direction: "left" | "right") {
+  if (!todoColumns.value)
+    return;
+
   const column = todoColumns.value[columnIndex];
   if (!column)
     return;
@@ -221,6 +222,8 @@ async function handleReorderTodo(itemId: string, direction: "up" | "down") {
   reorderingTodos.value.add(itemId);
 
   try {
+    if (!todos.value)
+      throw new Error("Todos not loaded");
     const item = todos.value.find(t => t.id === itemId);
     if (!item)
       throw new Error("Todo not found");
@@ -243,8 +246,6 @@ async function handleClearCompleted(columnId: string) {
     consola.error("Failed to clear completed todos:", error);
   }
 }
-
-// Data is pre-loaded by appInit.ts plugin
 </script>
 
 <template>
@@ -289,7 +290,7 @@ async function handleClearCompleted(columnId: string) {
     <TodoItemDialog
       :is-open="todoItemDialog"
       :todo-columns="mutableTodoColumns"
-      :todo="editingTodoTyped"
+      :todo="editingTodoTyped || null"
       @close="todoItemDialog = false; editingTodo = null"
       @save="handleTodoSave"
       @delete="handleTodoDelete"

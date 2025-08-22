@@ -10,14 +10,11 @@ export function useShoppingIntegrations() {
   const { integrations, loading: integrationsLoading, error: integrationsError, getService } = useIntegrations();
   const { getShoppingSyncData, getCachedIntegrationData } = useSyncManager();
 
-  // Get native shopping lists from cache
   const { data: nativeShoppingLists } = useNuxtData<ShoppingList[]>("native-shopping-lists");
 
-  // Computed property that combines native and integration shopping lists
   const allShoppingLists = computed(() => {
-    const lists: any[] = [];
+    const lists: (ShoppingList & { source: "native" | "integration"; integrationId?: string; integrationName?: string })[] = [];
 
-    // Add native shopping lists
     if (nativeShoppingLists.value) {
       lists.push(...nativeShoppingLists.value.map(list => ({
         ...list,
@@ -25,17 +22,15 @@ export function useShoppingIntegrations() {
       })));
     }
 
-    // Add integration shopping lists
     const shoppingIntegrations = (integrations.value as readonly Integration[] || []).filter(integration =>
       integration.type === "shopping" && integration.enabled,
     );
 
     shoppingIntegrations.forEach((integration) => {
       try {
-        // Get cached integration data using the same cache key as sync manager
-        const integrationLists = getCachedIntegrationData("shopping", integration.id) as any[];
+        const integrationLists = getCachedIntegrationData("shopping", integration.id) as ShoppingList[];
         if (integrationLists && Array.isArray(integrationLists)) {
-          const listsWithIntegration = integrationLists.map((list: any) => ({
+          const listsWithIntegration = integrationLists.map((list: ShoppingList) => ({
             ...list,
             source: "integration" as const,
             integrationId: integration.id,
@@ -52,14 +47,12 @@ export function useShoppingIntegrations() {
     return lists;
   });
 
-  // Get shopping integrations
   const shoppingIntegrations = computed(() => {
     return (integrations.value as readonly Integration[] || []).filter(integration =>
       integration.type === "shopping" && integration.enabled,
     );
   });
 
-  // Get shopping services
   const shoppingServices = computed(() => {
     const services: Map<string, IntegrationService> = new Map();
     shoppingIntegrations.value.forEach((integration) => {
@@ -71,17 +64,15 @@ export function useShoppingIntegrations() {
     return services;
   });
 
-  // Get sync status for shopping integrations
   const shoppingSyncStatus = computed(() => {
     try {
-      return getShoppingSyncData([...integrations.value]);
+      return getShoppingSyncData([...(integrations.value as Integration[])]);
     }
     catch {
       return [];
     }
   });
 
-  // Local state for operations
   const loading = ref(false);
   const error = ref<string | null>(null);
   const syncing = ref(false);
@@ -91,10 +82,8 @@ export function useShoppingIntegrations() {
     error.value = null;
 
     try {
-      // Refresh native shopping lists
       await refreshNuxtData("native-shopping-lists");
 
-      // Note: Integration data is refreshed automatically via sync manager
       consola.info("Shopping lists refreshed successfully");
     }
     catch (err) {
@@ -201,19 +190,16 @@ export function useShoppingIntegrations() {
   };
 
   return {
-    // Data access
     shoppingLists: readonly(allShoppingLists),
     shoppingIntegrations: readonly(shoppingIntegrations),
     shoppingServices: readonly(shoppingServices),
     shoppingSyncStatus: readonly(shoppingSyncStatus),
 
-    // Loading states
     loading: readonly(loading),
     syncing: readonly(syncing),
     integrationsLoading: readonly(integrationsLoading),
     integrationsError: readonly(integrationsError),
 
-    // Functions
     refreshShoppingLists,
     addItemToList,
     updateShoppingListItem,
