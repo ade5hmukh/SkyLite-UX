@@ -1,19 +1,11 @@
 import type { Integration } from "~/types/database";
-
-type IntegrationSyncData = {
-  [integrationId: string]: {
-    data: unknown;
-    lastSync: Date;
-    success: boolean;
-    error?: string;
-  };
-};
+import type { IntegrationSyncData, SyncConnectionStatus, SyncStatus } from "~/types/sync";
 
 export function useSyncManager() {
   const nuxtApp = useNuxtApp();
 
   const syncData = useState<IntegrationSyncData>("sync-data");
-  const connectionStatus = useState<"connecting" | "connected" | "disconnected" | "error">("sync-connection-status");
+  const connectionStatus = useState<SyncConnectionStatus>("sync-connection-status");
   const lastHeartbeat = useState<Date | null>("sync-last-heartbeat");
 
   const getSyncData = (integrationId: string) => {
@@ -59,19 +51,14 @@ export function useSyncManager() {
     }
   };
 
-  const getSyncStatus = () => {
+  const getSyncStatus = (): SyncStatus => {
     const data = getAllSyncData();
-    const status = {
+    const status: SyncStatus = {
       totalIntegrations: Object.keys(data).length,
       successfulSyncs: 0,
       failedSyncs: 0,
-      lastSyncTime: null as Date | null,
-      integrations: {} as Record<string, {
-        lastSync: Date;
-        success: boolean;
-        error?: string;
-        hasData: boolean;
-      }>,
+      lastSyncTime: null,
+      integrations: {},
     };
 
     Object.entries(data).forEach(([integrationId, syncInfo]) => {

@@ -1,19 +1,13 @@
 import consola from "consola";
 
 import type { CalendarEvent } from "~/types/calendar";
-import type { CalendarIntegrationService, IntegrationStatus } from "~/types/integrations";
+import type { CalendarIntegrationService, IntegrationStatus, UserWithColor } from "~/types/integrations";
 
 import { integrationRegistry } from "~/types/integrations";
 
 import type { ICalEventResponse } from "../../../server/integrations/iCal/types";
 
 import { ICalServerService } from "../../../server/integrations/iCal";
-
-type UserWithColor = {
-  id: string;
-  name: string;
-  color: string | null;
-};
 
 export class ICalService implements CalendarIntegrationService {
   private integrationId: string;
@@ -157,6 +151,7 @@ export class ICalService implements CalendarIntegrationService {
         color,
         label: event.label,
         location: event.location,
+        integrationId: this.integrationId,
         users: this.useUserColors ? users : undefined,
       };
     });

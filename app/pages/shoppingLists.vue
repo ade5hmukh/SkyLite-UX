@@ -3,8 +3,8 @@ import type { JsonObject } from "type-fest";
 
 import { consola } from "consola";
 
-import type { DialogField } from "~/integrations/integrationConfig";
-import type { CreateShoppingListInput, CreateShoppingListItemInput, Integration, ShoppingList, ShoppingListItem } from "~/types/database";
+import type { CreateShoppingListInput, CreateShoppingListItemInput, Integration, RawIntegrationItem, RawIntegrationList, ShoppingList, ShoppingListItem } from "~/types/database";
+import type { DialogField, ShoppingListWithIntegration } from "~/types/ui";
 
 import GlobalList from "~/components/global/globalList.vue";
 import ShoppingListDialog from "~/components/shopping/shoppingListDialog.vue";
@@ -53,18 +53,6 @@ const editingItem = ref<ShoppingListItem | null>(null);
 
 const { showError, showWarning } = useAlertToast();
 
-type RawIntegrationList = {
-  readonly id: string;
-  readonly name: string;
-  readonly order: number;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-  readonly items: readonly RawIntegrationItem[];
-  integrationId?: string;
-  integrationName?: string;
-  integrationIcon?: string | null;
-};
-
 function normalizeIntegrationList(list: RawIntegrationList): ShoppingList {
   const integration = (shoppingIntegrations.value as readonly Integration[]).find(i => i.id === list.integrationId);
 
@@ -89,18 +77,6 @@ function normalizeIntegrationList(list: RawIntegrationList): ShoppingList {
     integrationIcon: integration ? getIntegrationIconUrl(integration) : list.integrationIcon ?? null,
   };
 }
-
-type RawIntegrationItem = {
-  id: string;
-  name: string;
-  checked: boolean;
-  order: number;
-  notes: string | null;
-  quantity: number;
-  unit: string | null;
-  food: string | null;
-  integrationData?: unknown;
-};
 
 function normalizeIntegrationItem(item: RawIntegrationItem): ShoppingListItem {
   return {
@@ -147,11 +123,11 @@ const transformedShoppingLists = computed(() => {
     updatedAt: parseStableDate(list.updatedAt),
     items: list.items,
     _count: list._count,
-    source: list.source,
+    source: list.source || "native",
     integrationId: list.integrationId,
     integrationName: list.integrationName,
     integrationIcon: list.integrationIcon,
-  })) as (ShoppingList & { source?: "native" | "integration"; integrationIcon?: string; integrationName?: string; integrationId?: string })[];
+  })) as ShoppingListWithIntegration[];
 });
 
 function openCreateList() {
@@ -525,24 +501,24 @@ function getFilteredFieldsForItem(item: ShoppingListItem, integrationType: strin
         :show-notes="true"
         show-reorder
         :show-edit="(list) => {
-          const shoppingList = list as ShoppingList;
+          const shoppingList = list as ShoppingListWithIntegration;
           return shoppingList.source === 'native';
         }"
         :show-add="(list) => {
-          const shoppingList = list as ShoppingList;
+          const shoppingList = list as ShoppingListWithIntegration;
           return shoppingList.source === 'native' || (shoppingList.integrationId ? hasCapability(shoppingList.integrationId!, 'add_items') : false);
         }"
         :show-edit-item="(list) => {
-          const shoppingList = list as ShoppingList;
+          const shoppingList = list as ShoppingListWithIntegration;
           return shoppingList.source === 'native' || (shoppingList.integrationId ? hasCapability(shoppingList.integrationId!, 'edit_items') : false);
         }"
         :show-completed="(list) => {
-          const shoppingList = list as ShoppingList;
+          const shoppingList = list as ShoppingListWithIntegration;
           return shoppingList.source === 'native' || (shoppingList.integrationId ? hasCapability(shoppingList.integrationId!, 'clear_items') : false);
         }"
         show-integration-icons
         @create="openCreateList"
-        @edit="editingList = $event as ShoppingList; listDialog = true"
+        @edit="editingList = $event as ShoppingListWithIntegration; listDialog = true"
         @delete="handleDeleteList"
         @add-item="openAddItem"
         @edit-item="(item) => openEditItem(item as ShoppingListItem)"

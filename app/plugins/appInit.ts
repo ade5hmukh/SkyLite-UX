@@ -3,19 +3,11 @@ import ical from "ical.js";
 
 import type { CalendarEvent } from "~/types/calendar";
 import type { Integration, ShoppingListWithItemsAndCount, TodoColumn, TodoWithUser, User } from "~/types/database";
-import type { CalendarIntegrationService, IntegrationService } from "~/types/integrations";
+import type { CalendarIntegrationService, ShoppingIntegrationService, TodoIntegrationService } from "~/types/integrations";
 
 import { integrationConfigs } from "~/integrations/integrationConfig";
 import { setBrowserTimezone, setTimezoneRegistered } from "~/types/global";
 import { createIntegrationService, registerIntegration } from "~/types/integrations";
-
-type ShoppingIntegrationService = IntegrationService & {
-  getShoppingLists: () => Promise<ShoppingListWithItemsAndCount[]>;
-};
-
-type TodoIntegrationService = IntegrationService & {
-  getTodos: () => Promise<TodoWithUser[]>;
-};
 
 export default defineNuxtPlugin(async () => {
   consola.start("AppInit plugin: Initializing application...");

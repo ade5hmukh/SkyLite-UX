@@ -2,6 +2,7 @@
 import { consola } from "consola";
 
 import type { CreateIntegrationInput, CreateUserInput, Integration, User } from "~/types/database";
+import type { ConnectionTestResult } from "~/types/ui";
 
 import SettingsIntegrationDialog from "~/components/settings/settingsIntegrationDialog.vue";
 import SettingsUserDialog from "~/components/settings/settingsUserDialog.vue";
@@ -31,11 +32,6 @@ const selectedUser = ref<User | null>(null);
 const isUserDialogOpen = ref(false);
 const selectedIntegration = ref<Integration | null>(null);
 const isIntegrationDialogOpen = ref(false);
-type ConnectionTestResult = {
-  success: boolean;
-  message?: string;
-  error?: string;
-} | null;
 
 const connectionTestResult = ref<ConnectionTestResult>(null);
 

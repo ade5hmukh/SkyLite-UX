@@ -18,3 +18,8 @@ export type CalendarEvent = {
     color?: string | null;
   }>;
 };
+
+export type PlaceholderEvent = CalendarEvent & {
+  isPlaceholder: true;
+  position: number;
+};

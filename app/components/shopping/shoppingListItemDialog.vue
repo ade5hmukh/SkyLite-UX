@@ -1,6 +1,7 @@
 <script setup lang="ts">
-import type { DialogField } from "~/integrations/integrationConfig";
 import type { CreateShoppingListItemInput, ShoppingListItem } from "~/types/database";
+import type { FormData } from "~/types/forms";
+import type { DialogField } from "~/types/ui";
 
 const props = defineProps<{
   isOpen: boolean;
@@ -14,8 +15,6 @@ const emit = defineEmits<{
   (e: "save", item: CreateShoppingListItemInput): void;
   (e: "delete", itemId: string): void;
 }>();
-
-type FormData = Record<string, string | number>;
 
 const formData = ref<FormData>({});
 

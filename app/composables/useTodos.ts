@@ -1,8 +1,6 @@
 import { consola } from "consola";
 
-import type { CreateTodoInput, TodoWithUser, UpdateTodoInput } from "~/types/database";
-
-type TodoWithOrder = TodoWithUser & { order: number };
+import type { CreateTodoInput, TodoWithOrder, UpdateTodoInput } from "~/types/database";
 
 export function useTodos() {
   const loading = ref(false);

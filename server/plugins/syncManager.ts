@@ -3,65 +3,21 @@ import type { H3Event } from "h3";
 import { consola } from "consola";
 import { defineNitroPlugin } from "nitropack/runtime/plugin";
 
-import type { CalendarEvent } from "../../app/types/calendar";
-import type { Integration, ShoppingList, Todo } from "../../app/types/database";
+import type { Integration } from "../../app/types/database";
+import type {
+  ServerCalendarIntegrationService,
+  ServerShoppingIntegrationService,
+  ServerTodoIntegrationService,
+  ServerTypedIntegrationService,
+} from "../../app/types/integrations";
+import type { ConnectedClient, ServerSyncEvent, SyncInterval } from "../../app/types/sync";
 
 import { integrationConfigs } from "../../app/integrations/integrationConfig";
 import { createIntegrationService, registerIntegration } from "../../app/types/integrations";
 
-type SyncInterval = {
-  integrationId: string;
-  interval: NodeJS.Timeout;
-  lastSync: Date;
-  config: typeof integrationConfigs[0];
-};
-
-type SyncEvent = {
-  type: "integration_sync";
-  integrationId: string;
-  integrationType: string;
-  service: string;
-  data: unknown;
-  timestamp: Date;
-  success: boolean;
-  error?: string;
-};
-
-type ConnectedClient = {
-  event: H3Event;
-  lastActivity: Date;
-};
-
-type ShoppingIntegrationService = {
-  getShoppingLists: () => Promise<ShoppingList[]>;
-  addItemToList?: (listId: string, item: unknown) => Promise<unknown>;
-  updateShoppingListItem?: (itemId: string, updates: unknown) => Promise<unknown>;
-  toggleItem?: (itemId: string, checked: boolean) => Promise<void>;
-  deleteShoppingListItems?: (ids: string[]) => Promise<void>;
-};
-
-type TodoIntegrationService = {
-  getTodos: () => Promise<Todo[]>;
-  addTodo?: (todo: unknown) => Promise<unknown>;
-  updateTodo?: (todoId: string, updates: unknown) => Promise<unknown>;
-  deleteTodo?: (todoId: string) => Promise<void>;
-};
-
-type CalendarIntegrationService = {
-  getEvents: () => Promise<CalendarEvent[]>;
-  addEvent?: (event: unknown) => Promise<unknown>;
-  updateEvent?: (eventId: string, updates: unknown) => Promise<unknown>;
-  deleteEvent?: (eventId: string) => Promise<void>;
-};
-
-type TypedIntegrationService
-  = | ShoppingIntegrationService
-    | TodoIntegrationService
-    | CalendarIntegrationService;
-
 const syncIntervals = new Map<string, SyncInterval>();
 const connectedClients = new Set<ConnectedClient>();
-const integrationServices = new Map<string, TypedIntegrationService>();
+const integrationServices = new Map<string, ServerTypedIntegrationService>();
 
 export default defineNitroPlugin(async (nitroApp) => {
   consola.info("Initializing sync manager...");
@@ -137,10 +93,10 @@ export async function setupIntegrationSync(integration: Integration) {
     }
 
     await service.initialize();
-    integrationServices.set(integration.id, service as unknown as TypedIntegrationService);
+    integrationServices.set(integration.id, service as unknown as ServerTypedIntegrationService);
 
     const interval = setInterval(async () => {
-      await performIntegrationSync(integration, config, service as unknown as TypedIntegrationService);
+      await performIntegrationSync(integration, config, service as unknown as ServerTypedIntegrationService);
     }, config.syncInterval * 60 * 1000);
 
     syncIntervals.set(integration.id, {
@@ -160,7 +116,7 @@ export async function setupIntegrationSync(integration: Integration) {
 async function performIntegrationSync(
   integration: Integration,
   config: typeof integrationConfigs[0],
-  service: TypedIntegrationService,
+  service: ServerTypedIntegrationService,
 ) {
   const syncStart = new Date();
   let success = false;
@@ -172,13 +128,13 @@ async function performIntegrationSync(
 
     switch (integration.type) {
       case "calendar":
-        data = await (service as CalendarIntegrationService).getEvents();
+        data = await (service as ServerCalendarIntegrationService).getEvents();
         break;
       case "shopping":
-        data = await (service as ShoppingIntegrationService).getShoppingLists();
+        data = await (service as ServerShoppingIntegrationService).getShoppingLists();
         break;
       case "todo":
-        data = await (service as TodoIntegrationService).getTodos();
+        data = await (service as ServerTodoIntegrationService).getTodos();
         break;
       default:
         consola.warn(`Unknown integration type: ${integration.type}`);
@@ -198,7 +154,7 @@ async function performIntegrationSync(
       syncInterval.lastSync = syncStart;
     }
 
-    const syncEvent: SyncEvent = {
+    const syncEvent: ServerSyncEvent = {
       type: "integration_sync",
       integrationId: integration.id,
       integrationType: integration.type,
@@ -213,7 +169,7 @@ async function performIntegrationSync(
   }
 }
 
-function broadcastToClients(event: SyncEvent) {
+function broadcastToClients(event: ServerSyncEvent) {
   if (connectedClients.size === 0) {
     return;
   }

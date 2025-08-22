@@ -1,15 +1,9 @@
 <script setup lang="ts">
-import type { IntegrationSettingsField } from "~/integrations/integrationConfig";
 import type { CreateIntegrationInput, Integration } from "~/types/database";
+import type { ConnectionTestResult, IntegrationSettingsField } from "~/types/ui";
 
 import { useUsers } from "~/composables/useUsers";
 import { integrationRegistry } from "~/types/integrations";
-
-type ConnectionTestResult = {
-  success: boolean;
-  message?: string;
-  error?: string;
-} | null;
 
 const props = defineProps<{
   integration: Integration | null;

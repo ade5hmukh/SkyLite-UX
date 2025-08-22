@@ -1,8 +1,6 @@
 import { consola } from "consola";
 
-import type { CreateShoppingListInput, CreateShoppingListItemInput, ShoppingListItem, ShoppingListWithItemsAndCount, UpdateShoppingListItemInput } from "~/types/database";
-
-type ShoppingListWithOrder = ShoppingListWithItemsAndCount & { order: number };
+import type { CreateShoppingListInput, CreateShoppingListItemInput, ShoppingListItem, ShoppingListWithOrder, UpdateShoppingListItemInput } from "~/types/database";
 
 export function useShoppingLists() {
   const loading = ref(false);

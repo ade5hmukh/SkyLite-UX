@@ -152,4 +152,34 @@ export type TodoListItem = BaseListItem & {
   shoppingListId: string;
 };
 
+export type TodoWithOrder = TodoWithUser & { order: number };
+
+export type UserWithOrder = User & { todoOrder: number };
+
+export type ShoppingListWithOrder = ShoppingListWithItemsAndCount & { order: number };
+
+export type RawIntegrationList = {
+  readonly id: string;
+  readonly name: string;
+  readonly order: number;
+  readonly createdAt: Date;
+  readonly updatedAt: Date;
+  readonly items: readonly RawIntegrationItem[];
+  integrationId?: string;
+  integrationName?: string;
+  integrationIcon?: string | null;
+};
+
+export type RawIntegrationItem = {
+  id: string;
+  name: string;
+  checked: boolean;
+  order: number;
+  notes: string | null;
+  quantity: number;
+  unit: string | null;
+  food: string | null;
+  integrationData?: unknown;
+};
+
 export type { Priority };

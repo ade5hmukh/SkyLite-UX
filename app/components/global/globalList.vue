@@ -1,15 +1,10 @@
 <script setup lang="ts">
-import type { BaseListItem, ShoppingList, TodoList } from "../../types/database";
+import type { AnyListWithIntegration } from "~/types/ui";
 
-type ListWithIntegration = (ShoppingList | TodoList) & {
-  source?: "native" | "integration";
-  integrationIcon?: string;
-  integrationName?: string;
-  integrationId?: string;
-};
+import type { BaseListItem } from "../../types/database";
 
 const props = defineProps<{
-  lists: readonly ListWithIntegration[];
+  lists: readonly AnyListWithIntegration[];
   loading?: boolean;
   emptyStateIcon?: string;
   emptyStateTitle?: string;
@@ -18,16 +13,16 @@ const props = defineProps<{
   showQuantity?: boolean;
   showNotes?: boolean;
   showReorder?: boolean;
-  showEdit?: boolean | ((list: ListWithIntegration) => boolean);
-  showAdd?: boolean | ((list: ListWithIntegration) => boolean);
-  showEditItem?: boolean | ((list: ListWithIntegration) => boolean);
-  showCompleted?: boolean | ((list: ListWithIntegration) => boolean);
+  showEdit?: boolean | ((list: AnyListWithIntegration) => boolean);
+  showAdd?: boolean | ((list: AnyListWithIntegration) => boolean);
+  showEditItem?: boolean | ((list: AnyListWithIntegration) => boolean);
+  showCompleted?: boolean | ((list: AnyListWithIntegration) => boolean);
   showIntegrationIcons?: boolean;
 }>();
 
 const _emit = defineEmits<{
   (e: "create"): void;
-  (e: "edit", list: ListWithIntegration): void;
+  (e: "edit", list: AnyListWithIntegration): void;
   (e: "addItem", listId: string): void;
   (e: "editItem", item: BaseListItem): void;
   (e: "toggleItem", itemId: string, checked: boolean): void;
@@ -47,7 +42,7 @@ const sortedLists = computed(() => {
     }));
 });
 
-function getProgressPercentage(list: ListWithIntegration) {
+function getProgressPercentage(list: AnyListWithIntegration) {
   if (!list.items || list.items.length === 0)
     return 0;
   const checkedItems = list.items.filter((item: BaseListItem) => item.checked).length;
@@ -70,13 +65,13 @@ const showItemEdit = computed(() => {
   if (typeof props.showEditItem === "function") {
     return (item: BaseListItem) => {
       const list = props.lists.find(l => l.items?.some(i => i.id === item.id));
-      return list ? (props.showEditItem as (list: ListWithIntegration) => boolean)(list) : false;
+      return list ? (props.showEditItem as (list: AnyListWithIntegration) => boolean)(list) : false;
     };
   }
   return props.showEditItem;
 });
 
-function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIntegration & { source: "integration" | "native" } {
+function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyListWithIntegration & { source: "integration" | "native" } {
   return "source" in list && (list.source === "integration" || list.source === "native");
 }
 </script>
@@ -259,7 +254,7 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
                         :total-items="list.activeItems.length"
                         :show-quantity="showQuantity"
                         :show-notes="showNotes"
-                        :show-reorder="(list as ListWithIntegration).source === 'integration' ? false : showReorder"
+                        :show-reorder="(list as AnyListWithIntegration).source === 'integration' ? false : showReorder"
                         :show-edit="showItemEdit"
                         @edit="_emit('editItem', $event)"
                         @toggle="(payload) => _emit('toggleItem', payload.itemId, payload.checked)"
@@ -283,14 +278,14 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
                         </UButton>
                       </div>
                       <GlobalListItem
-                        v-for="(item, index) in list.completedItems"
+                        v-for="(item, index) in list.activeItems"
                         :key="item.id"
                         :item="item"
                         :index="index"
-                        :total-items="list.completedItems.length"
+                        :total-items="list.activeItems.length"
                         :show-quantity="showQuantity"
                         :show-notes="showNotes"
-                        :show-reorder="(list as ListWithIntegration).source === 'integration' ? false : showReorder"
+                        :show-reorder="(list as AnyListWithIntegration).source === 'integration' ? false : showReorder"
                         :show-edit="showItemEdit"
                         @edit="_emit('editItem', $event)"
                         @toggle="(payload) => _emit('toggleItem', payload.itemId, payload.checked)"

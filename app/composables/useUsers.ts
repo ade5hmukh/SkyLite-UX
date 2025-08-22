@@ -1,8 +1,6 @@
 import { consola } from "consola";
 
-import type { CreateUserInput, User } from "~/types/database";
-
-type UserWithOrder = User & { todoOrder: number };
+import type { CreateUserInput, User, UserWithOrder } from "~/types/database";
 
 export function useUsers() {
   const loading = ref(false);

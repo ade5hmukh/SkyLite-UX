@@ -4,7 +4,7 @@ import { consola } from "consola";
 import { format } from "date-fns";
 import ical from "ical.js";
 
-import type { CalendarEvent } from "~/types/calendar";
+import type { CalendarEvent, PlaceholderEvent } from "~/types/calendar";
 import type { Integration } from "~/types/database";
 
 import { useStableDate } from "~/composables/useStableDate";
@@ -823,10 +823,6 @@ export function useCalendar() {
     return result;
   }
 
-  type PlaceholderEvent = CalendarEvent & {
-    isPlaceholder?: boolean;
-  };
-
   function isPlaceholderEvent(event: CalendarEvent): boolean {
     return event.id.startsWith("__placeholder_") || (event as PlaceholderEvent).isPlaceholder === true;
   }
@@ -839,6 +835,7 @@ export function useCalendar() {
       end: new Date(0),
       allDay: false,
       isPlaceholder: true,
+      position,
     };
   }
 

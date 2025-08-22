@@ -1,45 +1,11 @@
+import type { ICalSettings, IntegrationConfig } from "~/types/integrations";
 // Shared integrations configuration
 // This file contains all integration configurations that are used by both client and server
+import type { DialogField } from "~/types/ui";
+
 import { createICalService } from "./iCal/iCalendar";
 import { createMealieService, getMealieFieldsForItem } from "./mealie/mealieShoppingLists";
 import { createTandoorService, getTandoorFieldsForItem } from "./tandoor/tandoorShoppingLists";
-
-export type DialogField = {
-  key: string;
-  label: string;
-  type: "text" | "number" | "textarea";
-  placeholder?: string;
-  min?: number;
-  required?: boolean;
-  disabled?: boolean;
-  canEdit: boolean;
-};
-
-export type IntegrationSettingsField = {
-  key: string;
-  label: string;
-  type: "text" | "password" | "url" | "color" | "boolean";
-  placeholder?: string;
-  required?: boolean;
-  description?: string;
-};
-
-export type ICalSettings = {
-  eventColor?: string;
-  user?: string[];
-  useUserColors?: boolean;
-};
-
-export type IntegrationConfig = {
-  type: string;
-  service: string;
-  settingsFields: IntegrationSettingsField[];
-  capabilities: string[];
-  icon: string;
-  files: string[];
-  dialogFields: DialogField[];
-  syncInterval: number;
-};
 
 export const integrationConfigs: IntegrationConfig[] = [
   // ================================================

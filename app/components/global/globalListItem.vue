@@ -1,15 +1,6 @@
 <script setup lang="ts">
 import type { BaseListItem, Priority, ShoppingListItem, TodoListItem } from "~/types/database";
-
-type ToggleEvent = {
-  itemId: string;
-  checked: boolean;
-};
-
-type ReorderEvent = {
-  itemId: string;
-  direction: "up" | "down";
-};
+import type { ReorderDirectionEvent, ToggleEvent } from "~/types/ui";
 
 defineProps<{
   item: BaseListItem;
@@ -24,7 +15,7 @@ defineProps<{
 const emit = defineEmits<{
   (e: "edit", item: BaseListItem): void;
   (e: "toggle", payload: ToggleEvent): void;
-  (e: "reorder", payload: ReorderEvent): void;
+  (e: "reorder", payload: ReorderDirectionEvent): void;
 }>();
 
 function isShoppingItem(item: BaseListItem): item is ShoppingListItem {

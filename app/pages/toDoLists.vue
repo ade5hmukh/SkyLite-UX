@@ -2,6 +2,7 @@
 import { consola } from "consola";
 
 import type { BaseListItem, Todo, TodoColumn, TodoList, TodoListItem } from "~/types/database";
+import type { TodoListWithIntegration } from "~/types/ui";
 
 import GlobalList from "~/components/global/globalList.vue";
 import TodoColumnDialog from "~/components/todos/todoColumnDialog.vue";
@@ -37,7 +38,7 @@ const editingTodoTyped = computed<TodoListItem | undefined>(() =>
   editingTodo.value as TodoListItem | undefined,
 );
 
-const todoLists = computed<TodoList[]>(() => {
+const todoLists = computed<TodoListWithIntegration[]>(() => {
   if (!todoColumns.value || !todos.value)
     return [];
 
@@ -48,6 +49,7 @@ const todoLists = computed<TodoList[]>(() => {
     createdAt: parseStableDate(column.createdAt),
     updatedAt: parseStableDate(column.updatedAt),
     isDefault: column.isDefault,
+    source: "native" as const,
     items: todos.value!
       .filter(todo => todo.todoColumnId === column.id)
       .sort((a, b) => (a.order || 0) - (b.order || 0))
@@ -268,7 +270,7 @@ async function handleClearCompleted(columnId: string) {
         show-completed
         show-progress
         @create="todoColumnDialog = true; editingColumn = null"
-        @edit="openEditColumn($event as TodoList)"
+        @edit="openEditColumn($event as TodoListWithIntegration)"
         @add-item="openCreateTodo($event)"
         @edit-item="openEditTodo($event)"
         @toggle-item="handleToggleTodo"

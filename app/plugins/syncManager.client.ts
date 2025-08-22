@@ -1,36 +1,15 @@
 import { consola } from "consola";
 
-type SyncEvent = {
-  type: "integration_sync" | "connection_established" | "sync_status" | "heartbeat";
-  integrationId?: string;
-  integrationType?: string;
-  service?: string;
-  data?: unknown;
-  timestamp: Date;
-  success?: boolean;
-  error?: string;
-  message?: string;
-  activeIntegrations?: string[];
-  connectedClients?: number;
-};
-
-type IntegrationSyncData = {
-  [integrationId: string]: {
-    data: unknown;
-    lastSync: Date;
-    success: boolean;
-    error?: string;
-  };
-};
+import type { EventSourceStatus, IntegrationSyncData, SyncConnectionStatus, SyncEvent } from "~/types/sync";
 
 export default defineNuxtPlugin(() => {
   const syncData = useState<IntegrationSyncData>("sync-data", () => ({}));
-  const connectionStatus = useState<"connecting" | "connected" | "disconnected" | "error">("sync-connection-status", () => "disconnected");
+  const connectionStatus = useState<SyncConnectionStatus>("sync-connection-status", () => "disconnected");
   const lastHeartbeat = useState<Date | null>("sync-last-heartbeat", () => null);
 
   let eventSource: EventSource | null = null;
   const eventSourceData = ref<string | null>(null);
-  const eventSourceStatus = ref<"CONNECTING" | "OPEN" | "CLOSED">("CLOSED");
+  const eventSourceStatus = ref<EventSourceStatus>("CLOSED");
   const eventSourceError = ref<Event | null>(null);
 
   function connectEventSource() {
