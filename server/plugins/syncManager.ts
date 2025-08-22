@@ -73,7 +73,7 @@ async function initializeIntegrationSync() {
   }
 }
 
-export async function setupIntegrationSync(integration: Integration) {
+export async function setupIntegrationSync(integration: Integration, performImmediateSync = false) {
   try {
     const config = integrationConfigs.find(
       c => c.type === integration.type && c.service === integration.service,
@@ -95,6 +95,12 @@ export async function setupIntegrationSync(integration: Integration) {
     await service.initialize();
     integrationServices.set(integration.id, service as unknown as ServerTypedIntegrationService);
 
+    // Perform immediate sync if requested
+    if (performImmediateSync) {
+      consola.info(`Performing immediate sync for integration ${integration.name} (${integration.id})`);
+      await performIntegrationSync(integration, config, service as unknown as ServerTypedIntegrationService);
+    }
+
     const interval = setInterval(async () => {
       await performIntegrationSync(integration, config, service as unknown as ServerTypedIntegrationService);
     }, config.syncInterval * 60 * 1000);
@@ -106,7 +112,7 @@ export async function setupIntegrationSync(integration: Integration) {
       config,
     });
 
-    consola.info(`Set up sync for integration ${integration.name} (${integration.id}) - interval: ${config.syncInterval} minutes (no immediate sync)`);
+    consola.info(`Set up sync for integration ${integration.name} (${integration.id}) - interval: ${config.syncInterval} minutes${performImmediateSync ? " with immediate sync" : ""}`);
   }
   catch (error) {
     consola.error(`Failed to set up sync for integration ${integration.id}:`, error);

@@ -58,6 +58,12 @@ export function useIntegrations() {
 
   const refreshIntegrations = async () => {
     await fetchIntegrations();
+
+    // Re-initialize services after refresh to handle enabled/disabled state changes
+    if (initialized.value) {
+      initialized.value = false;
+      await initializeServices();
+    }
   };
 
   const createIntegration = async (integration: Omit<Integration, "id">) => {
@@ -182,6 +188,24 @@ export function useIntegrations() {
     return services.value.get(integrationId);
   };
 
+  const reinitializeIntegration = async (integrationId: string) => {
+    const integration = integrations.value.find(i => i.id === integrationId);
+    if (integration) {
+      if (integration.enabled) {
+        const service = await createIntegrationService(integration);
+        if (service) {
+          services.value.set(integration.id, service);
+          await service.initialize();
+          consola.info(`Reinitialized integration service: ${integration.name}`);
+        }
+      }
+      else {
+        services.value.delete(integration.id);
+        consola.info(`Removed integration service: ${integration.name}`);
+      }
+    }
+  };
+
   return {
 
     integrations: readonly(integrations),
@@ -194,6 +218,7 @@ export function useIntegrations() {
     createIntegration,
     updateIntegration,
     deleteIntegration,
+    reinitializeIntegration,
     getEnabledIntegrations,
     getIntegrationByType,
     getIntegrationsByType,

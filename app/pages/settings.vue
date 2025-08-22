@@ -10,6 +10,7 @@ import { integrationRegistry } from "~/types/integrations";
 
 const { users, loading, error, createUser, deleteUser, updateUser } = useUsers();
 const { integrations, loading: integrationsLoading, createIntegration, updateIntegration, deleteIntegration } = useIntegrations();
+const { checkIntegrationCache, purgeIntegrationCache, triggerImmediateSync } = useSyncManager();
 
 const colorMode = useColorMode();
 const isDark = computed({
@@ -109,6 +110,13 @@ async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
       };
     }
 
+    // Immediately refresh client-side data to update UI
+    await refreshNuxtData("integrations");
+
+    // Re-initialize integration services to reflect the new state
+    const { refreshIntegrations } = useIntegrations();
+    await refreshIntegrations();
+
     setTimeout(() => {
       isIntegrationDialogOpen.value = false;
       selectedIntegration.value = null;
@@ -127,8 +135,18 @@ async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
 async function handleIntegrationDelete(integrationId: string) {
   try {
     await deleteIntegration(integrationId);
+
+    // Immediately refresh client-side data to update UI
+    await refreshNuxtData("integrations");
+
+    // Re-initialize integration services to reflect the new state
+    const { refreshIntegrations } = useIntegrations();
+    await refreshIntegrations();
+
     isIntegrationDialogOpen.value = false;
     selectedIntegration.value = null;
+
+    consola.info("Integration deleted successfully");
   }
   catch (error) {
     consola.error("Failed to delete integration:", error);
@@ -146,7 +164,43 @@ function openIntegrationDialog(integration: Integration | null = null) {
 
 async function handleToggleIntegration(integrationId: string, enabled: boolean) {
   try {
-    await updateIntegration(integrationId, { enabled });
+    // Get the integration to determine its type
+    const integration = (integrations.value as Integration[]).find((i: Integration) => i.id === integrationId);
+    if (!integration) {
+      throw new Error("Integration not found");
+    }
+
+    if (enabled) {
+      // Update the integration state FIRST (enable it)
+      await updateIntegration(integrationId, { enabled });
+
+      // Check if cache exists for this integration
+      const hasCache = checkIntegrationCache(integration.type, integrationId);
+
+      if (!hasCache) {
+        consola.info(`No cache found for ${integration.type} integration ${integrationId}, triggering immediate sync`);
+
+        // Trigger immediate sync to get data
+        await triggerImmediateSync(integration.type, integrationId);
+      }
+    }
+    else {
+      // Update the integration state FIRST (disable it)
+      await updateIntegration(integrationId, { enabled });
+
+      // Purge cache when disabling integration
+      purgeIntegrationCache(integration.type, integrationId);
+      consola.info(`Purged cache for disabled ${integration.type} integration ${integrationId}`);
+    }
+
+    // Immediately refresh client-side data to update UI
+    await refreshNuxtData("integrations");
+
+    // Re-initialize integration services to reflect the new state
+    const { refreshIntegrations } = useIntegrations();
+    await refreshIntegrations();
+
+    consola.info(`Integration ${enabled ? "enabled" : "disabled"} successfully`);
   }
   catch (error) {
     consola.error("Failed to toggle integration:", error);
@@ -258,7 +312,7 @@ function getIntegrationIconUrl(integration: Integration) {
                     variant="ghost"
                     size="sm"
                     icon="i-lucide-edit"
-                    :title="`Edit ${user.name}`"
+                    :aria-label="`Edit ${user.name}`"
                     @click="openUserDialog(user)"
                   />
                 </div>
@@ -375,13 +429,14 @@ function getIntegrationIconUrl(integration: Integration) {
                     unchecked-icon="i-lucide-x"
                     checked-icon="i-lucide-check"
                     size="xl"
+                    :aria-label="`Toggle ${integration.name} integration`"
                     @update:model-value="handleToggleIntegration(integration.id, $event)"
                   />
                   <UButton
                     variant="ghost"
                     size="sm"
                     icon="i-lucide-edit"
-                    :title="`Edit ${integration.name}`"
+                    :aria-label="`Edit ${integration.name}`"
                     @click="openIntegrationDialog(integration)"
                   />
                 </div>
@@ -410,6 +465,7 @@ function getIntegrationIconUrl(integration: Integration) {
                 checked-icon="i-lucide-moon"
                 unchecked-icon="i-lucide-sun"
                 size="xl"
+                aria-label="Toggle dark mode"
               />
             </div>
             <div class="flex items-center justify-between">
@@ -426,6 +482,7 @@ function getIntegrationIconUrl(integration: Integration) {
                 checked-icon="i-lucide-alarm-clock-check"
                 unchecked-icon="i-lucide-alarm-clock-off"
                 size="xl"
+                aria-label="Toggle notifications"
               />
             </div>
           </div>

@@ -213,6 +213,68 @@ export default defineNuxtPlugin(() => {
         return nuxtApp.payload.data[cacheKey];
       },
 
+      checkIntegrationCache: (integrationType: string, integrationId: string) => {
+        const nuxtApp = useNuxtApp();
+        let cacheKey: string;
+        if (integrationType === "calendar") {
+          cacheKey = `${integrationType}-events-${integrationId}`;
+        }
+        else if (integrationType === "shopping") {
+          cacheKey = `${integrationType}-lists-${integrationId}`;
+        }
+        else if (integrationType === "todo") {
+          cacheKey = `${integrationType}s-${integrationId}`;
+        }
+        else {
+          cacheKey = `${integrationType}-${integrationId}`;
+        }
+        return nuxtApp.payload.data[cacheKey] !== undefined;
+      },
+
+      purgeIntegrationCache: (integrationType: string, integrationId: string) => {
+        const nuxtApp = useNuxtApp();
+        let cacheKey: string;
+        if (integrationType === "calendar") {
+          cacheKey = `${integrationType}-events-${integrationId}`;
+        }
+        else if (integrationType === "shopping") {
+          cacheKey = `${integrationType}-lists-${integrationId}`;
+        }
+        else if (integrationType === "todo") {
+          cacheKey = `${integrationType}s-${integrationId}`;
+        }
+        else {
+          cacheKey = `${integrationType}-${integrationId}`;
+        }
+
+        if (nuxtApp.payload.data[cacheKey] !== undefined) {
+          delete nuxtApp.payload.data[cacheKey];
+          consola.info(`Purged cache for ${integrationType} integration ${integrationId}`);
+        }
+      },
+
+      triggerImmediateSync: async (integrationType: string, integrationId: string) => {
+        try {
+          consola.info(`Triggering immediate sync for ${integrationType} integration ${integrationId}`);
+
+          const response = await $fetch("/api/sync/trigger", {
+            method: "POST",
+            body: {
+              integrationId,
+              integrationType,
+              force: true,
+            },
+          });
+
+          consola.success(`Immediate sync triggered successfully for ${integrationType} integration ${integrationId}`);
+          return response;
+        }
+        catch (error) {
+          consola.error(`Failed to trigger immediate sync for ${integrationType} integration ${integrationId}:`, error);
+          throw error;
+        }
+      },
+
       reconnectSync: () => {
         cleanup();
         reconnectAttempts = 0;

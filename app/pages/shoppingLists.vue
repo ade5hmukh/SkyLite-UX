@@ -532,6 +532,7 @@ function getFilteredFieldsForItem(item: ShoppingListItem, integrationType: strin
     <UButton
       class="fixed bottom-6 right-6 h-12 w-12 rounded-full shadow-lg"
       color="primary"
+      aria-label="Create new shopping list"
       @click="openCreateList"
     >
       <UIcon name="i-lucide-plus" class="h-6 w-6" />

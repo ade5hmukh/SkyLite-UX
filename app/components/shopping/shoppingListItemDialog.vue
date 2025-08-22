@@ -122,6 +122,7 @@ function handleDelete() {
           variant="ghost"
           icon="i-lucide-x"
           class="-my-1"
+          aria-label="Close dialog"
           @click="emit('close')"
         />
       </div>

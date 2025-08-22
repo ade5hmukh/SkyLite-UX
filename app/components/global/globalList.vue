@@ -157,6 +157,7 @@ function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyList
                             size="xs"
                             variant="ghost"
                             color="neutral"
+                            aria-label="Move list left"
                             @click="_emit('reorderList', list.id, 'up')"
                           />
                           <UButton
@@ -164,6 +165,7 @@ function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyList
                             size="xs"
                             variant="ghost"
                             color="neutral"
+                            aria-label="Move list right"
                             @click="_emit('reorderList', list.id, 'down')"
                           />
                         </template>
@@ -174,6 +176,7 @@ function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyList
                             size="xs"
                             variant="ghost"
                             color="neutral"
+                            aria-label="Move list left"
                             @click="_emit('reorderList', list.id, 'up')"
                           />
                           <div style="height: 16px;" />
@@ -185,6 +188,7 @@ function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyList
                             size="xs"
                             variant="ghost"
                             color="neutral"
+                            aria-label="Move list right"
                             @click="_emit('reorderList', list.id, 'down')"
                           />
                           <div style="height: 16px;" />
@@ -196,7 +200,7 @@ function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyList
                         size="xs"
                         variant="ghost"
                         color="neutral"
-                        :title="`Edit ${list.name}`"
+                        :aria-label="`Edit ${list.name}`"
                         @click="_emit('edit', list)"
                       />
                     </div>

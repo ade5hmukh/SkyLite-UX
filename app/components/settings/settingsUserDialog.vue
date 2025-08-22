@@ -107,6 +107,7 @@ function handleDelete() {
           variant="ghost"
           icon="i-lucide-x"
           class="-my-1"
+          aria-label="Close dialog"
           @click="emit('close')"
         />
       </div>
@@ -179,6 +180,7 @@ function handleDelete() {
           color="error"
           variant="ghost"
           icon="i-lucide-trash"
+          aria-label="Delete user"
           @click="handleDelete"
         >
           Delete

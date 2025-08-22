@@ -47,6 +47,7 @@ function getPriorityColor(priority: Priority) {
       :model-value="item.checked"
       color="primary"
       size="xl"
+      aria-label="`Mark ${item.name} as ${item.checked ? 'incomplete' : 'complete'}`"
       @update:model-value="emit('toggle', { itemId: item.id, checked: Boolean($event) })"
       @click.stop
     />
@@ -101,6 +102,7 @@ function getPriorityColor(priority: Priority) {
           size="xs"
           variant="ghost"
           color="neutral"
+          aria-label="Move item up"
           @click="emit('reorder', { itemId: item.id, direction: 'up' })"
         />
         <UButton
@@ -109,6 +111,7 @@ function getPriorityColor(priority: Priority) {
           size="xs"
           variant="ghost"
           color="neutral"
+          aria-label="Move item down"
           @click="emit('reorder', { itemId: item.id, direction: 'down' })"
         />
       </div>
@@ -118,7 +121,7 @@ function getPriorityColor(priority: Priority) {
         size="xs"
         variant="ghost"
         color="neutral"
-        :title="`Edit ${item.name}`"
+        :aria-label="`Edit ${item.name}`"
         @click="emit('edit', item)"
       />
     </div>
