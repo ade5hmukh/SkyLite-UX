@@ -116,7 +116,7 @@ export class TandoorService implements IntegrationService {
       const entries = await this.serverService.getShoppingListEntries();
 
       if (!entries || !Array.isArray(entries)) {
-        consola.warn("Tandoor service returned invalid entries:", entries);
+        consola.warn("Tandoor Shopping Lists: Service returned invalid entries:", entries);
         return [];
       }
 
@@ -146,7 +146,7 @@ export class TandoorService implements IntegrationService {
       }];
     }
     catch (error) {
-      consola.error("Error fetching Tandoor shopping lists:", error);
+      consola.error("Tandoor Shopping Lists: Error fetching shopping lists:", error);
       throw error;
     }
   }
@@ -224,7 +224,7 @@ export class TandoorService implements IntegrationService {
       };
     }
     catch (error) {
-      consola.error(`Error updating item ${itemId}:`, error);
+      consola.error(`Tandoor Shopping Lists: Error updating item ${itemId}:`, error);
       throw new Error(`Failed to update item: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   }
@@ -249,7 +249,7 @@ export class TandoorService implements IntegrationService {
       };
     }
     catch (error) {
-      consola.error(`Error toggling item ${itemId}:`, error);
+      consola.error(`Tandoor Shopping Lists: Error toggling item ${itemId}:`, error);
       throw new Error(`Failed to toggle item: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   }

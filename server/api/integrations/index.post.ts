@@ -94,7 +94,7 @@ export default defineEventHandler(async (event) => {
     return integration;
   }
   catch (error: unknown) {
-    consola.error("Error creating integration:", error);
+    consola.error("Integrations index post: Error creating integration:", error);
     const statusCode = error && typeof error === "object" && "statusCode" in error ? Number(error.statusCode) : 500;
     const message = error && typeof error === "object" && "message" in error ? String(error.message) : "Failed to create integration";
     throw createError({

@@ -82,7 +82,7 @@ onMounted(() => {
     }
   };
 
-  window.addEventListener("keydown", handleKeyDown);
+  window.addEventListener("keydown", handleKeyDown, { passive: false });
   onUnmounted(() => {
     window.removeEventListener("keydown", handleKeyDown);
   });

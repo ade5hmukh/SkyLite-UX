@@ -15,12 +15,12 @@ export function useCalendarEvents() {
     error.value = null;
     try {
       await refreshNuxtData("calendar-events");
-      consola.info("Calendar events refreshed successfully");
+      consola.debug("Use Calendar Events: Calendar events refreshed successfully");
       return currentEvents.value;
     }
     catch (err) {
       error.value = "Failed to fetch calendar events";
-      consola.error("Error fetching calendar events:", err);
+      consola.error("Use Calendar Events: Error fetching calendar events:", err);
       throw err;
     }
     finally {
@@ -41,7 +41,7 @@ export function useCalendarEvents() {
     }
     catch (err) {
       error.value = "Failed to create calendar event";
-      consola.error("Error creating calendar event:", err);
+      consola.error("Use Calendar Events: Error creating calendar event:", err);
       throw err;
     }
   };
@@ -59,7 +59,7 @@ export function useCalendarEvents() {
     }
     catch (err) {
       error.value = "Failed to update calendar event";
-      consola.error("Error updating calendar event:", err);
+      consola.error("Use Calendar Events: Error updating calendar event:", err);
       throw err;
     }
   };
@@ -76,7 +76,7 @@ export function useCalendarEvents() {
     }
     catch (err) {
       error.value = "Failed to delete calendar event";
-      consola.error("Error deleting calendar event:", err);
+      consola.error("Use Calendar Events: Error deleting calendar event:", err);
       throw err;
     }
   };

@@ -2,7 +2,16 @@
 import tailwindcss from "@tailwindcss/vite";
 
 export default defineNuxtConfig({
-  devtools: { enabled: true },
+  devtools: {
+    enabled: false,
+  },
+
+  runtimeConfig: {
+    public: {
+      // consola log level. See https://github.com/unjs/consola/blob/main/src/constants.ts
+      logLevel: "verbose", // Default log level, can be overridden by NUXT_LOG_LEVEL env var
+    },
+  },
 
   modules: ["@nuxt/ui", "@nuxt/eslint", "@nuxtjs/html-validator"],
 
@@ -69,13 +78,15 @@ export default defineNuxtConfig({
 
   nitro: {
     plugins: [
-      "../server/plugins/syncManager.ts",
+      "../server/plugins/01.logging.ts",
+      "../server/plugins/02.syncManager.ts",
     ],
   },
 
   plugins: [
-    "~/plugins/appInit.ts",
-    "~/plugins/syncManager.client.ts",
+    "~/plugins/01.logging.ts",
+    "~/plugins/02.appInit.ts",
+    "~/plugins/03.syncManager.client.ts",
   ],
 
   future: {

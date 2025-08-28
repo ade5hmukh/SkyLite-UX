@@ -179,13 +179,13 @@ export function useSyncManager() {
 
     if (nuxtApp.payload.data[cacheKey] !== undefined) {
       delete nuxtApp.payload.data[cacheKey];
-      consola.info(`Purged cache for ${integrationType} integration ${integrationId}`);
+      consola.debug(`Use Sync Manager: Purged cache for ${integrationType} integration ${integrationId}`);
     }
   };
 
   const triggerImmediateSync = async (integrationType: string, integrationId: string) => {
     try {
-      consola.info(`Triggering immediate sync for ${integrationType} integration ${integrationId}`);
+      consola.debug(`Use Sync Manager: Triggering immediate sync for ${integrationType} integration ${integrationId}`);
 
       const response = await $fetch("/api/sync/trigger", {
         method: "POST",
@@ -196,11 +196,11 @@ export function useSyncManager() {
         },
       });
 
-      consola.success(`Immediate sync triggered successfully for ${integrationType} integration ${integrationId}`);
+      consola.debug(`Use Sync Manager: Immediate sync triggered successfully for ${integrationType} integration ${integrationId}`);
       return response;
     }
     catch (error) {
-      consola.error(`Failed to trigger immediate sync for ${integrationType} integration ${integrationId}:`, error);
+      consola.error(`Use Sync Manager: Failed to trigger immediate sync for ${integrationType} integration ${integrationId}:`, error);
       throw error;
     }
   };

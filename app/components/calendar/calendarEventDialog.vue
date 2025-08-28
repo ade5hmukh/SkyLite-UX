@@ -496,7 +496,7 @@ function handleSave() {
   }
   catch (err: unknown) {
     const errorMessage = err instanceof Error ? err.message : String(err);
-    consola.error("Error converting dates in handleSave:", errorMessage);
+    consola.error("Calendar Event Dialog: Error converting dates in handleSave:", errorMessage);
     error.value = "Failed to process event dates. Please try again.";
   }
 }

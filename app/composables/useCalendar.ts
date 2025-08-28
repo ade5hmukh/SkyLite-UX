@@ -61,7 +61,7 @@ export function useCalendar() {
         && localA.day === localB.day;
     }
     catch (error) {
-      consola.debug("ical.js comparison failed, using UTC fallback:", error);
+      consola.debug("Use Calendar: ical.js comparison failed, using UTC fallback:", error);
       return isSameUtcDay(a, b);
     }
   }
@@ -91,7 +91,7 @@ export function useCalendar() {
         && dayMidnight.getTime() < endMidnight.getTime();
     }
     catch (error) {
-      consola.debug("ical.js comparison failed, using UTC fallback:", error);
+      consola.debug("Use Calendar: ical.js comparison failed, using UTC fallback:", error);
       return day.getTime() >= start.getTime() && day.getTime() < end.getTime();
     }
   }
@@ -177,7 +177,7 @@ export function useCalendar() {
       return new Date(utcDate.getTime());
     }
     catch (error) {
-      consola.warn("ical.js timezone conversion failed, using fallback:", error);
+      consola.warn("Use Calendar: ical.js timezone conversion failed, using fallback:", error);
       return new Date(utcDate.getTime());
     }
   }
@@ -327,7 +327,7 @@ export function useCalendar() {
         }
       }
       catch (error) {
-        consola.warn(`Failed to get calendar events for integration ${integration.id}:`, error);
+        consola.warn(`Use Calendar: Failed to get calendar events for integration ${integration.id}:`, error);
       }
     });
 
@@ -344,10 +344,10 @@ export function useCalendar() {
     try {
       await refreshNuxtData("calendar-events");
 
-      consola.info("Calendar data refreshed successfully");
+      consola.debug("Use Calendar: Calendar data refreshed successfully");
     }
     catch (error) {
-      consola.error("Failed to refresh calendar data:", error);
+      consola.error("Use Calendar: Failed to refresh calendar data:", error);
     }
   };
 
@@ -357,7 +357,7 @@ export function useCalendar() {
       return events && Array.isArray(events) ? events : [];
     }
     catch (error) {
-      consola.warn(`Failed to get events for integration ${integrationId}:`, error);
+      consola.warn(`Use Calendar: Failed to get events for integration ${integrationId}:`, error);
       return [];
     }
   };
@@ -637,7 +637,7 @@ export function useCalendar() {
     const timezone = ical.TimezoneService.get(browserTimezone);
 
     if (!timezone) {
-      consola.warn("Browser timezone not registered with ical.js, using UTC fallback for isFirstDay");
+      consola.warn("Use Calendar: Browser timezone not registered with ical.js, using UTC fallback for isFirstDay");
       return isSameUtcDay(day, eventStart);
     }
 
@@ -652,7 +652,7 @@ export function useCalendar() {
     const timezone = ical.TimezoneService.get(browserTimezone);
 
     if (!timezone) {
-      consola.warn("Browser timezone not registered with ical.js, using UTC fallback for isLastDay");
+      consola.warn("Use Calendar: Browser timezone not registered with ical.js, using UTC fallback for isLastDay");
       if (isSameUtcDay(eventStart, eventEnd)) {
         return isSameUtcDay(day, eventStart);
       }
@@ -684,7 +684,7 @@ export function useCalendar() {
     const timezone = ical.TimezoneService.get(browserTimezone);
 
     if (!timezone) {
-      consola.warn("Browser timezone not registered with ical.js, using UTC fallback for isFirstVisibleDay");
+      consola.warn("Use Calendar: Browser timezone not registered with ical.js, using UTC fallback for isFirstVisibleDay");
       if (getUtcMidnightTime(eventStart) < getUtcMidnightTime(firstVisibleDay)) {
         const eventDaysInView = visibleDays.filter((visibleDay) => {
           const eventsForDay = getAllEventsForDay([event], visibleDay);

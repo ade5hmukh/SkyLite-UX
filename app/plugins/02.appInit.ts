@@ -3,21 +3,20 @@ import ical from "ical.js";
 
 import type { CalendarEvent } from "~/types/calendar";
 import type { Integration, ShoppingListWithItemsAndCount, TodoColumn, TodoWithUser, User } from "~/types/database";
-import type { CalendarIntegrationService, ShoppingIntegrationService, TodoIntegrationService } from "~/types/integrations";
+import type { CalendarIntegrationService, IntegrationService, ShoppingIntegrationService, TodoIntegrationService } from "~/types/integrations";
 
 import { integrationConfigs } from "~/integrations/integrationConfig";
 import { setBrowserTimezone, setTimezoneRegistered } from "~/types/global";
 import { createIntegrationService, registerIntegration } from "~/types/integrations";
 
+export const integrationServices = new Map<string, IntegrationService>();
+
 export default defineNuxtPlugin(async () => {
-  consola.start("AppInit plugin: Initializing application...");
+  consola.start("AppInit: Starting up...");
 
   if (import.meta.client) {
-    consola.info("AppInit plugin: Initializing timezone registration...");
-
     try {
       const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
-      consola.info("AppInit plugin: Detected browser timezone:", browserTimezone);
 
       const apiUrl = `https://tz.add-to-calendar-technology.com/api/${encodeURIComponent(browserTimezone)}.ics`;
       const { data: vtimezoneBlock, error } = await useFetch(apiUrl, {
@@ -41,27 +40,23 @@ export default defineNuxtPlugin(async () => {
       });
 
       ical.TimezoneService.register(timezone);
-      consola.success("AppInit plugin: Successfully registered timezone:", browserTimezone);
+      consola.debug("AppInit: Successfully registered timezone:", browserTimezone);
 
       setTimezoneRegistered(true);
       setBrowserTimezone(browserTimezone);
     }
     catch (error) {
-      consola.warn("AppInit plugin: Failed to register timezone, calendar will use fallback:", error);
+      consola.warn("AppInit: Failed to register timezone, calendar will use fallback:", error);
       setTimezoneRegistered(false);
     }
   }
 
-  consola.info("AppInit plugin: Initializing integration registry...");
   integrationConfigs.forEach((config) => {
     registerIntegration(config);
   });
-  consola.success(`AppInit plugin: Registered ${integrationConfigs.length} integrations`);
-
-  consola.start("AppInit plugin: Pre-loading essential data...");
+  consola.debug(`AppInit: Registered ${integrationConfigs.length} integrations`);
 
   try {
-    consola.info("AppInit plugin: Loading core dependencies...");
     const [_usersResult, _currentUserResult, integrationsResult] = await Promise.all([
       useAsyncData("users", () => $fetch<User[]>("/api/users"), {
         server: true,
@@ -79,9 +74,8 @@ export default defineNuxtPlugin(async () => {
       }),
     ]);
 
-    consola.success("AppInit plugin: Core dependencies loaded successfully");
+    consola.debug("AppInit: Core dependencies loaded successfully");
 
-    consola.info("AppInit plugin: Loading local data...");
     const [_localCalendarResult, _localTodosResult, _localShoppingResult, _todoColumnsResult] = await Promise.all([
       useAsyncData("calendar-events", () => $fetch<CalendarEvent[]>("/api/calendar-events"), {
         server: true,
@@ -104,35 +98,38 @@ export default defineNuxtPlugin(async () => {
       }),
     ]);
 
-    consola.success("AppInit plugin: Local data loaded successfully");
+    consola.debug("AppInit: Local data loaded successfully");
 
-    consola.info("AppInit plugin: Loading integration data concurrently...");
     const integrationDataPromises: ReturnType<typeof useAsyncData>[] = [];
 
     if (integrationsResult.data.value) {
       const enabledIntegrations = integrationsResult.data.value.filter(integration => integration.enabled);
-      consola.info(`AppInit plugin: Found ${enabledIntegrations.length} enabled integrations`);
+      consola.debug(`AppInit: Found ${enabledIntegrations.length} enabled integrations`);
 
       for (const integration of enabledIntegrations) {
-        consola.info(`AppInit plugin: Processing integration: ${integration.name} (${integration.type})`);
+        consola.debug(`AppInit: Processing integration: ${integration.name} (${integration.type})`);
 
         try {
+          const service = await createIntegrationService(integration);
+          if (!service) {
+            consola.warn(`AppInit: Failed to create service for ${integration.name}`);
+            continue;
+          }
+
+          await service.initialize();
+
+          integrationServices.set(integration.id, service);
+          consola.debug(`AppInit: Service initialized and stored for ${integration.name}`);
+
           if (integration.type === "calendar") {
             integrationDataPromises.push(
               useAsyncData(`calendar-events-${integration.id}`, async () => {
                 try {
-                  const service = await createIntegrationService(integration);
-                  if (!service) {
-                    consola.warn(`AppInit plugin: Failed to create service for ${integration.name}`);
-                    return [];
-                  }
-
-                  await service.initialize();
                   const events = await (service as CalendarIntegrationService).getEvents();
                   return events || [];
                 }
                 catch (err) {
-                  consola.error(`AppInit plugin: Error fetching calendar events for ${integration.name}:`, err);
+                  consola.error(`AppInit: Error fetching calendar events for ${integration.name}:`, err);
                   return [];
                 }
               }, {
@@ -145,18 +142,11 @@ export default defineNuxtPlugin(async () => {
             integrationDataPromises.push(
               useAsyncData(`shopping-lists-${integration.id}`, async () => {
                 try {
-                  const service = await createIntegrationService(integration);
-                  if (!service) {
-                    consola.warn(`AppInit plugin: Failed to create service for ${integration.name}`);
-                    return [];
-                  }
-
-                  await service.initialize();
                   const lists = await (service as ShoppingIntegrationService).getShoppingLists();
                   return lists || [];
                 }
                 catch (err) {
-                  consola.error(`AppInit plugin: Error fetching shopping lists for ${integration.name}:`, err);
+                  consola.error(`AppInit: Error fetching shopping lists for ${integration.name}:`, err);
                   return [];
                 }
               }, {
@@ -169,18 +159,11 @@ export default defineNuxtPlugin(async () => {
             integrationDataPromises.push(
               useAsyncData(`todos-${integration.id}`, async () => {
                 try {
-                  const service = await createIntegrationService(integration);
-                  if (!service) {
-                    consola.warn(`AppInit plugin: Failed to create service for ${integration.name}`);
-                    return [];
-                  }
-
-                  await service.initialize();
                   const todos = await (service as TodoIntegrationService).getTodos();
                   return todos || [];
                 }
                 catch (err) {
-                  consola.error(`AppInit plugin: Error fetching todos for ${integration.name}:`, err);
+                  consola.error(`AppInit: Error fetching todos for ${integration.name}:`, err);
                   return [];
                 }
               }, {
@@ -191,26 +174,26 @@ export default defineNuxtPlugin(async () => {
           }
         }
         catch (err) {
-          consola.error(`AppInit plugin: Error processing integration ${integration.name}:`, err);
+          consola.error(`AppInit: Error processing integration ${integration.name}:`, err);
         }
       }
     }
 
     if (integrationDataPromises.length > 0) {
-      consola.info(`AppInit plugin: Loading data for ${integrationDataPromises.length} integrations...`);
+      consola.debug(`AppInit: Loading data for ${integrationDataPromises.length} integrations...`);
 
       try {
         await Promise.all(integrationDataPromises);
-        consola.success("AppInit plugin: Integration data loaded successfully");
+        consola.debug("AppInit: Integration data loaded successfully");
       }
       catch (integrationError) {
-        consola.error("AppInit plugin: Error loading integration data:", integrationError);
+        consola.error("AppInit: Error loading integration data:", integrationError);
       }
     }
 
-    consola.success("AppInit plugin: All data pre-loaded successfully");
+    consola.debug(`AppInit: All data pre-loaded successfully. Initialized ${integrationServices.size} integration services.`);
   }
   catch (error) {
-    consola.error("AppInit plugin: Error pre-loading data:", error);
+    consola.error("AppInit: Error pre-loading data:", error);
   }
 });

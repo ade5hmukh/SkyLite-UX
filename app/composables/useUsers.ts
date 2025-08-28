@@ -17,12 +17,12 @@ export function useUsers() {
     error.value = null;
     try {
       await refreshNuxtData("users");
-      consola.info("Users refreshed successfully");
+      consola.debug("Use Users: Users refreshed successfully");
       return currentUsers.value;
     }
     catch (err) {
       error.value = "Failed to fetch users";
-      consola.error("Error fetching users:", err);
+      consola.error("Use Users: Error fetching users:", err);
       throw err;
     }
     finally {
@@ -45,7 +45,7 @@ export function useUsers() {
     }
     catch (err) {
       error.value = "Failed to create user";
-      consola.error("Error creating user:", err);
+      consola.error("Use Users: Error creating user:", err);
       throw err;
     }
   };
@@ -64,7 +64,7 @@ export function useUsers() {
     }
     catch (err) {
       error.value = "Failed to update user";
-      consola.error("Error updating user:", err);
+      consola.error("Use Users: Error updating user:", err);
       throw err;
     }
   };
@@ -78,7 +78,7 @@ export function useUsers() {
     }
     catch (err) {
       error.value = "Failed to select user";
-      consola.error("Error selecting user:", err);
+      consola.error("Use Users: Error selecting user:", err);
       throw err;
     }
   };
@@ -92,7 +92,7 @@ export function useUsers() {
     }
     catch (err) {
       error.value = "Failed to load current user";
-      consola.error("Error loading current user:", err);
+      consola.error("Use Users: Error loading current user:", err);
       throw err;
     }
   };
@@ -106,7 +106,7 @@ export function useUsers() {
     }
     catch (err) {
       error.value = "Failed to clear current user";
-      consola.error("Error clearing current user:", err);
+      consola.error("Use Users: Error clearing current user:", err);
       throw err;
     }
   };
@@ -128,7 +128,7 @@ export function useUsers() {
     }
     catch (err) {
       error.value = "Failed to delete user";
-      consola.error("Error deleting user:", err);
+      consola.error("Use Users: Error deleting user:", err);
       throw err;
     }
   };
@@ -185,7 +185,7 @@ export function useUsers() {
     }
     catch (err) {
       error.value = "Failed to reorder user";
-      consola.error("Error reordering user:", err);
+      consola.error("Use Users: Error reordering user:", err);
       throw err;
     }
   };

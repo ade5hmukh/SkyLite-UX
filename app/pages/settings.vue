@@ -9,7 +9,7 @@ import SettingsUserDialog from "~/components/settings/settingsUserDialog.vue";
 import { integrationRegistry } from "~/types/integrations";
 
 const { users, loading, error, createUser, deleteUser, updateUser } = useUsers();
-const { integrations, loading: integrationsLoading, createIntegration, updateIntegration, deleteIntegration } = useIntegrations();
+const { integrations, loading: integrationsLoading, servicesInitializing, createIntegration, updateIntegration, deleteIntegration } = useIntegrations();
 const { checkIntegrationCache, purgeIntegrationCache, triggerImmediateSync } = useSyncManager();
 
 const colorMode = useColorMode();
@@ -57,23 +57,66 @@ const filteredIntegrations = computed(() => {
 async function handleUserSave(userData: CreateUserInput) {
   try {
     if (selectedUser.value?.id) {
-      await updateUser(selectedUser.value.id, userData);
+      const { data: cachedUsers } = useNuxtData("users");
+      const previousUsers = cachedUsers.value ? [...cachedUsers.value] : [];
+
+      if (cachedUsers.value && Array.isArray(cachedUsers.value)) {
+        const userIndex = cachedUsers.value.findIndex((u: User) => u.id === selectedUser.value!.id);
+        if (userIndex !== -1) {
+          cachedUsers.value[userIndex] = { ...cachedUsers.value[userIndex], ...userData };
+        }
+      }
+
+      try {
+        await updateUser(selectedUser.value.id, userData);
+        consola.debug("Settings: User updated successfully");
+      }
+      catch (error) {
+        if (cachedUsers.value && previousUsers.length > 0) {
+          cachedUsers.value.splice(0, cachedUsers.value.length, ...previousUsers);
+        }
+        throw error;
+      }
     }
     else {
       await createUser(userData);
+      consola.debug("Settings: User created successfully");
     }
+
     isUserDialogOpen.value = false;
     selectedUser.value = null;
   }
   catch (error) {
-    consola.error("Failed to save user:", error);
+    consola.error("Settings: Failed to save user:", error);
   }
 }
 
-function handleUserDelete(userId: string) {
-  deleteUser(userId);
-  isUserDialogOpen.value = false;
-  selectedUser.value = null;
+async function handleUserDelete(userId: string) {
+  try {
+    const { data: cachedUsers } = useNuxtData("users");
+    const previousUsers = cachedUsers.value ? [...cachedUsers.value] : [];
+
+    if (cachedUsers.value && Array.isArray(cachedUsers.value)) {
+      cachedUsers.value.splice(0, cachedUsers.value.length, ...cachedUsers.value.filter((u: User) => u.id !== userId));
+    }
+
+    try {
+      await deleteUser(userId);
+      consola.debug("Settings: User deleted successfully");
+    }
+    catch (error) {
+      if (cachedUsers.value && previousUsers.length > 0) {
+        cachedUsers.value.splice(0, cachedUsers.value.length, ...previousUsers);
+      }
+      throw error;
+    }
+
+    isUserDialogOpen.value = false;
+    selectedUser.value = null;
+  }
+  catch (error) {
+    consola.error("Settings: Failed to delete user:", error);
+  }
 }
 
 function openUserDialog(user: User | null = null) {
@@ -86,34 +129,83 @@ async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
     connectionTestResult.value = null;
 
     if (selectedIntegration.value?.id) {
-      await updateIntegration(selectedIntegration.value.id, {
-        ...integrationData,
-        createdAt: selectedIntegration.value.createdAt,
-        updatedAt: new Date(),
-      });
+      const { data: cachedIntegrations } = useNuxtData("integrations");
+      const previousIntegrations = cachedIntegrations.value ? [...cachedIntegrations.value] : [];
 
-      connectionTestResult.value = {
-        success: true,
-        message: "Integration updated successfully!",
-      };
+      if (cachedIntegrations.value && Array.isArray(cachedIntegrations.value)) {
+        const integrationIndex = cachedIntegrations.value.findIndex((i: Integration) => i.id === selectedIntegration.value!.id);
+        if (integrationIndex !== -1) {
+          cachedIntegrations.value[integrationIndex] = {
+            ...cachedIntegrations.value[integrationIndex],
+            ...integrationData,
+            updatedAt: new Date(),
+          };
+        }
+      }
+
+      try {
+        await updateIntegration(selectedIntegration.value.id, {
+          ...integrationData,
+          createdAt: selectedIntegration.value.createdAt,
+          updatedAt: new Date(),
+        });
+
+        connectionTestResult.value = {
+          success: true,
+          message: "Integration updated successfully!",
+        };
+      }
+      catch (error) {
+        if (cachedIntegrations.value && previousIntegrations.length > 0) {
+          cachedIntegrations.value.splice(0, cachedIntegrations.value.length, ...previousIntegrations);
+        }
+        throw error;
+      }
     }
     else {
-      await createIntegration({
+      const { data: cachedIntegrations } = useNuxtData("integrations");
+      const previousIntegrations = cachedIntegrations.value ? [...cachedIntegrations.value] : [];
+      const newIntegration = {
+        id: `temp-${Date.now()}`,
         ...integrationData,
         createdAt: new Date(),
         updatedAt: new Date(),
-      });
-
-      connectionTestResult.value = {
-        success: true,
-        message: "Integration created successfully!",
+        enabled: false,
       };
+
+      if (cachedIntegrations.value && Array.isArray(cachedIntegrations.value)) {
+        cachedIntegrations.value.push(newIntegration);
+      }
+
+      try {
+        const createdIntegration = await createIntegration({
+          ...integrationData,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        if (cachedIntegrations.value && Array.isArray(cachedIntegrations.value)) {
+          const tempIndex = cachedIntegrations.value.findIndex((i: Integration) => i.id === newIntegration.id);
+          if (tempIndex !== -1) {
+            cachedIntegrations.value[tempIndex] = createdIntegration;
+          }
+        }
+
+        connectionTestResult.value = {
+          success: true,
+          message: "Integration created successfully!",
+        };
+      }
+      catch (error) {
+        if (cachedIntegrations.value && previousIntegrations.length > 0) {
+          cachedIntegrations.value.splice(0, cachedIntegrations.value.length, ...previousIntegrations);
+        }
+        throw error;
+      }
     }
 
-    // Immediately refresh client-side data to update UI
     await refreshNuxtData("integrations");
 
-    // Re-initialize integration services to reflect the new state
     const { refreshIntegrations } = useIntegrations();
     await refreshIntegrations();
 
@@ -124,7 +216,7 @@ async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
     }, 1500);
   }
   catch (error) {
-    consola.error("Failed to save integration:", error);
+    consola.error("Settings: Failed to save integration:", error);
     connectionTestResult.value = {
       success: false,
       error: error instanceof Error ? error.message : "Failed to save integration",
@@ -134,22 +226,34 @@ async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
 
 async function handleIntegrationDelete(integrationId: string) {
   try {
-    await deleteIntegration(integrationId);
+    const { data: cachedIntegrations } = useNuxtData("integrations");
+    const previousIntegrations = cachedIntegrations.value ? [...cachedIntegrations.value] : [];
 
-    // Immediately refresh client-side data to update UI
+    if (cachedIntegrations.value && Array.isArray(cachedIntegrations.value)) {
+      cachedIntegrations.value.splice(0, cachedIntegrations.value.length, ...cachedIntegrations.value.filter((i: Integration) => i.id !== integrationId));
+    }
+
+    try {
+      await deleteIntegration(integrationId);
+      consola.debug("Settings: Integration deleted successfully");
+    }
+    catch (error) {
+      if (cachedIntegrations.value && previousIntegrations.length > 0) {
+        cachedIntegrations.value.splice(0, cachedIntegrations.value.length, ...previousIntegrations);
+      }
+      throw error;
+    }
+
     await refreshNuxtData("integrations");
 
-    // Re-initialize integration services to reflect the new state
     const { refreshIntegrations } = useIntegrations();
     await refreshIntegrations();
 
     isIntegrationDialogOpen.value = false;
     selectedIntegration.value = null;
-
-    consola.info("Integration deleted successfully");
   }
   catch (error) {
-    consola.error("Failed to delete integration:", error);
+    consola.error("Settings: Failed to delete integration:", error);
   }
 }
 
@@ -164,46 +268,62 @@ function openIntegrationDialog(integration: Integration | null = null) {
 
 async function handleToggleIntegration(integrationId: string, enabled: boolean) {
   try {
-    // Get the integration to determine its type
     const integration = (integrations.value as Integration[]).find((i: Integration) => i.id === integrationId);
     if (!integration) {
       throw new Error("Integration not found");
     }
 
-    if (enabled) {
-      // Update the integration state FIRST (enable it)
-      await updateIntegration(integrationId, { enabled });
+    const { data: cachedIntegrations } = useNuxtData("integrations");
+    const previousIntegrations = cachedIntegrations.value ? [...cachedIntegrations.value] : [];
 
-      // Check if cache exists for this integration
-      const hasCache = checkIntegrationCache(integration.type, integrationId);
-
-      if (!hasCache) {
-        consola.info(`No cache found for ${integration.type} integration ${integrationId}, triggering immediate sync`);
-
-        // Trigger immediate sync to get data
-        await triggerImmediateSync(integration.type, integrationId);
+    if (cachedIntegrations.value && Array.isArray(cachedIntegrations.value)) {
+      const integrationIndex = cachedIntegrations.value.findIndex((i: Integration) => i.id === integrationId);
+      if (integrationIndex !== -1) {
+        cachedIntegrations.value[integrationIndex] = {
+          ...cachedIntegrations.value[integrationIndex],
+          enabled,
+        };
       }
     }
-    else {
-      // Update the integration state FIRST (disable it)
-      await updateIntegration(integrationId, { enabled });
 
-      // Purge cache when disabling integration
-      purgeIntegrationCache(integration.type, integrationId);
-      consola.info(`Purged cache for disabled ${integration.type} integration ${integrationId}`);
+    try {
+      if (enabled) {
+        await updateIntegration(integrationId, { enabled });
+
+        const hasCache = checkIntegrationCache(integration.type, integrationId);
+
+        if (!hasCache) {
+          consola.debug(`Settings: No cache found for ${integration.type} integration ${integrationId}, triggering immediate sync`);
+
+          await triggerImmediateSync(integration.type, integrationId);
+        }
+      }
+      else {
+        await updateIntegration(integrationId, { enabled });
+
+        purgeIntegrationCache(integration.type, integrationId);
+        consola.debug(`Settings: Purged cache for disabled ${integration.type} integration ${integrationId}`);
+      }
+
+      await refreshNuxtData("integrations");
+
+      const { refreshIntegrations } = useIntegrations();
+      await refreshIntegrations();
+
+      consola.debug(`Settings: Integration ${enabled ? "enabled" : "disabled"} successfully`);
     }
+    catch (error) {
+      consola.warn(`Settings: Rolling back optimistic update for integration ${integrationId} due to error:`, error);
 
-    // Immediately refresh client-side data to update UI
-    await refreshNuxtData("integrations");
+      if (cachedIntegrations.value && previousIntegrations.length > 0) {
+        cachedIntegrations.value.splice(0, cachedIntegrations.value.length, ...previousIntegrations);
+      }
 
-    // Re-initialize integration services to reflect the new state
-    const { refreshIntegrations } = useIntegrations();
-    await refreshIntegrations();
-
-    consola.info(`Integration ${enabled ? "enabled" : "disabled"} successfully`);
+      throw error;
+    }
   }
   catch (error) {
-    consola.error("Failed to toggle integration:", error);
+    consola.error("Settings: Failed to toggle integration:", error);
   }
 }
 
@@ -362,6 +482,13 @@ function getIntegrationIconUrl(integration: Integration) {
             </p>
           </div>
 
+          <div v-else-if="servicesInitializing" class="text-center py-8">
+            <UIcon name="i-lucide-loader-2" class="animate-spin h-8 w-8 mx-auto" />
+            <p class="text-gray-500 dark:text-gray-400 mt-2">
+              Initializing integration services...
+            </p>
+          </div>
+
           <div v-else-if="filteredIntegrations.length === 0" class="text-center py-8">
             <div class="flex items-center justify-center gap-2 text-gray-500 dark:text-gray-400">
               <UIcon name="i-lucide-frown" class="h-10 w-10" />
@@ -456,7 +583,7 @@ function getIntegrationIconUrl(integration: Integration) {
                   Dark Mode
                 </p>
                 <p class="text-sm text-gray-600 dark:text-gray-400">
-                  Toggle between light and dark themes
+                  Toggle between light and dark themes (Coming Soon™)
                 </p>
               </div>
               <USwitch

@@ -1,15 +1,13 @@
 import { consola } from "consola";
 
 import type { Integration } from "~/types/database";
-import type { IntegrationService } from "~/types/integrations";
 
+import { integrationServices } from "~/plugins/02.appInit";
 import { createIntegrationService } from "~/types/integrations";
 
 export function useIntegrations() {
   const { data: cachedIntegrations } = useNuxtData<Integration[]>("integrations");
 
-  const services = ref<Map<string, IntegrationService>>(new Map());
-  const initialized = ref(false);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
@@ -17,53 +15,32 @@ export function useIntegrations() {
     return cachedIntegrations.value || [];
   });
 
-  const initializeServices = async () => {
-    if (!integrations.value.length || initialized.value)
-      return;
+  const initialized = computed(() => {
+    if (!integrations.value.length)
+      return false;
+    const enabledIntegrations = integrations.value.filter(i => i.enabled);
+    return enabledIntegrations.every(i => integrationServices.has(i.id));
+  });
 
-    try {
-      services.value.clear();
-      for (const integration of integrations.value) {
-        if (integration.enabled) {
-          const service = await createIntegrationService(integration);
-          if (service) {
-            services.value.set(integration.id, service);
-            await service.initialize();
-          }
-        }
-      }
-      initialized.value = true;
-      consola.info(`Initialized ${services.value.size} integration services`);
-    }
-    catch (err) {
-      consola.error("Error initializing integration services:", err);
-    }
-  };
-
-  watch(integrations, async (newIntegrations) => {
-    if (newIntegrations.length > 0) {
-      await initializeServices();
-    }
-  }, { immediate: true });
+  const servicesInitializing = computed(() => {
+    if (!integrations.value.length)
+      return false;
+    const enabledIntegrations = integrations.value.filter(i => i.enabled);
+    return enabledIntegrations.length > 0 && !initialized.value;
+  });
 
   const fetchIntegrations = async () => {
     try {
       await refreshNuxtData("integrations");
-      consola.info("Integrations data refreshed successfully");
+      consola.debug("Use Integrations: Integrations data refreshed successfully");
     }
     catch (err) {
-      consola.error("Error refreshing integrations:", err);
+      consola.error("Use Integrations: Error refreshing integrations:", err);
     }
   };
 
   const refreshIntegrations = async () => {
     await fetchIntegrations();
-
-    // Re-initialize services after refresh to handle enabled/disabled state changes
-    if (initialized.value) {
-      initialized.value = false;
-      await initializeServices();
-    }
   };
 
   const createIntegration = async (integration: Omit<Integration, "id">) => {
@@ -78,7 +55,7 @@ export function useIntegrations() {
       if (response.enabled) {
         const service = await createIntegrationService(response);
         if (service) {
-          services.value.set(response.id, service);
+          integrationServices.set(response.id, service);
           await service.initialize();
         }
       }
@@ -89,19 +66,19 @@ export function useIntegrations() {
             method: "POST",
             body: response,
           });
-          consola.info("Integration registered with sync manager:", response.name);
+          consola.debug("Use Integrations: Integration registered with sync manager:", response.name);
         }
         catch (syncError) {
-          consola.warn("Failed to register integration with sync manager:", syncError);
+          consola.warn("Use Integrations: Failed to register integration with sync manager:", syncError);
         }
       }
 
-      consola.info("Integration created successfully:", response.name);
+      consola.debug("Use Integrations: Integration created successfully:", response.name);
       return response;
     }
     catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to create integration";
-      consola.error("Error creating integration:", err);
+      consola.error("Use Integrations: Error creating integration:", err);
       throw new Error(errorMessage);
     }
   };
@@ -118,7 +95,7 @@ export function useIntegrations() {
       if (response.enabled) {
         const service = await createIntegrationService(response);
         if (service) {
-          services.value.set(response.id, service);
+          integrationServices.set(response.id, service);
           await service.initialize();
         }
 
@@ -127,22 +104,22 @@ export function useIntegrations() {
             method: "POST",
             body: response,
           });
-          consola.info("Integration re-registered with sync manager:", response.name);
+          consola.debug("Use Integrations: Integration re-registered with sync manager:", response.name);
         }
         catch (syncError) {
-          consola.warn("Failed to re-register integration with sync manager:", syncError);
+          consola.warn("Use Integrations: Failed to re-register integration with sync manager:", syncError);
         }
       }
       else {
-        services.value.delete(response.id);
+        integrationServices.delete(response.id);
       }
 
-      consola.info("Integration updated successfully:", response.name);
+      consola.debug("Use Integrations: Integration updated successfully:", response.name);
       return response;
     }
     catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to update integration";
-      consola.error("Error updating integration:", err);
+      consola.error("Use Integrations: Error updating integration:", err);
       throw new Error(errorMessage);
     }
   };
@@ -153,15 +130,15 @@ export function useIntegrations() {
         method: "DELETE",
       });
 
-      services.value.delete(id);
+      integrationServices.delete(id);
 
       await refreshNuxtData("integrations");
 
-      consola.info("Integration deleted successfully:", id);
+      consola.debug("Use Integrations: Integration deleted successfully:", id);
     }
     catch (err) {
       const errorMessage = err instanceof Error ? err.message : "Failed to delete integration";
-      consola.error("Error deleting integration:", err);
+      consola.error("Use Integrations: Error deleting integration:", err);
       throw new Error(errorMessage);
     }
   };
@@ -185,7 +162,7 @@ export function useIntegrations() {
   };
 
   const getService = (integrationId: string) => {
-    return services.value.get(integrationId);
+    return integrationServices.get(integrationId);
   };
 
   const reinitializeIntegration = async (integrationId: string) => {
@@ -194,24 +171,24 @@ export function useIntegrations() {
       if (integration.enabled) {
         const service = await createIntegrationService(integration);
         if (service) {
-          services.value.set(integration.id, service);
+          integrationServices.set(integration.id, service);
           await service.initialize();
-          consola.info(`Reinitialized integration service: ${integration.name}`);
+          consola.debug(`Use Integrations: Reinitialized integration service: ${integration.name}`);
         }
       }
       else {
-        services.value.delete(integration.id);
-        consola.info(`Removed integration service: ${integration.name}`);
+        integrationServices.delete(integration.id);
+        consola.debug(`Use Integrations: Removed integration service: ${integration.name}`);
       }
     }
   };
 
   return {
-
     integrations: readonly(integrations),
     loading: readonly(loading),
     error: readonly(error),
     initialized: readonly(initialized),
+    servicesInitializing: readonly(servicesInitializing),
 
     fetchIntegrations,
     refreshIntegrations,

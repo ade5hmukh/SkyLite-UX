@@ -1,7 +1,7 @@
 import { consola } from "consola";
 import { createError, defineEventHandler, setResponseHeaders } from "h3";
 
-import { syncManager } from "../../plugins/syncManager";
+import { syncManager } from "../../plugins/02.syncManager";
 
 export default defineEventHandler(async (event) => {
   try {
@@ -42,23 +42,23 @@ export default defineEventHandler(async (event) => {
         event.node.res.write(`data: ${JSON.stringify(heartbeatEvent)}\n\n`);
       }
       catch {
-        consola.warn("Failed to send heartbeat, client may have disconnected");
+        consola.warn("Sync Events: Failed to send heartbeat, client may have disconnected");
         clearInterval(heartbeatInterval);
       }
     }, 30000);
 
     event.node.req.on("close", () => {
-      consola.info("Client disconnected from sync stream");
+      consola.info("Sync Events: Client disconnected from sync stream");
       clearInterval(heartbeatInterval);
       syncManager.unregisterClient(event);
     });
 
     event.node.req.on("error", (err) => {
       if (import.meta.dev && err.message?.includes("aborted")) {
-        consola.debug("Client disconnected (expected during dev)");
+        consola.debug("Sync Events: Client disconnected (expected during dev)");
       }
       else {
-        consola.error("Error in sync stream connection:", err);
+        consola.error("Sync Events: Error in sync stream connection:", err);
       }
       clearInterval(heartbeatInterval);
       syncManager.unregisterClient(event);
@@ -68,7 +68,7 @@ export default defineEventHandler(async (event) => {
     });
   }
   catch (error) {
-    consola.error("Error setting up sync stream:", error);
+    consola.error("Sync Events: Error setting up sync stream:", error);
     throw createError({
       statusCode: 500,
       message: "Failed to establish sync stream",

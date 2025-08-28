@@ -15,9 +15,9 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    consola.info(`Triggering manual sync for ${integrationType} integration ${integrationId} (force: ${force})`);
+    consola.debug(`Sync Trigger: Triggering manual sync for ${integrationType} integration ${integrationId} (force: ${force})`);
 
-    const { setupIntegrationSync } = await import("../../plugins/syncManager");
+    const { setupIntegrationSync } = await import("../../plugins/02.syncManager");
     const prisma = await import("~/lib/prisma").then(m => m.default);
     const integration = await prisma.integration.findUnique({
       where: { id: integrationId },
@@ -37,10 +37,9 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Trigger immediate sync by calling setupIntegrationSync with immediate flag
     await setupIntegrationSync(integration as Integration, true);
 
-    consola.success(`Successfully triggered sync for ${integrationType} integration ${integrationId}`);
+    consola.debug(`Sync Trigger: Successfully triggered sync for ${integrationType} integration ${integrationId}`);
 
     return {
       success: true,
@@ -50,7 +49,7 @@ export default defineEventHandler(async (event) => {
     };
   }
   catch (error) {
-    consola.error("Failed to trigger integration sync:", error);
+    consola.error("Sync Trigger: Failed to trigger integration sync:", error);
     throw createError({
       statusCode: 500,
       message: "Failed to trigger integration sync",

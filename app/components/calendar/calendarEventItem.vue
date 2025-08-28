@@ -122,7 +122,7 @@ function handleKeydown(e: KeyboardEvent) {
     :aria-label="`Calendar event: ${event.title}`"
     @click="handleClick"
     @mousedown="handleMouseDown"
-    @touchstart="handleTouchStart"
+    @touchstart.passive="handleTouchStart"
     @keydown="handleKeydown"
   >
     <div v-show="view === 'month'">

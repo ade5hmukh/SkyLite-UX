@@ -81,7 +81,7 @@ export class ICalService implements CalendarIntegrationService {
       return true;
     }
     catch (error) {
-      consola.error("iCal connection test error:", error);
+      consola.error("iCalendar: iCal connection test error:", error);
       this.status = {
         isConnected: false,
         lastChecked: new Date(),
@@ -108,7 +108,7 @@ export class ICalService implements CalendarIntegrationService {
         }
       }
       catch (error) {
-        consola.warn("Failed to fetch users for iCal integration:", error);
+        consola.warn("iCalendar: Failed to fetch users for iCal integration:", error);
       }
     }
 

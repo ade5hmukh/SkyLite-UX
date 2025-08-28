@@ -7,18 +7,18 @@ export default defineEventHandler(async (event) => {
   try {
     const integration = await readBody<Integration>(event);
 
-    consola.info(`Registering integration for sync: ${integration.name} (${integration.id})`);
+    consola.debug(`Sync Register: Registering integration for sync: ${integration.name} (${integration.id})`);
 
-    const { setupIntegrationSync } = await import("../../plugins/syncManager");
+    const { setupIntegrationSync } = await import("../../plugins/02.syncManager");
 
     await setupIntegrationSync(integration);
 
-    consola.success(`Successfully registered integration for sync: ${integration.name}`);
+    consola.debug(`Sync Register: Successfully registered integration for sync: ${integration.name}`);
 
     return { success: true, message: "Integration registered for sync" };
   }
   catch (error) {
-    consola.error("Failed to register integration for sync:", error);
+    consola.error("Sync Register: Failed to register integration for sync:", error);
     throw createError({
       statusCode: 500,
       statusMessage: "Failed to register integration for sync",

@@ -20,13 +20,12 @@ const connectedClients = new Set<ConnectedClient>();
 const integrationServices = new Map<string, ServerTypedIntegrationService>();
 
 export default defineNitroPlugin(async (nitroApp) => {
-  consola.info("Initializing sync manager...");
+  consola.start("Sync Manager: Initializing...");
 
-  consola.info("Registering integrations for server-side sync...");
   integrationConfigs.forEach((config) => {
     registerIntegration(config);
   });
-  consola.success(`Registered ${integrationConfigs.length} integrations for server-side sync`);
+  consola.debug(`Sync Manager: Registered ${integrationConfigs.length} integrations for server-side sync`);
 
   setInterval(() => {
     const now = new Date();
@@ -43,14 +42,14 @@ export default defineNitroPlugin(async (nitroApp) => {
     });
 
     if (disconnectedClients.length > 0) {
-      consola.info(`Cleaned up ${disconnectedClients.length} disconnected clients`);
+      consola.info(`Sync Manager: Cleaned up ${disconnectedClients.length} disconnected clients`);
     }
   }, 60 * 1000);
 
   await initializeIntegrationSync();
 
   nitroApp.hooks.hook("close", () => {
-    consola.info("Shutting down sync manager...");
+    consola.info("Sync Manager: Shutting down...");
     clearAllSyncIntervals();
   });
 });
@@ -66,10 +65,10 @@ async function initializeIntegrationSync() {
       await setupIntegrationSync(integration as Integration);
     }
 
-    consola.info(`Initialized sync for ${integrations.length} integrations`);
+    consola.debug(`Sync Manager: Initialized sync for ${integrations.length} integrations`);
   }
   catch (error) {
-    consola.error("Failed to initialize integration sync:", error);
+    consola.error("Sync Manager: Failed to initialize integration sync:", error);
   }
 }
 
@@ -80,7 +79,7 @@ export async function setupIntegrationSync(integration: Integration, performImme
     );
 
     if (!config) {
-      consola.warn(`No config found for integration ${integration.id} (${integration.type}:${integration.service})`);
+      consola.warn(`Sync Manager: No config found for integration ${integration.id} (${integration.type}:${integration.service})`);
       return;
     }
 
@@ -88,16 +87,15 @@ export async function setupIntegrationSync(integration: Integration, performImme
 
     const service = await createIntegrationService(integration);
     if (!service) {
-      consola.warn(`Failed to create service for integration ${integration.id}`);
+      consola.warn(`Sync Manager: Failed to create service for integration ${integration.id}`);
       return;
     }
 
     await service.initialize();
     integrationServices.set(integration.id, service as unknown as ServerTypedIntegrationService);
 
-    // Perform immediate sync if requested
     if (performImmediateSync) {
-      consola.info(`Performing immediate sync for integration ${integration.name} (${integration.id})`);
+      consola.debug(`Sync Manager: Performing immediate sync for integration ${integration.name} (${integration.id})`);
       await performIntegrationSync(integration, config, service as unknown as ServerTypedIntegrationService);
     }
 
@@ -112,10 +110,10 @@ export async function setupIntegrationSync(integration: Integration, performImme
       config,
     });
 
-    consola.info(`Set up sync for integration ${integration.name} (${integration.id}) - interval: ${config.syncInterval} minutes${performImmediateSync ? " with immediate sync" : ""}`);
+    consola.debug(`Sync Manager: Set up sync for integration ${integration.name} (${integration.id}) - interval: ${config.syncInterval} minutes${performImmediateSync ? " with immediate sync" : ""}`);
   }
   catch (error) {
-    consola.error(`Failed to set up sync for integration ${integration.id}:`, error);
+    consola.error(`Sync Manager: Failed to set up sync for integration ${integration.id}:`, error);
   }
 }
 
@@ -130,7 +128,7 @@ async function performIntegrationSync(
   let data: unknown = null;
 
   try {
-    consola.debug(`Syncing integration ${integration.name} (${integration.id})...`);
+    consola.debug(`Sync Manager: Syncing integration ${integration.name} (${integration.id})...`);
 
     switch (integration.type) {
       case "calendar":
@@ -143,16 +141,16 @@ async function performIntegrationSync(
         data = await (service as ServerTodoIntegrationService).getTodos();
         break;
       default:
-        consola.warn(`Unknown integration type: ${integration.type}`);
+        consola.warn(`Sync Manager: Unknown integration type: ${integration.type}`);
         return;
     }
 
     success = true;
-    consola.debug(`Successfully synced integration ${integration.name} (${integration.id})`);
+    consola.debug(`Sync Manager: Successfully synced integration ${integration.name} (${integration.id})`);
   }
   catch (err) {
     error = err instanceof Error ? err.message : String(err);
-    consola.error(`Failed to sync integration ${integration.name} (${integration.id}):`, err);
+    consola.error(`Sync Manager: Failed to sync integration ${integration.name} (${integration.id}):`, err);
   }
   finally {
     const syncInterval = syncIntervals.get(integration.id);
@@ -190,7 +188,7 @@ function broadcastToClients(event: ServerSyncEvent) {
       client.event.node.res.write(eventData);
     }
     catch (err) {
-      consola.warn("Failed to send event to client, marking for cleanup:", err);
+      consola.warn("Sync Manager: Failed to send event to client, marking for cleanup:", err);
       disconnectedClients.push(client);
     }
   });
@@ -206,7 +204,7 @@ function clearIntegrationSync(integrationId: string) {
     clearInterval(syncInterval.interval);
     syncIntervals.delete(integrationId);
     integrationServices.delete(integrationId);
-    consola.info(`Cleared sync for integration ${integrationId}`);
+    consola.debug(`Sync Manager: Cleared sync for integration ${integrationId}`);
   }
 }
 
@@ -217,7 +215,7 @@ function clearAllSyncIntervals() {
   syncIntervals.clear();
   integrationServices.clear();
   connectedClients.clear();
-  consola.info("Cleared all sync intervals");
+  consola.debug("Sync Manager: Cleared all sync intervals");
 }
 
 export function registerClient(event: H3Event) {
@@ -226,7 +224,7 @@ export function registerClient(event: H3Event) {
     lastActivity: new Date(),
   };
   connectedClients.add(client);
-  consola.info(`New client connected. Total clients: ${connectedClients.size}`);
+  consola.info(`Sync Manager: New client connected. Total clients: ${connectedClients.size}`);
 }
 
 export function unregisterClient(event: H3Event) {
@@ -235,7 +233,7 @@ export function unregisterClient(event: H3Event) {
   );
   if (clientToRemove) {
     connectedClients.delete(clientToRemove);
-    consola.info(`Client disconnected. Total clients: ${connectedClients.size}`);
+    consola.info(`Sync Manager: Client disconnected. Total clients: ${connectedClients.size}`);
   }
 }
 

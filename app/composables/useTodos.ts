@@ -15,12 +15,12 @@ export function useTodos() {
     error.value = null;
     try {
       await refreshNuxtData("todos");
-      consola.info("Todos refreshed successfully");
+      consola.debug ("Use Todos: Todos refreshed successfully");
       return currentTodos.value;
     }
     catch (err) {
       error.value = "Failed to fetch todos";
-      consola.error("Error fetching todos:", err);
+      consola.error("Use Todos: Error fetching todos:", err);
       throw err;
     }
     finally {
@@ -41,7 +41,7 @@ export function useTodos() {
     }
     catch (err) {
       error.value = "Failed to create todo";
-      consola.error("Error creating todo:", err);
+      consola.error("Use Todos: Error creating todo:", err);
       throw err;
     }
   };
@@ -59,7 +59,7 @@ export function useTodos() {
     }
     catch (err) {
       error.value = "Failed to update todo";
-      consola.error("Error updating todo:", err);
+      consola.error("Use Todos: Error updating todo:", err);
       throw err;
     }
   };
@@ -81,7 +81,7 @@ export function useTodos() {
     }
     catch (err) {
       error.value = "Failed to delete todo";
-      consola.error("Error deleting todo:", err);
+      consola.error("Use Todos: Error deleting todo:", err);
       throw err;
     }
   };
@@ -127,7 +127,7 @@ export function useTodos() {
     }
     catch (err) {
       error.value = "Failed to reorder todo";
-      consola.error("Error reordering todo:", err);
+      consola.error("Use Todos: Error reordering todo:", err);
       throw err;
     }
   };
@@ -148,7 +148,7 @@ export function useTodos() {
     }
     catch (err) {
       error.value = "Failed to clear completed todos";
-      consola.error("Error clearing completed todos:", err);
+      consola.error("Use Todos: Error clearing completed todos:", err);
       throw err;
     }
   };

@@ -15,11 +15,11 @@ export function useShoppingLists() {
     error.value = null;
     try {
       await refreshNuxtData("native-shopping-lists");
-      consola.info("Shopping lists refreshed successfully");
+      consola.debug("Use Shopping Lists: Shopping lists refreshed successfully");
     }
     catch (err) {
       error.value = "Failed to fetch shopping lists";
-      consola.error("Error fetching shopping lists:", err);
+      consola.error("Use Shopping Lists: Error fetching shopping lists:", err);
       throw err;
     }
     finally {
@@ -40,7 +40,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to create shopping list";
-      consola.error("Error creating shopping list:", err);
+      consola.error("Use Shopping Lists: Error creating shopping list:", err);
       throw err;
     }
   };
@@ -58,7 +58,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to update shopping list";
-      consola.error("Error updating shopping list:", err);
+      consola.error("Use Shopping Lists: Error updating shopping list:", err);
       throw err;
     }
   };
@@ -76,7 +76,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to update shopping list item";
-      consola.error("Error updating shopping list item:", err);
+      consola.error("Use Shopping Lists: Error updating shopping list item:", err);
       throw err;
     }
   };
@@ -94,7 +94,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to add item to shopping list";
-      consola.error("Error adding item to shopping list:", err);
+      consola.error("Use Shopping Lists: Error adding item to shopping list:", err);
       throw err;
     }
   };
@@ -112,7 +112,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to delete shopping list";
-      consola.error("Error deleting shopping list:", err);
+      consola.error("Use Shopping Lists: Error deleting shopping list:", err);
       throw err;
     }
   };
@@ -172,7 +172,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to reorder shopping list";
-      consola.error("Error reordering shopping list:", err);
+      consola.error("Use Shopping Lists: Error reordering shopping list:", err);
       throw err;
     }
   };
@@ -239,7 +239,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to reorder item";
-      consola.error("Error reordering item:", err);
+      consola.error("Use Shopping Lists: Error reordering item:", err);
       throw err;
     }
   };
@@ -266,7 +266,7 @@ export function useShoppingLists() {
     }
     catch (err) {
       error.value = "Failed to clear completed items";
-      consola.error("Error clearing completed items:", err);
+      consola.error("Use Shopping Lists: Error clearing completed items:", err);
       throw err;
     }
   };

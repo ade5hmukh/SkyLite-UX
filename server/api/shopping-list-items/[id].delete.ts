@@ -20,7 +20,7 @@ export default defineEventHandler(async (event) => {
     return { success: true };
   }
   catch (error) {
-    consola.error("Error deleting shopping list item:", error);
+    consola.error("Shopping List Items id delete: Error deleting shopping list item:", error);
     throw createError({
       statusCode: 500,
       message: "Failed to delete shopping list item",

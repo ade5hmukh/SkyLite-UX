@@ -80,7 +80,7 @@ export class MealieService implements IntegrationService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        consola.error("Mealie API error:", response.status, response.statusText, errorText);
+        consola.error("Mealie Shopping Lists: API error:", response.status, response.statusText, errorText);
         const { getStableDate } = useStableDate();
         this.status = {
           isConnected: false,
@@ -101,7 +101,7 @@ export class MealieService implements IntegrationService {
       return true;
     }
     catch (error) {
-      consola.error("Mealie connection test error:", error);
+      consola.error("Mealie Shopping Lists: Connection test error:", error);
       this.status = {
         isConnected: false,
         lastChecked: new Date(),
@@ -121,7 +121,7 @@ export class MealieService implements IntegrationService {
       const response = await this.serverService.getShoppingLists();
 
       if (!response || !response.items || !Array.isArray(response.items)) {
-        consola.warn("Mealie service returned invalid response:", response);
+        consola.warn("Mealie Shopping Lists: Service returned invalid response:", response);
         return [];
       }
 
@@ -155,14 +155,14 @@ export class MealieService implements IntegrationService {
           });
         }
         catch (listError) {
-          consola.error(`Error fetching list ${mealieList.id}:`, listError);
+          consola.error(`Mealie Shopping Lists: Error fetching list ${mealieList.id}:`, listError);
         }
       }
 
       return shoppingLists;
     }
     catch (error) {
-      consola.error("Error fetching Mealie shopping lists:", error);
+      consola.error("Mealie Shopping Lists: Error fetching shopping lists:", error);
       throw error;
     }
   }
@@ -301,7 +301,7 @@ export class MealieService implements IntegrationService {
       };
     }
     catch (error) {
-      consola.error(`Error updating item ${itemId}:`, error);
+      consola.error(`Mealie Shopping Lists: Error updating item ${itemId}:`, error);
       throw new Error(`Failed to update item: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   }
@@ -349,7 +349,7 @@ export class MealieService implements IntegrationService {
       };
     }
     catch (error) {
-      consola.error(`Error toggling item ${itemId}:`, error);
+      consola.error(`Mealie Shopping Lists: Error toggling item ${itemId}:`, error);
       throw new Error(`Failed to toggle item: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   }

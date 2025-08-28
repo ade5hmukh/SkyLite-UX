@@ -14,11 +14,11 @@ export function useTodoColumns() {
     loading.value = true;
     try {
       await refreshNuxtData("todo-columns");
-      consola.info("Todo columns refreshed successfully");
+      consola.debug("Use Todo Columns: Todo columns refreshed successfully");
     }
     catch (err) {
       error.value = err instanceof Error ? err.message : "Failed to fetch todo columns";
-      consola.error("Failed to fetch todo columns:", err);
+      consola.error("Use Todo Columns: Failed to fetch todo columns:", err);
       throw err;
     }
     finally {
@@ -45,7 +45,7 @@ export function useTodoColumns() {
     }
     catch (err) {
       error.value = err instanceof Error ? err.message : "Failed to create todo column";
-      consola.error("Failed to create todo column:", err);
+      consola.error("Use Todo Columns: Failed to create todo column:", err);
       throw err;
     }
     finally {
@@ -67,7 +67,7 @@ export function useTodoColumns() {
     }
     catch (err) {
       error.value = err instanceof Error ? err.message : "Failed to update todo column";
-      consola.error("Failed to update todo column:", err);
+      consola.error("Use Todo Columns: Failed to update todo column:", err);
       throw err;
     }
   };
@@ -88,7 +88,7 @@ export function useTodoColumns() {
     }
     catch (err) {
       error.value = err instanceof Error ? err.message : "Failed to delete todo column";
-      consola.error("Failed to delete todo column:", err);
+      consola.error("Use Todo Columns: Failed to delete todo column:", err);
       throw err;
     }
   };
@@ -120,7 +120,7 @@ export function useTodoColumns() {
     }
     catch (err) {
       error.value = err instanceof Error ? err.message : "Failed to reorder todo columns";
-      consola.error("Failed to reorder todo columns:", err);
+      consola.error("Use Todo Columns: Failed to reorder todo columns:", err);
       throw err;
     }
   };

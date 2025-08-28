@@ -80,7 +80,7 @@ export default defineEventHandler(async (event) => {
 
     if (!response.ok) {
       const errorText = await response.text();
-      consola.error("Tandoor API error response:", errorText);
+      consola.error("Integrations Tandoor: API error response:", errorText);
       throw createError({
         statusCode: response.status,
         statusMessage: `Tandoor API error: ${response.status} ${response.statusText} - ${errorText}`,
@@ -90,7 +90,7 @@ export default defineEventHandler(async (event) => {
     return await response.json();
   }
   catch (error: unknown) {
-    consola.error("Error proxying request to Tandoor:", error);
+    consola.error("Integrations Tandoor: Error proxying request to Tandoor:", error);
     const statusCode = error && typeof error === "object" && "statusCode" in error ? Number(error.statusCode) : 500;
     const message = error && typeof error === "object" && "message" in error ? String(error.message) : "Failed to proxy request to Tandoor";
     throw createError({

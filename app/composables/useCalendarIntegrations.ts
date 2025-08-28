@@ -67,7 +67,7 @@ export function useCalendarIntegrations() {
         })));
       }
       catch (error) {
-        consola.warn(`Failed to process calendar events for integration ${integration.id}:`, error);
+        consola.warn(`Use Calendar Integrations: Failed to process calendar events for integration ${integration.id}:`, error);
       }
     });
 
@@ -111,7 +111,7 @@ export function useCalendarIntegrations() {
       }));
     }
     catch (error) {
-      consola.warn(`Failed to process events for integration ${integrationId}:`, error);
+      consola.warn(`Use Calendar Integrations: Failed to process events for integration ${integrationId}:`, error);
       return [];
     }
   };

@@ -16,7 +16,7 @@ export default defineEventHandler(async (event) => {
     return { events };
   }
   catch (error) {
-    consola.error("Failed to fetch iCal events:", error);
+    consola.error("Integrations iCal Index: Failed to fetch iCal events:", error);
     return { events: [], error: error instanceof Error ? error.message : String(error) };
   }
 });

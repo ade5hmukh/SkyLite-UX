@@ -124,7 +124,7 @@ export default defineEventHandler(async (event) => {
     return integration;
   }
   catch (error: unknown) {
-    consola.error("Error updating integration:", error);
+    consola.error("Integrations id put: Error updating integration:", error);
     const statusCode = error && typeof error === "object" && "statusCode" in error ? Number(error.statusCode) : 500;
     const message = error && typeof error === "object" && "message" in error ? String(error.message) : "Failed to update integration";
     throw createError({

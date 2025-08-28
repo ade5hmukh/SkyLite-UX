@@ -19,7 +19,7 @@ export default defineNuxtPlugin(() => {
       eventSource.onopen = () => {
         eventSourceStatus.value = "OPEN";
         connectionStatus.value = "connected";
-        consola.info("Connected to sync stream");
+        consola.debug("Sync Manager: Connected to sync stream");
       };
 
       eventSource.onmessage = (event) => {
@@ -30,14 +30,14 @@ export default defineNuxtPlugin(() => {
         eventSourceStatus.value = "CLOSED";
         connectionStatus.value = "error";
         eventSourceError.value = error;
-        consola.error("EventSource error:", error);
+        consola.error("Sync Manager: EventSource error:", error);
       };
 
       eventSourceStatus.value = "CONNECTING";
       connectionStatus.value = "connecting";
     }
     catch (error) {
-      consola.error("Failed to create EventSource:", error);
+      consola.error("Sync Manager: Failed to create EventSource:", error);
       connectionStatus.value = "error";
     }
   }
@@ -50,13 +50,13 @@ export default defineNuxtPlugin(() => {
 
   function attemptReconnect() {
     if (reconnectAttempts >= maxReconnectAttempts) {
-      consola.error("Failed to reconnect to sync stream after 3 attempts");
+      consola.error("Sync Manager: Failed to reconnect to sync stream after 3 attempts");
       connectionStatus.value = "error";
       return;
     }
 
     setTimeout(() => {
-      consola.info(`Attempting to reconnect to sync stream (attempt ${reconnectAttempts + 1}/${maxReconnectAttempts})`);
+      consola.debug(`Sync Manager: Attempting to reconnect to sync stream (attempt ${reconnectAttempts + 1}/${maxReconnectAttempts})`);
       reconnectAttempts++;
       connectEventSource();
     }, reconnectDelay * reconnectAttempts);
@@ -86,15 +86,15 @@ export default defineNuxtPlugin(() => {
 
     try {
       const event: SyncEvent = JSON.parse(rawData);
-      consola.debug("Received sync event:", event.type, event);
+      consola.debug("Sync Manager: Received sync event:", event.type, event);
 
       switch (event.type) {
         case "connection_established":
-          consola.info("Connected to sync stream:", event.message);
+          consola.debug("Sync Manager: Connected to sync stream:", event.message);
           break;
 
         case "sync_status":
-          consola.info(`Sync status: ${event.activeIntegrations?.length || 0} active integrations, ${event.connectedClients || 0} connected clients`);
+          consola.debug(`Sync Manager: Sync status: ${event.activeIntegrations?.length || 0} active integrations, ${event.connectedClients || 0} connected clients`);
           break;
 
         case "heartbeat":
@@ -114,7 +114,7 @@ export default defineNuxtPlugin(() => {
               updateIntegrationCache(event.integrationType, event.integrationId, event.data);
             }
 
-            consola.debug(`Updated sync data for integration ${event.integrationId}:`, {
+            consola.debug(`Sync Manager: Updated sync data for integration ${event.integrationId}:`, {
               success: event.success,
               hasData: !!event.data,
               error: event.error,
@@ -124,13 +124,13 @@ export default defineNuxtPlugin(() => {
       }
     }
     catch (error) {
-      consola.error("Failed to parse sync event:", error, rawData);
+      consola.error("Sync Manager: Failed to parse sync event:", error, rawData);
     }
   });
 
   watch(eventSourceError, (error) => {
     if (error) {
-      consola.error("Sync stream error:", error);
+      consola.error("Sync Manager: Sync stream error:", error);
       connectionStatus.value = "error";
     }
   });
@@ -249,13 +249,13 @@ export default defineNuxtPlugin(() => {
 
         if (nuxtApp.payload.data[cacheKey] !== undefined) {
           delete nuxtApp.payload.data[cacheKey];
-          consola.info(`Purged cache for ${integrationType} integration ${integrationId}`);
+          consola.debug(`Sync Manager: Purged cache for ${integrationType} integration ${integrationId}`);
         }
       },
 
       triggerImmediateSync: async (integrationType: string, integrationId: string) => {
         try {
-          consola.info(`Triggering immediate sync for ${integrationType} integration ${integrationId}`);
+          consola.debug(`Sync Manager: Triggering immediate sync for ${integrationType} integration ${integrationId}`);
 
           const response = await $fetch("/api/sync/trigger", {
             method: "POST",
@@ -266,11 +266,11 @@ export default defineNuxtPlugin(() => {
             },
           });
 
-          consola.success(`Immediate sync triggered successfully for ${integrationType} integration ${integrationId}`);
+          consola.debug(`Sync Manager: Immediate sync triggered successfully for ${integrationType} integration ${integrationId}`);
           return response;
         }
         catch (error) {
-          consola.error(`Failed to trigger immediate sync for ${integrationType} integration ${integrationId}:`, error);
+          consola.error(`Sync Manager: Failed to trigger immediate sync for ${integrationType} integration ${integrationId}:`, error);
           throw error;
         }
       },

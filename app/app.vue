@@ -1,9 +1,18 @@
 <script setup lang="ts">
 const dock = false;
+const { isLoading, loadingMessage, setLoading } = useGlobalLoading();
+
+setLoading(true);
+
+onNuxtReady(() => {
+  setLoading(false);
+});
 </script>
 
 <template>
   <UApp>
+    <GlobalAppLoading :is-loading="isLoading" :loading-message="loadingMessage" />
+
     <div v-if="!dock" class="flex min-h-screen">
       <GlobalSideBar />
       <div class="flex flex-col flex-1">
