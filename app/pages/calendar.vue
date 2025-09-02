@@ -169,6 +169,7 @@ function getEventIntegrationCapabilities(event: CalendarEvent): { capabilities: 
 }
 </script>
 
+<!-- TODO: allow user to choose initial view -->
 <template>
   <div>
     <CalendarMainView

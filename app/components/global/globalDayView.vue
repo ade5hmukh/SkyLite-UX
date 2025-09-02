@@ -41,13 +41,13 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
     <div class="w-[30%] flex-shrink-0 border-r border-gray-200 dark:border-gray-700">
       <div class="p-4">
         <div class="flex items-center justify-center mb-4">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
             <NuxtTime
               :datetime="currentDate"
               month="long"
               year="numeric"
             />
-          </h3>
+          </h2>
         </div>
         <div class="grid grid-cols-7 gap-1 mb-2">
           <div
@@ -117,9 +117,9 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
               <NuxtTime :datetime="currentDate" day="numeric" />
             </div>
             <div>
-              <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">
+              <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">
                 <NuxtTime :datetime="currentDate" weekday="long" />
-              </h2>
+              </h3>
               <p class="text-xs text-gray-500 dark:text-gray-400">
                 <NuxtTime
                   :datetime="currentDate"
@@ -134,9 +134,9 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
         <div class="p-4">
           <div v-show="todaysEvents.length === 0" class="text-center py-8">
             <UIcon name="i-lucide-calendar-off" class="w-8 h-8 text-gray-400 dark:text-gray-600 mx-auto mb-2" />
-            <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">
+            <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100">
               No events today
-            </h3>
+            </h4>
           </div>
           <CalendarEventItem
             v-for="event in todaysEvents"

@@ -5,6 +5,7 @@ import { addDays, addMonths, addWeeks, endOfWeek, isSameMonth, startOfWeek, subM
 
 import type { CalendarEvent, CalendarView } from "~/types/calendar";
 
+import GlobalFloatingActionButton from "~/components/global/globalFloatingActionButton.vue";
 import { useStableDate } from "~/composables/useStableDate";
 
 const props = defineProps<{
@@ -352,15 +353,12 @@ function getDaysForAgenda(date: Date) {
       />
     </div>
   </div>
-  <UButton
-    class="fixed bottom-8 right-8 rounded-full shadow-lg z-50 p-4"
-    color="primary"
-    size="xl"
+  <GlobalFloatingActionButton
     icon="i-lucide-plus"
-    aria-label="Add Event"
-    :ui="{
-      leadingIcon: 'bg-gray-100 dark:bg-gray-800 w-10 h-10',
-    }"
+    label="Add new event"
+    color="primary"
+    size="lg"
+    position="bottom-right"
     @click="handleCreateEvent"
   />
   <CalendarEventDialog

@@ -4,6 +4,7 @@ import { consola } from "consola";
 import type { BaseListItem, Todo, TodoColumn, TodoList, TodoListItem } from "~/types/database";
 import type { TodoListWithIntegration } from "~/types/ui";
 
+import GlobalFloatingActionButton from "~/components/global/globalFloatingActionButton.vue";
 import GlobalList from "~/components/global/globalList.vue";
 import TodoColumnDialog from "~/components/todos/todoColumnDialog.vue";
 import TodoItemDialog from "~/components/todos/todoItemDialog.vue";
@@ -336,29 +337,29 @@ async function handleReorderColumn(columnIndex: number, direction: "left" | "rig
     const { data: cachedColumns } = useNuxtData("todo-columns");
     const previousColumns = cachedColumns.value ? [...cachedColumns.value] : [];
 
-    if (cachedColumns.value && Array.isArray(cachedColumns.value)) {
-      const columns = [...cachedColumns.value].sort((a, b) => (a.order || 0) - (b.order || 0));
-      const currentIndex = columns.findIndex((c: TodoColumn) => c.id === column.id);
-
-      if (currentIndex !== -1) {
-        if (direction === "left" && currentIndex > 0) {
-          [columns[currentIndex], columns[currentIndex - 1]] = [columns[currentIndex - 1], columns[currentIndex]];
-          columns[currentIndex].order = currentIndex;
-          columns[currentIndex - 1].order = currentIndex - 1;
-        }
-        else if (direction === "right" && currentIndex < columns.length - 1) {
-          [columns[currentIndex], columns[currentIndex + 1]] = [columns[currentIndex + 1], columns[currentIndex]];
-          columns[currentIndex].order = currentIndex;
-          columns[currentIndex + 1].order = currentIndex + 1;
-        }
-
-        cachedColumns.value.splice(0, cachedColumns.value.length, ...columns);
-      }
-    }
-
     try {
       await reorderTodoColumns(columnIndex, targetIndex);
       consola.debug("Todo Lists: Column reordered successfully");
+
+      if (cachedColumns.value && Array.isArray(cachedColumns.value)) {
+        const columns = [...cachedColumns.value].sort((a, b) => (a.order || 0) - (b.order || 0));
+        const currentIndex = columns.findIndex((c: TodoColumn) => c.id === column.id);
+
+        if (currentIndex !== -1) {
+          if (direction === "left" && currentIndex > 0) {
+            [columns[currentIndex], columns[currentIndex - 1]] = [columns[currentIndex - 1], columns[currentIndex]];
+            columns[currentIndex].order = currentIndex;
+            columns[currentIndex - 1].order = currentIndex - 1;
+          }
+          else if (direction === "right" && currentIndex < columns.length - 1) {
+            [columns[currentIndex], columns[currentIndex + 1]] = [columns[currentIndex + 1], columns[currentIndex]];
+            columns[currentIndex].order = currentIndex;
+            columns[currentIndex + 1].order = currentIndex + 1;
+          }
+
+          cachedColumns.value.splice(0, cachedColumns.value.length, ...columns);
+        }
+      }
     }
     catch (error) {
       if (cachedColumns.value && previousColumns.length > 0) {
@@ -391,46 +392,46 @@ async function handleReorderTodo(itemId: string, direction: "up" | "down") {
     const { data: cachedTodos } = useNuxtData("todos");
     const previousTodos = cachedTodos.value ? [...cachedTodos.value] : [];
 
-    if (cachedTodos.value && Array.isArray(cachedTodos.value)) {
-      const sameColumnTodos = cachedTodos.value
-        .filter((t: Todo) => t.todoColumnId === item.todoColumnId && t.completed === item.completed)
-        .sort((a, b) => (a.order || 0) - (b.order || 0));
-
-      const currentIndex = sameColumnTodos.findIndex((t: Todo) => t.id === itemId);
-
-      if (currentIndex !== -1) {
-        if (direction === "up" && currentIndex > 0) {
-          const todoAbove = sameColumnTodos[currentIndex - 1];
-          const currentTodo = sameColumnTodos[currentIndex];
-
-          const currentTodoIndex = cachedTodos.value.findIndex((t: Todo) => t.id === currentTodo.id);
-          const todoAboveIndex = cachedTodos.value.findIndex((t: Todo) => t.id === todoAbove.id);
-
-          if (currentTodoIndex !== -1 && todoAboveIndex !== -1) {
-            const tempOrder = cachedTodos.value[currentTodoIndex].order;
-            cachedTodos.value[currentTodoIndex].order = cachedTodos.value[todoAboveIndex].order;
-            cachedTodos.value[todoAboveIndex].order = tempOrder;
-          }
-        }
-        else if (direction === "down" && currentIndex < sameColumnTodos.length - 1) {
-          const todoBelow = sameColumnTodos[currentIndex + 1];
-          const currentTodo = sameColumnTodos[currentIndex];
-
-          const currentTodoIndex = cachedTodos.value.findIndex((t: Todo) => t.id === currentTodo.id);
-          const todoBelowIndex = cachedTodos.value.findIndex((t: Todo) => t.id === todoBelow.id);
-
-          if (currentTodoIndex !== -1 && todoBelowIndex !== -1) {
-            const tempOrder = cachedTodos.value[currentTodoIndex].order;
-            cachedTodos.value[currentTodoIndex].order = cachedTodos.value[todoBelowIndex].order;
-            cachedTodos.value[todoBelowIndex].order = tempOrder;
-          }
-        }
-      }
-    }
-
     try {
       await reorderTodo(itemId, direction, item.todoColumnId ?? null);
       consola.debug("Todo Lists: Todo reordered successfully");
+
+      if (cachedTodos.value && Array.isArray(cachedTodos.value)) {
+        const sameColumnTodos = cachedTodos.value
+          .filter((t: Todo) => t.todoColumnId === item.todoColumnId && t.completed === item.completed)
+          .sort((a, b) => (a.order || 0) - (b.order || 0));
+
+        const currentIndex = sameColumnTodos.findIndex((t: Todo) => t.id === itemId);
+
+        if (currentIndex !== -1) {
+          if (direction === "up" && currentIndex > 0) {
+            const todoAbove = sameColumnTodos[currentIndex - 1];
+            const currentTodo = sameColumnTodos[currentIndex];
+
+            const currentTodoIndex = cachedTodos.value.findIndex((t: Todo) => t.id === currentTodo.id);
+            const todoAboveIndex = cachedTodos.value.findIndex((t: Todo) => t.id === todoAbove.id);
+
+            if (currentTodoIndex !== -1 && todoAboveIndex !== -1) {
+              const tempOrder = cachedTodos.value[currentTodoIndex].order;
+              cachedTodos.value[currentTodoIndex].order = cachedTodos.value[todoAboveIndex].order;
+              cachedTodos.value[todoAboveIndex].order = tempOrder;
+            }
+          }
+          else if (direction === "down" && currentIndex < sameColumnTodos.length - 1) {
+            const todoBelow = sameColumnTodos[currentIndex + 1];
+            const currentTodo = sameColumnTodos[currentIndex];
+
+            const currentTodoIndex = cachedTodos.value.findIndex((t: Todo) => t.id === currentTodo.id);
+            const todoBelowIndex = cachedTodos.value.findIndex((t: Todo) => t.id === todoBelow.id);
+
+            if (currentTodoIndex !== -1 && todoBelowIndex !== -1) {
+              const tempOrder = cachedTodos.value[currentTodoIndex].order;
+              cachedTodos.value[currentTodoIndex].order = cachedTodos.value[todoBelowIndex].order;
+              cachedTodos.value[todoBelowIndex].order = tempOrder;
+            }
+          }
+        }
+      }
     }
     catch (error) {
       if (cachedTodos.value && previousTodos.length > 0) {
@@ -453,13 +454,13 @@ async function handleClearCompleted(columnId: string) {
     const { data: cachedTodos } = useNuxtData("todos");
     const previousTodos = cachedTodos.value ? [...cachedTodos.value] : [];
 
-    if (cachedTodos.value && Array.isArray(cachedTodos.value)) {
-      cachedTodos.value.splice(0, cachedTodos.value.length, ...cachedTodos.value.filter((t: Todo) => !(t.todoColumnId === columnId && t.completed)));
-    }
-
     try {
       await clearCompleted(columnId);
       consola.debug("Todo Lists: Completed todos cleared successfully");
+
+      if (cachedTodos.value && Array.isArray(cachedTodos.value)) {
+        cachedTodos.value.splice(0, cachedTodos.value.length, ...cachedTodos.value.filter((t: Todo) => !(t.todoColumnId === columnId && t.completed)));
+      }
     }
     catch (error) {
       if (cachedTodos.value && previousTodos.length > 0) {
@@ -537,12 +538,12 @@ async function handleToggleTodo(itemId: string, completed: boolean) {
       />
     </div>
 
-    <UButton
-      class="fixed bottom-8 right-8 rounded-full shadow-lg z-50 p-4"
-      color="primary"
-      size="xl"
+    <GlobalFloatingActionButton
       icon="i-lucide-plus"
-      aria-label="Add Item"
+      label="Add new todo column"
+      color="primary"
+      size="lg"
+      position="bottom-right"
       @click="todoColumnDialog = true; editingColumn = null"
     />
 

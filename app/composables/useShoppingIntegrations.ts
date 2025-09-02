@@ -10,17 +10,8 @@ export function useShoppingIntegrations() {
   const { integrations, loading: integrationsLoading, error: integrationsError, getService } = useIntegrations();
   const { getShoppingSyncData, getCachedIntegrationData } = useSyncManager();
 
-  const { data: nativeShoppingLists } = useNuxtData<ShoppingList[]>("native-shopping-lists");
-
   const allShoppingLists = computed(() => {
-    const lists: (ShoppingList & { source: "native" | "integration"; integrationId?: string; integrationName?: string })[] = [];
-
-    if (nativeShoppingLists.value) {
-      lists.push(...nativeShoppingLists.value.map(list => ({
-        ...list,
-        source: "native" as const,
-      })));
-    }
+    const lists: (ShoppingList & { source: "integration"; integrationId?: string; integrationName?: string })[] = [];
 
     const shoppingIntegrations = (integrations.value as readonly Integration[] || []).filter(integration =>
       integration.type === "shopping" && integration.enabled,

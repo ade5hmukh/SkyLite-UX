@@ -31,3 +31,15 @@ onNuxtReady(() => {
     </div>
   </UApp>
 </template>
+
+<style>
+/* Hide scrollbars globally */
+* {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+
+*::-webkit-scrollbar {
+  display: none;
+}
+</style>

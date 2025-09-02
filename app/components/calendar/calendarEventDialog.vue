@@ -524,9 +524,9 @@ function handleDelete() {
       @click.stop
     >
       <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
-        <h3 class="text-base font-semibold leading-6">
+        <h2 class="text-base font-semibold leading-6">
           {{ event?.id ? 'Edit Event' : 'Create Event' }}
-        </h3>
+        </h2>
         <UButton
           color="neutral"
           variant="ghost"

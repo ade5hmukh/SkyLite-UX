@@ -9,6 +9,7 @@ import type { Integration } from "~/types/database";
 
 import { useStableDate } from "~/composables/useStableDate";
 import { useSyncManager } from "~/composables/useSyncManager";
+import { getBrowserTimezone, isTimezoneRegistered } from "~/types/global";
 
 export function useCalendar() {
   const spanningEventLanes = new Map<string, number>();
@@ -20,6 +21,21 @@ export function useCalendar() {
   const { getSyncDataByType, getCachedIntegrationData } = useSyncManager();
 
   const { getStableDate, parseStableDate } = useStableDate();
+
+  function getSafeTimezone(): string {
+    if (import.meta.server) {
+      return "UTC";
+    }
+
+    if (isTimezoneRegistered()) {
+      const registeredTimezone = getBrowserTimezone();
+      if (registeredTimezone) {
+        return registeredTimezone;
+      }
+    }
+
+    return "UTC";
+  }
 
   function getUtcMidnightTime(date: Date): number {
     return Date.UTC(
@@ -43,7 +59,7 @@ export function useCalendar() {
 
   function isSameLocalDay(a: Date, b: Date): boolean {
     try {
-      const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const browserTimezone = getSafeTimezone();
       const timezone = ical.TimezoneService.get(browserTimezone);
 
       if (!timezone) {
@@ -68,7 +84,7 @@ export function useCalendar() {
 
   function isLocalDayInRange(day: Date, start: Date, end: Date): boolean {
     try {
-      const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const browserTimezone = getSafeTimezone();
       const timezone = ical.TimezoneService.get(browserTimezone);
 
       if (!timezone) {
@@ -164,7 +180,7 @@ export function useCalendar() {
 
   function getLocalTimeFromUTC(utcDate: Date): Date {
     try {
-      const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+      const browserTimezone = getSafeTimezone();
 
       const timezone = ical.TimezoneService.get(browserTimezone);
       if (timezone) {
@@ -633,7 +649,7 @@ export function useCalendar() {
   function isFirstDay(day: Date, event: CalendarEvent) {
     const eventStart = parseStableDate(event.start);
 
-    const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const browserTimezone = getSafeTimezone();
     const timezone = ical.TimezoneService.get(browserTimezone);
 
     if (!timezone) {
@@ -648,7 +664,7 @@ export function useCalendar() {
     const eventStart = parseStableDate(event.start);
     const eventEnd = parseStableDate(event.end);
 
-    const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const browserTimezone = getSafeTimezone();
     const timezone = ical.TimezoneService.get(browserTimezone);
 
     if (!timezone) {
@@ -680,7 +696,7 @@ export function useCalendar() {
 
     const eventStart = parseStableDate(event.start);
 
-    const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const browserTimezone = getSafeTimezone();
     const timezone = ical.TimezoneService.get(browserTimezone);
 
     if (!timezone) {

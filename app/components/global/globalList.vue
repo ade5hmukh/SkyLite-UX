@@ -282,11 +282,11 @@ function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyList
                         </UButton>
                       </div>
                       <GlobalListItem
-                        v-for="(item, index) in list.activeItems"
+                        v-for="(item, index) in list.completedItems"
                         :key="item.id"
                         :item="item"
                         :index="index"
-                        :total-items="list.activeItems.length"
+                        :total-items="list.completedItems.length"
                         :show-quantity="showQuantity"
                         :show-notes="showNotes"
                         :show-reorder="(list as AnyListWithIntegration).source === 'integration' ? false : showReorder"

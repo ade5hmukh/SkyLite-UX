@@ -4,6 +4,7 @@ export type ConnectionTestResult = {
   success: boolean;
   message?: string;
   error?: string;
+  isLoading?: boolean;
 } | null;
 
 export type ShoppingListWithIntegration = ShoppingList & {

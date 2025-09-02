@@ -127,7 +127,11 @@ function openUserDialog(user: User | null = null) {
 
 async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
   try {
-    connectionTestResult.value = null;
+    connectionTestResult.value = {
+      success: false,
+      message: "Testing connection...",
+      isLoading: true,
+    };
 
     if (selectedIntegration.value?.id) {
       const { data: cachedIntegrations } = useNuxtData("integrations");
@@ -145,6 +149,12 @@ async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
       }
 
       try {
+        connectionTestResult.value = {
+          success: false,
+          message: "Updating integration...",
+          isLoading: true,
+        };
+
         await updateIntegration(selectedIntegration.value.id, {
           ...integrationData,
           createdAt: selectedIntegration.value.createdAt,
@@ -154,6 +164,7 @@ async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
         connectionTestResult.value = {
           success: true,
           message: "Integration updated successfully!",
+          isLoading: false,
         };
       }
       catch (error) {
@@ -179,6 +190,12 @@ async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
       }
 
       try {
+        connectionTestResult.value = {
+          success: false,
+          message: "Creating integration...",
+          isLoading: true,
+        };
+
         const createdIntegration = await createIntegration({
           ...integrationData,
           createdAt: new Date(),
@@ -195,6 +212,7 @@ async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
         connectionTestResult.value = {
           success: true,
           message: "Integration created successfully!",
+          isLoading: false,
         };
       }
       catch (error) {
@@ -221,6 +239,7 @@ async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
     connectionTestResult.value = {
       success: false,
       error: error instanceof Error ? error.message : "Failed to save integration",
+      isLoading: false,
     };
   }
 }

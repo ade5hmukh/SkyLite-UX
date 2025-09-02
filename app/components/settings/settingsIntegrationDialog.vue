@@ -31,7 +31,7 @@ const isSaving = ref(false);
 const settingsData = ref<Record<string, string | string[] | boolean>>({});
 
 const isTestingConnection = computed(() => {
-  return isSaving.value && !props.connectionTestResult;
+  return props.connectionTestResult?.isLoading || (isSaving.value && !props.connectionTestResult);
 });
 
 const currentIntegrationConfig = computed(() => {
@@ -290,17 +290,17 @@ function handleDelete() {
 
         <div v-if="isTestingConnection" class="bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 rounded-md px-3 py-2 text-sm flex items-center gap-2">
           <UIcon name="i-lucide-loader-2" class="animate-spin h-4 w-4" />
-          Testing connection...
+          {{ props.connectionTestResult?.message || 'Testing connection...' }}
         </div>
 
-        <div v-if="props.connectionTestResult">
+        <div v-if="props.connectionTestResult && !props.connectionTestResult.isLoading">
           <div v-if="props.connectionTestResult.success" class="bg-green-50 dark:bg-green-950 text-green-600 dark:text-green-400 rounded-md px-3 py-2 text-sm flex items-center gap-2">
             <UIcon name="i-lucide-check-circle" class="h-4 w-4" />
-            Connection test successful! Integration saved.
+            {{ props.connectionTestResult.message || 'Connection test successful! Integration saved.' }}
           </div>
           <div v-else class="bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 rounded-md px-3 py-2 text-sm flex items-center gap-2">
             <UIcon name="i-lucide-x-circle" class="h-4 w-4" />
-            Connection test failed. Check your API key and base URL.
+            {{ props.connectionTestResult.error || 'Connection test failed. Check your API key and base URL.' }}
           </div>
         </div>
 
@@ -437,11 +437,11 @@ function handleDelete() {
           </UButton>
           <UButton
             color="primary"
-            :loading="isSaving"
-            :disabled="isSaving"
+            :loading="isTestingConnection"
+            :disabled="isTestingConnection"
             @click="handleSave"
           >
-            {{ isSaving ? 'Saving...' : 'Save' }}
+            {{ isTestingConnection ? 'Saving...' : 'Save' }}
           </UButton>
         </div>
       </div>

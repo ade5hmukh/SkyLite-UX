@@ -42,9 +42,9 @@ watch(() => props.days, () => {
   <div class="border-gray-200 dark:border-gray-700 border-t ps-4 h-full w-full">
     <div v-show="!hasEvents" class="flex min-h-[70svh] flex-col items-center justify-center py-16 text-center">
       <UIcon name="i-lucide-calendar-off" class="size-8" />
-      <h3 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+      <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
         No events found
-      </h3>
+      </h2>
       <p class="text-gray-600 dark:text-gray-400">
         There are no events scheduled for this time period.
       </p>

@@ -6,6 +6,7 @@ import { consola } from "consola";
 import type { CreateShoppingListInput, CreateShoppingListItemInput, Integration, RawIntegrationItem, RawIntegrationList, ShoppingList, ShoppingListItem } from "~/types/database";
 import type { DialogField, ShoppingListWithIntegration } from "~/types/ui";
 
+import GlobalFloatingActionButton from "~/components/global/globalFloatingActionButton.vue";
 import GlobalList from "~/components/global/globalList.vue";
 import ShoppingListDialog from "~/components/shopping/shoppingListDialog.vue";
 import ShoppingListItemDialog from "~/components/shopping/shoppingListItemDialog.vue";
@@ -567,23 +568,23 @@ async function handleClearCompleted(listId: string) {
       const { data: cachedLists } = useNuxtData("native-shopping-lists");
       const previousLists = cachedLists.value ? [...cachedLists.value] : [];
 
-      if (cachedLists.value && Array.isArray(cachedLists.value)) {
-        const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === listId);
-        if (listIndex !== -1) {
-          const cachedList = cachedLists.value[listIndex];
-          if (cachedList.items) {
-            const completedItems = cachedList.items.filter((item: ShoppingListItem) => item.checked);
-            cachedList.items = cachedList.items.filter((item: ShoppingListItem) => !item.checked);
-            if (cachedList._count) {
-              cachedList._count.items = Math.max(0, (cachedList._count.items || 0) - completedItems.length);
-            }
-          }
-        }
-      }
-
       try {
         await clearIntegrationCompletedItems(list.integrationId, listId);
         consola.debug("Shopping List: Completed items cleared successfully");
+
+        if (cachedLists.value && Array.isArray(cachedLists.value)) {
+          const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === listId);
+          if (listIndex !== -1) {
+            const cachedList = cachedLists.value[listIndex];
+            if (cachedList.items) {
+              const completedItems = cachedList.items.filter((item: ShoppingListItem) => item.checked);
+              cachedList.items = cachedList.items.filter((item: ShoppingListItem) => !item.checked);
+              if (cachedList._count) {
+                cachedList._count.items = Math.max(0, (cachedList._count.items || 0) - completedItems.length);
+              }
+            }
+          }
+        }
       }
       catch (error) {
         if (cachedLists.value && previousLists.length > 0) {
@@ -596,23 +597,23 @@ async function handleClearCompleted(listId: string) {
       const { data: cachedLists } = useNuxtData("native-shopping-lists");
       const previousLists = cachedLists.value ? [...cachedLists.value] : [];
 
-      if (cachedLists.value && Array.isArray(cachedLists.value)) {
-        const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === listId);
-        if (listIndex !== -1) {
-          const cachedList = cachedLists.value[listIndex];
-          if (cachedList.items) {
-            const completedItems = cachedList.items.filter((item: ShoppingListItem) => item.checked);
-            cachedList.items = cachedList.items.filter((item: ShoppingListItem) => !item.checked);
-            if (cachedList._count) {
-              cachedList._count.items = Math.max(0, (cachedList._count.items || 0) - completedItems.length);
-            }
-          }
-        }
-      }
-
       try {
         await deleteCompletedItems(listId);
         consola.debug("Shopping List: Completed items cleared successfully");
+
+        if (cachedLists.value && Array.isArray(cachedLists.value)) {
+          const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === listId);
+          if (listIndex !== -1) {
+            const cachedList = cachedLists.value[listIndex];
+            if (cachedList.items) {
+              const completedItems = cachedList.items.filter((item: ShoppingListItem) => item.checked);
+              cachedList.items = cachedList.items.filter((item: ShoppingListItem) => !item.checked);
+              if (cachedList._count) {
+                cachedList._count.items = Math.max(0, (cachedList._count.items || 0) - completedItems.length);
+              }
+            }
+          }
+        }
       }
       catch (error) {
         if (cachedLists.value && previousLists.length > 0) {
@@ -782,14 +783,14 @@ function getFilteredFieldsForItem(item: ShoppingListItem, integrationType: strin
       />
     </div>
 
-    <UButton
-      class="fixed bottom-6 right-6 h-12 w-12 rounded-full shadow-lg"
+    <GlobalFloatingActionButton
+      icon="i-lucide-plus"
+      label="Create new shopping list"
       color="primary"
-      aria-label="Create new shopping list"
+      size="lg"
+      position="bottom-right"
       @click="openCreateList"
-    >
-      <UIcon name="i-lucide-plus" class="h-6 w-6" />
-    </UButton>
+    />
 
     <ShoppingListDialog
       :is-open="listDialog"
