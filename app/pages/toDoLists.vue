@@ -527,6 +527,7 @@ async function handleToggleTodo(itemId: string, completed: boolean) {
         show-edit-item
         show-completed
         show-progress
+        show-integration-icons
         @create="todoColumnDialog = true; editingColumn = null"
         @edit="openEditColumn($event as TodoListWithIntegration)"
         @add-item="openCreateTodo($event)"

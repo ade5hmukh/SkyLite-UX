@@ -9,7 +9,7 @@ export default defineNuxtConfig({
   runtimeConfig: {
     public: {
       // consola log level. See https://github.com/unjs/consola/blob/main/src/constants.ts
-      logLevel: "info", // Default log level, can be overridden by NUXT_LOG_LEVEL env var
+      logLevel: "info", // Default log level, can be overridden by NUXT_PUBLIC_LOG_LEVEL env var
     },
   },
 

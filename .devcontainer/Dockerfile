@@ -11,8 +11,5 @@ RUN echo $USERNAME ALL=\(root\) NOPASSWD:ALL > /etc/sudoers.d/$USERNAME \
 # Set `DEVCONTAINER` environment variable to help with orientation
 ENV DEVCONTAINER=true
 
-# consola log level. See https://github.com/unjs/consola/blob/main/src/constants.ts
-ENV NUXT_LOG_LEVEL=verbose
-
 # listen on all interfaces inside the container
 ENV HOST=0.0.0.0
