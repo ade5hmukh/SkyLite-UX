@@ -10,10 +10,11 @@ defineProps<{
     <div v-if="isLoading" class="appLoadingOverlay">
       <div class="loadingContent">
         <div class="loadingLogo">
-          <UIcon name="i-lucide-loader-2" class="animate-spin h-16 w-16 text-primary" />
-        </div>
-        <div class="loadingTitle">
-          SkyLite UX
+          <img
+            src="/skylite.svg"
+            alt="SkyLite Logo"
+            class="skyliteLogo animate-pulse"
+          >
         </div>
         <p class="loadingText">
           {{ loadingMessage }}
@@ -52,21 +53,20 @@ defineProps<{
   justify-content: center;
 }
 
-.loadingTitle {
-  font-size: 2rem;
-  font-weight: 700;
-  color: #06b6d4;
-  margin: 0;
+.skyliteLogo {
+  width: 16rem;
+  height: 16rem;
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
 }
 
-.dark .loadingTitle {
-  color: #22d3ee;
+.dark .skyliteLogo {
+  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
 }
 
 .loadingText {
   font-size: 1.125rem;
   color: #6b7280;
-  margin: 0;
+  margin: -4rem 0 0 -2rem;
 }
 
 .dark .loadingText {
@@ -81,5 +81,22 @@ defineProps<{
 .fade-enter-from,
 .fade-leave-to {
   opacity: 0;
+}
+
+/* Custom pulse animation for the logo */
+@keyframes logoPulse {
+  0%,
+  100% {
+    transform: scale(1);
+    opacity: 1;
+  }
+  50% {
+    transform: scale(1.05);
+    opacity: 0.8;
+  }
+}
+
+.animate-pulse {
+  animation: logoPulse 2s ease-in-out infinite;
 }
 </style>

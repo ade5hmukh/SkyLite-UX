@@ -6,7 +6,8 @@ import type { ConnectionTestResult } from "~/types/ui";
 
 import SettingsIntegrationDialog from "~/components/settings/settingsIntegrationDialog.vue";
 import SettingsUserDialog from "~/components/settings/settingsUserDialog.vue";
-import { integrationRegistry } from "~/types/integrations";
+import { integrationServices } from "~/plugins/02.appInit";
+import { createIntegrationService, integrationRegistry } from "~/types/integrations";
 
 const { users, loading, error, createUser, deleteUser, updateUser } = useUsers();
 const { integrations, loading: integrationsLoading, servicesInitializing, createIntegration, updateIntegration, deleteIntegration } = useIntegrations();
@@ -286,6 +287,29 @@ async function handleToggleIntegration(integrationId: string, enabled: boolean) 
       }
     }
 
+    if (enabled) {
+      try {
+        const service = await createIntegrationService(integration);
+        if (service) {
+          integrationServices.set(integrationId, service);
+          service.initialize().catch((error) => {
+            consola.warn(`Background service initialization failed for ${integration.name}:`, error);
+          });
+        }
+      }
+      catch (serviceError) {
+        consola.warn(`Failed to create integration service for ${integration.name}:`, serviceError);
+      }
+    }
+    else {
+      try {
+        integrationServices.delete(integrationId);
+      }
+      catch (serviceError) {
+        consola.warn(`Failed to remove integration service for ${integration.name}:`, serviceError);
+      }
+    }
+
     try {
       if (enabled) {
         await updateIntegration(integrationId, { enabled });
@@ -305,11 +329,6 @@ async function handleToggleIntegration(integrationId: string, enabled: boolean) 
         consola.debug(`Settings: Purged cache for disabled ${integration.type} integration ${integrationId}`);
       }
 
-      await refreshNuxtData("integrations");
-
-      const { refreshIntegrations } = useIntegrations();
-      await refreshIntegrations();
-
       consola.debug(`Settings: Integration ${enabled ? "enabled" : "disabled"} successfully`);
     }
     catch (error) {
@@ -317,6 +336,29 @@ async function handleToggleIntegration(integrationId: string, enabled: boolean) 
 
       if (cachedIntegrations.value && previousIntegrations.length > 0) {
         cachedIntegrations.value.splice(0, cachedIntegrations.value.length, ...previousIntegrations);
+      }
+
+      if (enabled) {
+        try {
+          integrationServices.delete(integrationId);
+        }
+        catch (rollbackError) {
+          consola.warn(`Failed to rollback service creation for ${integration.name}:`, rollbackError);
+        }
+      }
+      else {
+        try {
+          const service = await createIntegrationService(integration);
+          if (service) {
+            integrationServices.set(integrationId, service);
+            service.initialize().catch((error) => {
+              consola.warn(`Background service initialization failed for ${integration.name}:`, error);
+            });
+          }
+        }
+        catch (rollbackError) {
+          consola.warn(`Failed to rollback service removal for ${integration.name}:`, rollbackError);
+        }
       }
 
       throw error;
@@ -631,7 +673,7 @@ function getIntegrationIconUrl(integration: Integration) {
       :active-type="activeIntegrationTab"
       :existing-integrations="integrations as Integration[]"
       :connection-test-result="connectionTestResult"
-      @close="isIntegrationDialogOpen = false"
+      @close="() => { isIntegrationDialogOpen = false; selectedIntegration = null; }"
       @save="handleIntegrationSave"
       @delete="handleIntegrationDelete"
     />
