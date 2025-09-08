@@ -80,6 +80,14 @@ const isAllDay = computed(() => {
   return startHours === 0 && startMinutes === 0 && endHours === 0 && endMinutes === 0;
 });
 
+const isSameDateTime = computed(() => {
+  if (isAllDay.value) {
+    return false;
+  }
+
+  return displayStart.value.getTime() === displayEnd.value.getTime();
+});
+
 function isPast(date: Date) {
   return date < getStableDate();
 }
@@ -147,12 +155,15 @@ function handleKeydown(e: KeyboardEvent) {
               hour="numeric"
               minute="2-digit"
               :hour12="true"
-            /> - <NuxtTime
-              :datetime="displayEnd"
-              hour="numeric"
-              minute="2-digit"
-              :hour12="true"
             />
+            <template v-if="!isSameDateTime">
+              - <NuxtTime
+                :datetime="displayEnd"
+                hour="numeric"
+                minute="2-digit"
+                :hour12="true"
+              />
+            </template>
           </template>
         </div>
         <div class="flex-shrink-0 h-5 flex items-center">
@@ -196,12 +207,15 @@ function handleKeydown(e: KeyboardEvent) {
                   hour="numeric"
                   minute="2-digit"
                   :hour12="true"
-                /> - <NuxtTime
-                  :datetime="displayEnd"
-                  hour="numeric"
-                  minute="2-digit"
-                  :hour12="true"
                 />
+                <template v-if="!isSameDateTime">
+                  - <NuxtTime
+                    :datetime="displayEnd"
+                    hour="numeric"
+                    minute="2-digit"
+                    :hour12="true"
+                  />
+                </template>
               </span>
             </template>
             <template v-if="event.location">
@@ -253,12 +267,15 @@ function handleKeydown(e: KeyboardEvent) {
                   hour="numeric"
                   minute="2-digit"
                   :hour12="true"
-                /> - <NuxtTime
-                  :datetime="displayEnd"
-                  hour="numeric"
-                  minute="2-digit"
-                  :hour12="true"
                 />
+                <template v-if="!isSameDateTime">
+                  - <NuxtTime
+                    :datetime="displayEnd"
+                    hour="numeric"
+                    minute="2-digit"
+                    :hour12="true"
+                  />
+                </template>
               </span>
             </template>
             <template v-if="event.location">

@@ -4,7 +4,7 @@ export default defineEventHandler(async (event) => {
   try {
     const id = getRouterParam(event, "id");
     const body = await readBody(event);
-    const { title, description, start, end, allDay, color, label, location, users } = body;
+    const { title, description, start, end, allDay, color, label, location, rrule, users } = body;
 
     if (!id) {
       throw createError({
@@ -27,6 +27,7 @@ export default defineEventHandler(async (event) => {
         color: color || null,
         label,
         location,
+        rrule: rrule || null,
         users: {
           deleteMany: {},
           create: users?.map((user: { id: string }) => ({
@@ -60,6 +61,7 @@ export default defineEventHandler(async (event) => {
       color: calendarEvent.color as string | string[] | undefined,
       label: calendarEvent.label,
       location: calendarEvent.location,
+      rrule: calendarEvent.rrule,
       users: calendarEvent.users.map(ce => ce.user),
     };
   }

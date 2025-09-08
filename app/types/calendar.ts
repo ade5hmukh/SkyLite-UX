@@ -11,6 +11,7 @@ export type CalendarEvent = {
   label?: string;
   location?: string;
   integrationId?: string;
+  rrule?: string;
   users?: Array<{
     id: string;
     name: string;

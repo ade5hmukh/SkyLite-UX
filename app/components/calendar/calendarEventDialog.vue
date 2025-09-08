@@ -27,7 +27,7 @@ const emit = defineEmits<{
 
 const { users, fetchUsers } = useUsers();
 
-const { getEventStartTimeForInput, getEventEndTimeForInput, getEventEndDateForInput, convertLocalToUTC } = useCalendar();
+const { getEventStartTimeForInput, getEventEndTimeForInput, convertLocalToUTC, getLocalTimeFromUTC } = useCalendar();
 
 const StartHour = 0;
 const EndHour = 23;
@@ -43,6 +43,18 @@ const allDay = ref(false);
 const location = ref("");
 const selectedUsers = ref<string[]>([]);
 const error = ref<string | null>(null);
+
+const isRecurring = ref(false);
+const recurrenceType = ref<"daily" | "weekly" | "monthly" | "yearly">("weekly");
+const recurrenceInterval = ref(1);
+const recurrenceEndType = ref<"never" | "count" | "until">("never");
+const recurrenceCount = ref(10);
+const recurrenceUntil = ref<DateValue>(new CalendarDate(2025, 12, 31));
+const recurrenceDays = ref<number[]>([]);
+const recurrenceMonthlyType = ref<"day" | "weekday">("day");
+const recurrenceMonthlyWeekday = ref<{ week: number; day: number }>({ week: 1, day: 1 });
+const recurrenceYearlyType = ref<"day" | "weekday">("day");
+const recurrenceYearlyWeekday = ref<{ week: number; day: number; month: number }>({ week: 1, day: 1, month: 0 });
 
 const hourOptions = computed(() => {
   const options = [];
@@ -64,6 +76,62 @@ const minuteOptions = computed(() => {
 const amPmOptions = [
   { value: "AM", label: "AM" },
   { value: "PM", label: "PM" },
+];
+
+const recurrenceTypeOptions = [
+  { value: "daily", label: "Daily" },
+  { value: "weekly", label: "Weekly" },
+  { value: "monthly", label: "Monthly" },
+  { value: "yearly", label: "Yearly" },
+];
+
+const recurrenceEndTypeOptions = [
+  { value: "never", label: "Never" },
+  { value: "count", label: "After" },
+  { value: "until", label: "Until" },
+];
+
+const dayOptions = [
+  { value: 0, label: "Sun" },
+  { value: 1, label: "Mon" },
+  { value: 2, label: "Tue" },
+  { value: 3, label: "Wed" },
+  { value: 4, label: "Thu" },
+  { value: 5, label: "Fri" },
+  { value: 6, label: "Sat" },
+];
+
+const monthlyTypeOptions = [
+  { value: "day", label: "On day" },
+  { value: "weekday", label: "On weekday" },
+];
+
+const yearlyTypeOptions = [
+  { value: "day", label: "On day" },
+  { value: "weekday", label: "On weekday" },
+];
+
+const weekOptions = [
+  { value: 1, label: "First" },
+  { value: 2, label: "Second" },
+  { value: 3, label: "Third" },
+  { value: 4, label: "Fourth" },
+  { value: -1, label: "Last" },
+];
+
+const monthOptions = [
+  { value: 0, label: "January" },
+  { value: 1, label: "February" },
+  { value: 2, label: "March" },
+  { value: 3, label: "April" },
+  { value: 4, label: "May" },
+  { value: 5, label: "June" },
+  { value: 6, label: "July" },
+  { value: 7, label: "August" },
+  { value: 8, label: "September" },
+  { value: 9, label: "October" },
+  { value: 10, label: "November" },
+  { value: 11, label: "December" },
 ];
 
 const startHour = ref(DefaultStartHour);
@@ -193,8 +261,25 @@ watch(() => props.event, (newEvent) => {
     title.value = newEvent.title || "";
     description.value = newEvent.description || "";
     const start = newEvent.start instanceof Date ? newEvent.start : new Date(newEvent.start);
-    startDate.value = parseDate(start.toISOString().split("T")[0]!);
-    endDate.value = parseDate(getEventEndDateForInput(newEvent));
+
+    let startLocal, endLocal;
+
+    if (newEvent.allDay) {
+      startLocal = new Date(start.getUTCFullYear(), start.getUTCMonth(), start.getUTCDate());
+      const endDate = newEvent.end instanceof Date ? newEvent.end : new Date(newEvent.end);
+      endLocal = new Date(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate() - 1);
+    }
+    else {
+      startLocal = getLocalTimeFromUTC(start);
+      endLocal = getLocalTimeFromUTC(newEvent.end instanceof Date ? newEvent.end : new Date(newEvent.end));
+    }
+
+    const startDateStr = startLocal.toLocaleDateString("en-CA");
+    const endDateStr = endLocal.toLocaleDateString("en-CA");
+
+    startDate.value = parseDate(startDateStr);
+    endDate.value = parseDate(endDateStr);
+
     const startTimeStr = getEventStartTimeForInput(newEvent);
     const endTimeStr = getEventEndTimeForInput(newEvent);
 
@@ -218,6 +303,23 @@ watch(() => props.event, (newEvent) => {
     location.value = newEvent.location || "";
     selectedUsers.value = newEvent.users?.map(user => user.id) || [];
     error.value = null;
+
+    if ("rrule" in newEvent && (newEvent as any).rrule) {
+      parseRRULEObject((newEvent as any).rrule);
+    }
+    else {
+      isRecurring.value = false;
+      recurrenceType.value = "weekly";
+      recurrenceInterval.value = 1;
+      recurrenceEndType.value = "never";
+      recurrenceCount.value = 10;
+      recurrenceUntil.value = new CalendarDate(2025, 12, 31);
+      recurrenceDays.value = [];
+      recurrenceMonthlyType.value = "day";
+      recurrenceMonthlyWeekday.value = { week: 1, day: 1 };
+      recurrenceYearlyType.value = "day";
+      recurrenceYearlyWeekday.value = { week: 1, day: 1, month: 0 };
+    }
   }
   else {
     resetForm();
@@ -292,6 +394,18 @@ function resetForm() {
   location.value = "";
   selectedUsers.value = [];
   error.value = null;
+
+  isRecurring.value = false;
+  recurrenceType.value = "weekly";
+  recurrenceInterval.value = 1;
+  recurrenceEndType.value = "never";
+  recurrenceCount.value = 10;
+  recurrenceUntil.value = new CalendarDate(2025, 12, 31);
+  recurrenceDays.value = [];
+  recurrenceMonthlyType.value = "day";
+  recurrenceMonthlyWeekday.value = { week: 1, day: 1 };
+  recurrenceYearlyType.value = "day";
+  recurrenceYearlyWeekday.value = { week: 1, day: 1, month: 0 };
 }
 
 function updateEndTime() {
@@ -366,6 +480,165 @@ function isEndTimeBeforeStartTime(): boolean {
   return isStartTimeAfterEndTime();
 }
 
+function toggleRecurrenceDay(day: number) {
+  if (isReadOnly.value)
+    return;
+
+  const index = recurrenceDays.value.indexOf(day);
+  if (index > -1) {
+    recurrenceDays.value.splice(index, 1);
+  }
+  else {
+    recurrenceDays.value.push(day);
+  }
+}
+
+function parseRRULEObject(rruleObj: any): void {
+  if (!rruleObj) {
+    isRecurring.value = false;
+    return;
+  }
+
+  isRecurring.value = true;
+
+  if (rruleObj.freq) {
+    const freq = rruleObj.freq.toLowerCase();
+    if (["daily", "weekly", "monthly", "yearly"].includes(freq)) {
+      recurrenceType.value = freq as "daily" | "weekly" | "monthly" | "yearly";
+    }
+  }
+
+  if (rruleObj.interval) {
+    recurrenceInterval.value = Number.parseInt(rruleObj.interval, 10);
+  }
+  else {
+    recurrenceInterval.value = 1;
+  }
+
+  if (rruleObj.byday && recurrenceType.value === "weekly") {
+    const dayNames = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+    const days = Array.isArray(rruleObj.byday) ? rruleObj.byday : [rruleObj.byday];
+    recurrenceDays.value = days.map((day: string) => dayNames.indexOf(day)).filter((day: number) => day !== -1);
+  }
+  else {
+    recurrenceDays.value = [];
+  }
+
+  if (rruleObj.byday && recurrenceType.value === "monthly") {
+    const bydayStr = Array.isArray(rruleObj.byday) ? rruleObj.byday[0] : rruleObj.byday;
+    if (bydayStr && bydayStr.length > 2) {
+      const weekMatch = bydayStr.match(/^(-?\d+)([A-Z]{2})$/);
+      if (weekMatch) {
+        const week = Number.parseInt(weekMatch[1], 10);
+        const dayCode = weekMatch[2];
+        const dayNames = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+        const dayIndex = dayNames.indexOf(dayCode);
+
+        if (dayIndex !== -1) {
+          recurrenceMonthlyType.value = "weekday";
+          recurrenceMonthlyWeekday.value = { week, day: dayIndex };
+        }
+      }
+    }
+    else {
+      recurrenceMonthlyType.value = "day";
+    }
+  }
+  else if (recurrenceType.value === "monthly") {
+    recurrenceMonthlyType.value = "day";
+  }
+
+  if (rruleObj.byday && recurrenceType.value === "yearly") {
+    const bydayStr = Array.isArray(rruleObj.byday) ? rruleObj.byday[0] : rruleObj.byday;
+    if (bydayStr && bydayStr.length > 2) {
+      const weekMatch = bydayStr.match(/^(-?\d+)([A-Z]{2})$/);
+      if (weekMatch) {
+        const week = Number.parseInt(weekMatch[1], 10);
+        const dayCode = weekMatch[2];
+        const dayNames = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+        const dayIndex = dayNames.indexOf(dayCode);
+
+        if (dayIndex !== -1) {
+          recurrenceYearlyType.value = "weekday";
+          const eventStart = props.event?.start instanceof Date ? props.event.start : new Date(props.event?.start || new Date());
+          const month = eventStart.getMonth();
+          recurrenceYearlyWeekday.value = { week, day: dayIndex, month };
+        }
+      }
+    }
+    else {
+      recurrenceYearlyType.value = "day";
+    }
+  }
+  else if (recurrenceType.value === "yearly") {
+    recurrenceYearlyType.value = "day";
+  }
+
+  if (rruleObj.count) {
+    recurrenceEndType.value = "count";
+    recurrenceCount.value = Number.parseInt(rruleObj.count, 10);
+  }
+  else if (rruleObj.until) {
+    recurrenceEndType.value = "until";
+    const untilString = rruleObj.until;
+    if (untilString && untilString.length >= 8) {
+      const year = Number.parseInt(untilString.substring(0, 4), 10);
+      const month = Number.parseInt(untilString.substring(4, 6), 10);
+      const day = Number.parseInt(untilString.substring(6, 8), 10);
+      recurrenceUntil.value = new CalendarDate(year, month, day);
+    }
+  }
+  else {
+    recurrenceEndType.value = "never";
+  }
+}
+
+function generateRRULE(): string {
+  if (!isRecurring.value)
+    return "";
+
+  let rrule = `FREQ=${recurrenceType.value.toUpperCase()}`;
+
+  if (recurrenceInterval.value > 1) {
+    rrule += `;INTERVAL=${recurrenceInterval.value}`;
+  }
+
+  if (recurrenceType.value === "weekly" && recurrenceDays.value.length > 0) {
+    const dayNames = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+    const byDay = recurrenceDays.value.map(day => dayNames[day]).join(",");
+    rrule += `;BYDAY=${byDay}`;
+  }
+
+  if (recurrenceType.value === "monthly" && recurrenceMonthlyType.value === "weekday") {
+    const dayNames = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+    const week = recurrenceMonthlyWeekday.value.week;
+    const day = recurrenceMonthlyWeekday.value.day;
+    const byDay = `${week}${dayNames[day]}`;
+    rrule += `;BYDAY=${byDay}`;
+  }
+
+  if (recurrenceType.value === "yearly" && recurrenceYearlyType.value === "weekday") {
+    const dayNames = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
+    const week = recurrenceYearlyWeekday.value.week;
+    const day = recurrenceYearlyWeekday.value.day;
+    const month = recurrenceYearlyWeekday.value.month;
+    const byDay = `${week}${dayNames[day]}`;
+    const byMonth = month + 1;
+    rrule += `;BYDAY=${byDay};BYMONTH=${byMonth}`;
+  }
+
+  if (recurrenceEndType.value === "count") {
+    rrule += `;COUNT=${recurrenceCount.value}`;
+  }
+  else if (recurrenceEndType.value === "until") {
+    const untilDate = recurrenceUntil.value.toDate(getLocalTimeZone());
+    const untilString = `${untilDate.toISOString().replace(/[-:]/g, "").split(".")[0]}Z`;
+    rrule += `;UNTIL=${untilString}`;
+  }
+
+  return rrule;
+}
+
 function handleSave() {
   if (!canAdd.value && !props.event) {
     error.value = "This integration does not support creating new events";
@@ -414,8 +687,8 @@ function handleSave() {
         const startUTC = startLocalICal.convertToZone(ical.TimezoneService.get("UTC"));
         const endUTC = endLocalICal.convertToZone(ical.TimezoneService.get("UTC"));
 
-        start = startUTC.toJSDate();
-        end = endUTC.toJSDate();
+        start = new Date(startUTC.year, startUTC.month - 1, startUTC.day, startUTC.hour, startUTC.minute, startUTC.second);
+        end = new Date(endUTC.year, endUTC.month - 1, endUTC.day, endUTC.hour, endUTC.minute, endUTC.second);
       }
       else {
         start = new Date(Date.UTC(startLocal.getFullYear(), startLocal.getMonth(), startLocal.getDate()));
@@ -455,8 +728,8 @@ function handleSave() {
         const startUTC = startLocalICal.convertToZone(ical.TimezoneService.get("UTC"));
         const endUTC = endLocalICal.convertToZone(ical.TimezoneService.get("UTC"));
 
-        start = startUTC.toJSDate();
-        end = endUTC.toJSDate();
+        start = new Date(startUTC.year, startUTC.month - 1, startUTC.day, startUTC.hour, startUTC.minute, startUTC.second);
+        end = new Date(endUTC.year, endUTC.month - 1, endUTC.day, endUTC.hour, endUTC.minute, endUTC.second);
       }
       else {
         start = convertLocalToUTC(startLocal);
@@ -490,6 +763,7 @@ function handleSave() {
       location: location.value,
       color: props.event?.color || "sky",
       users: selectedUserObjects,
+      ...(isRecurring.value && { rrule: generateRRULE() }),
     };
 
     emit("save", eventData);
@@ -697,6 +971,191 @@ function handleDelete() {
             :disabled="isReadOnly"
             @change="handleAllDayToggle"
           />
+        </div>
+        <div class="flex items-center gap-2">
+          <UCheckbox
+            v-model="isRecurring"
+            label="Repeat"
+            :disabled="isReadOnly"
+          />
+        </div>
+        <div v-if="isRecurring" class="space-y-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+          <div class="flex gap-4">
+            <div class="w-1/2 space-y-2">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Repeat</label>
+              <USelect
+                v-model="recurrenceType"
+                :items="recurrenceTypeOptions"
+                option-attribute="label"
+                value-attribute="value"
+                class="w-full"
+                :ui="{ base: 'w-full' }"
+                :disabled="isReadOnly"
+              />
+            </div>
+            <div class="w-1/2 space-y-2">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Every</label>
+              <UInput
+                v-model.number="recurrenceInterval"
+                type="number"
+                min="1"
+                max="99"
+                class="w-full"
+                :ui="{ base: 'w-full' }"
+                :disabled="isReadOnly"
+              />
+            </div>
+          </div>
+          <div v-if="recurrenceType === 'weekly'" class="space-y-2">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Repeat on</label>
+            <div class="flex gap-1">
+              <UButton
+                v-for="day in dayOptions"
+                :key="day.value"
+                :variant="recurrenceDays.includes(day.value) ? 'solid' : 'outline'"
+                size="sm"
+                class="flex-1"
+                :disabled="isReadOnly"
+                @click="toggleRecurrenceDay(day.value)"
+              >
+                {{ day.label }}
+              </UButton>
+            </div>
+          </div>
+          <div v-if="recurrenceType === 'monthly'" class="space-y-4">
+            <div class="space-y-2">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Repeat on</label>
+              <USelect
+                v-model="recurrenceMonthlyType"
+                :items="monthlyTypeOptions"
+                option-attribute="label"
+                value-attribute="value"
+                class="w-full"
+                :ui="{ base: 'w-full' }"
+                :disabled="isReadOnly"
+              />
+            </div>
+            <div v-if="recurrenceMonthlyType === 'weekday'" class="space-y-2">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Weekday</label>
+              <div class="flex gap-2">
+                <USelect
+                  v-model="recurrenceMonthlyWeekday.week"
+                  :items="weekOptions"
+                  option-attribute="label"
+                  value-attribute="value"
+                  class="flex-1"
+                  :ui="{ base: 'flex-1' }"
+                  :disabled="isReadOnly"
+                />
+                <USelect
+                  v-model="recurrenceMonthlyWeekday.day"
+                  :items="dayOptions"
+                  option-attribute="label"
+                  value-attribute="value"
+                  class="flex-1"
+                  :ui="{ base: 'flex-1' }"
+                  :disabled="isReadOnly"
+                />
+              </div>
+            </div>
+          </div>
+          <div v-if="recurrenceType === 'yearly'" class="space-y-4">
+            <div class="space-y-2">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Repeat on</label>
+              <USelect
+                v-model="recurrenceYearlyType"
+                :items="yearlyTypeOptions"
+                option-attribute="label"
+                value-attribute="value"
+                class="w-full"
+                :ui="{ base: 'w-full' }"
+                :disabled="isReadOnly"
+              />
+            </div>
+            <div v-if="recurrenceYearlyType === 'weekday'" class="space-y-2">
+              <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Weekday</label>
+              <div class="flex gap-2">
+                <USelect
+                  v-model="recurrenceYearlyWeekday.week"
+                  :items="weekOptions"
+                  option-attribute="label"
+                  value-attribute="value"
+                  class="flex-1"
+                  :ui="{ base: 'flex-1' }"
+                  :disabled="isReadOnly"
+                />
+                <USelect
+                  v-model="recurrenceYearlyWeekday.day"
+                  :items="dayOptions"
+                  option-attribute="label"
+                  value-attribute="value"
+                  class="flex-1"
+                  :ui="{ base: 'flex-1' }"
+                  :disabled="isReadOnly"
+                />
+                <USelect
+                  v-model="recurrenceYearlyWeekday.month"
+                  :items="monthOptions"
+                  option-attribute="label"
+                  value-attribute="value"
+                  class="flex-1"
+                  :ui="{ base: 'flex-1' }"
+                  :disabled="isReadOnly"
+                />
+              </div>
+            </div>
+          </div>
+          <div class="space-y-2">
+            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Ends</label>
+            <div class="flex gap-4">
+              <USelect
+                v-model="recurrenceEndType"
+                :items="recurrenceEndTypeOptions"
+                option-attribute="label"
+                value-attribute="value"
+                class="flex-1"
+                :ui="{ base: 'flex-1' }"
+                :disabled="isReadOnly"
+              />
+              <UInput
+                v-if="recurrenceEndType === 'count'"
+                v-model.number="recurrenceCount"
+                type="number"
+                min="1"
+                max="999"
+                placeholder="10"
+                class="w-20"
+                :ui="{ base: 'w-20' }"
+                :disabled="isReadOnly"
+              />
+              <UPopover v-if="recurrenceEndType === 'until'">
+                <UButton
+                  color="neutral"
+                  variant="subtle"
+                  icon="i-lucide-calendar"
+                  class="flex-1 justify-between"
+                  :disabled="isReadOnly"
+                >
+                  <NuxtTime
+                    v-if="recurrenceUntil"
+                    :datetime="recurrenceUntil.toDate(getLocalTimeZone())"
+                    year="numeric"
+                    month="short"
+                    day="numeric"
+                  />
+                  <span v-else>Select date</span>
+                </UButton>
+                <template #content>
+                  <UCalendar
+                    :model-value="recurrenceUntil as DateValue"
+                    class="p-2"
+                    :disabled="isReadOnly"
+                    @update:model-value="(value) => { if (value) recurrenceUntil = value as DateValue }"
+                  />
+                </template>
+              </UPopover>
+            </div>
+          </div>
         </div>
         <div class="space-y-2">
           <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Location</label>

@@ -40,6 +40,7 @@ async function handleEventAdd(event: CalendarEvent) {
           color: eventColor,
           label: event.label,
           location: event.location,
+          rrule: event.rrule,
           users: event.users,
         });
 
@@ -93,6 +94,7 @@ async function handleEventUpdate(event: CalendarEvent) {
           color: eventColor,
           label: event.label,
           location: event.location,
+          rrule: event.rrule,
           users: event.users,
         });
 

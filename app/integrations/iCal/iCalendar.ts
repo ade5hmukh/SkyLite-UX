@@ -114,17 +114,11 @@ export class ICalService implements CalendarIntegrationService {
 
     return result.events.map((event) => {
       const start = event.allDay
-        ? (() => {
-            const startDate = new Date(event.start);
-            return new Date(Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth(), startDate.getUTCDate(), 0, 0, 0, 0));
-          })()
+        ? new Date(event.start)
         : new Date(event.start);
 
       const end = event.allDay
-        ? (() => {
-            const endDate = new Date(event.end);
-            return new Date(Date.UTC(endDate.getUTCFullYear(), endDate.getUTCMonth(), endDate.getUTCDate(), 23, 59, 59, 999));
-          })()
+        ? new Date(event.end)
         : new Date(event.end);
 
       let color: string | string[] | undefined = this.eventColor || "sky";
@@ -152,6 +146,7 @@ export class ICalService implements CalendarIntegrationService {
         label: event.label,
         location: event.location,
         integrationId: this.integrationId,
+        rrule: event.rrule,
         users: this.useUserColors ? users : undefined,
       };
     });

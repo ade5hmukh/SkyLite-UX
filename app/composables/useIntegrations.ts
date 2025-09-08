@@ -67,6 +67,10 @@ export function useIntegrations() {
             body: response,
           });
           consola.debug("Use Integrations: Integration registered with sync manager:", response.name);
+
+          const { triggerImmediateSync } = useSyncManager();
+          await triggerImmediateSync(response.type, response.id);
+          consola.debug("Use Integrations: Immediate sync triggered for new integration:", response.name);
         }
         catch (syncError) {
           consola.warn("Use Integrations: Failed to register integration with sync manager:", syncError);

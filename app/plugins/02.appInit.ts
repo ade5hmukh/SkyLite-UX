@@ -14,41 +14,40 @@ export const integrationServices = new Map<string, IntegrationService>();
 export default defineNuxtPlugin(async () => {
   consola.start("AppInit: Starting up...");
 
-  if (import.meta.client) {
-    try {
-      const browserTimezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+  const config = useRuntimeConfig();
+  const browserTimezone = config.public.tz;
 
-      const apiUrl = `https://tz.add-to-calendar-technology.com/api/${encodeURIComponent(browserTimezone)}.ics`;
-      const { data: vtimezoneBlock, error } = await useFetch(apiUrl, {
-        key: `timezone-${browserTimezone}`,
-        server: false,
-        default: () => null,
-      });
+  try {
+    const apiUrl = `https://tz.add-to-calendar-technology.com/api/${encodeURIComponent(browserTimezone)}.ics`;
+    const { data: vtimezoneBlock, error } = await useFetch(apiUrl, {
+      key: `timezone-${browserTimezone}`,
+      server: true,
+      default: () => null,
+    });
 
-      if (error.value) {
-        throw new Error(`Failed to fetch timezone data: ${error.value.statusCode || "Unknown error"}`);
-      }
-
-      if (!vtimezoneBlock.value) {
-        throw new Error("No timezone data received");
-      }
-
-      const timezoneComponent = new ical.Component(vtimezoneBlock.value as string);
-      const timezone = new ical.Timezone({
-        tzid: browserTimezone,
-        component: timezoneComponent,
-      });
-
-      ical.TimezoneService.register(timezone);
-      consola.debug("AppInit: Successfully registered timezone:", browserTimezone);
-
-      setTimezoneRegistered(true);
-      setBrowserTimezone(browserTimezone);
+    if (error.value) {
+      throw new Error(`Failed to fetch timezone data: ${error.value.statusCode || "Unknown error"}`);
     }
-    catch (error) {
-      consola.warn("AppInit: Failed to register timezone, calendar will use fallback:", error);
-      setTimezoneRegistered(false);
+
+    if (!vtimezoneBlock.value) {
+      throw new Error("No timezone data received");
     }
+
+    const timezoneComponent = new ical.Component(ical.parse(vtimezoneBlock.value as string));
+    const timezone = new ical.Timezone({
+      tzid: browserTimezone,
+      component: timezoneComponent,
+    });
+
+    ical.TimezoneService.register(timezone);
+    consola.debug("AppInit: Successfully registered timezone:", browserTimezone, "on", import.meta.server ? "server" : "client");
+
+    setTimezoneRegistered(true);
+    setBrowserTimezone(browserTimezone);
+  }
+  catch (error) {
+    consola.warn("AppInit: Failed to register timezone, calendar will use fallback:", error);
+    setTimezoneRegistered(false);
   }
 
   integrationConfigs.forEach((config) => {

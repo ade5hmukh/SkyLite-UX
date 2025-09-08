@@ -32,6 +32,7 @@ export default defineEventHandler(async (_event) => {
       color: event.color as string | string[] | undefined,
       label: event.label,
       location: event.location,
+      rrule: event.rrule,
       users: event.users.map(ce => ce.user),
     }));
   }

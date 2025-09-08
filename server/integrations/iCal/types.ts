@@ -18,6 +18,7 @@ export type ICalEvent = {
   location?: string;
   attendees?: ICalAttendee[];
   allDay?: boolean;
+  rrule?: string;
 };
 
 export type ICalAttendee = {
@@ -42,4 +43,5 @@ export type ICalEventResponse = {
   location?: string;
   allDay?: boolean;
   label?: string;
+  rrule?: string;
 };

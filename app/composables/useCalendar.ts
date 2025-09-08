@@ -23,10 +23,6 @@ export function useCalendar() {
   const { getStableDate, parseStableDate } = useStableDate();
 
   function getSafeTimezone(): string {
-    if (import.meta.server) {
-      return "UTC";
-    }
-
     if (isTimezoneRegistered()) {
       const registeredTimezone = getBrowserTimezone();
       if (registeredTimezone) {
@@ -57,7 +53,11 @@ export function useCalendar() {
     return ical.Time.fromJSDate(date, isUTC);
   }
 
-  function isSameLocalDay(a: Date, b: Date): boolean {
+  function isSameLocalDay(a: Date, b: Date, isAllDay: boolean = false): boolean {
+    if (isAllDay) {
+      return isSameUtcDay(a, b);
+    }
+
     try {
       const browserTimezone = getSafeTimezone();
       const timezone = ical.TimezoneService.get(browserTimezone);
@@ -82,7 +82,11 @@ export function useCalendar() {
     }
   }
 
-  function isLocalDayInRange(day: Date, start: Date, end: Date): boolean {
+  function isLocalDayInRange(day: Date, start: Date, end: Date, isAllDay: boolean = false): boolean {
+    if (isAllDay) {
+      return day.getTime() >= start.getTime() && day.getTime() < end.getTime();
+    }
+
     try {
       const browserTimezone = getSafeTimezone();
       const timezone = ical.TimezoneService.get(browserTimezone);
@@ -122,7 +126,7 @@ export function useCalendar() {
     const start = getLocalTimeFromUTC(startDate);
 
     for (let i = 0; i < 8; i++) {
-      const day = new Date(start.getTime());
+      const day = parseStableDate(new Date(start.getTime()));
       day.setDate(start.getDate() + i);
       days.push(day);
     }
@@ -135,11 +139,11 @@ export function useCalendar() {
     const firstDayOfMonth = new Date(localDate.getFullYear(), localDate.getMonth(), 1);
     const lastDayOfMonth = new Date(localDate.getFullYear(), localDate.getMonth() + 1, 0);
 
-    const startDate = new Date(firstDayOfMonth.getTime());
+    const startDate = parseStableDate(new Date(firstDayOfMonth.getTime()));
     const dayOfWeek = startDate.getDay();
     startDate.setDate(startDate.getDate() - dayOfWeek);
 
-    const endDate = new Date(lastDayOfMonth.getTime());
+    const endDate = parseStableDate(new Date(lastDayOfMonth.getTime()));
     const endDayOfWeek = endDate.getDay();
     endDate.setDate(endDate.getDate() + (6 - endDayOfWeek));
 
@@ -149,7 +153,7 @@ export function useCalendar() {
     for (let dayIndex = 0; dayIndex < totalDays; dayIndex += 7) {
       const week: Date[] = [];
       for (let i = 0; i < 7; i++) {
-        const dayDate = new Date(startDate.getTime());
+        const dayDate = parseStableDate(new Date(startDate.getTime()));
         dayDate.setDate(startDate.getDate() + dayIndex + i);
         week.push(dayDate);
       }
@@ -164,13 +168,13 @@ export function useCalendar() {
     const localDate = getLocalTimeFromUTC(date);
 
     for (let i = -15; i < 0; i++) {
-      const day = new Date(localDate.getTime());
+      const day = parseStableDate(new Date(localDate.getTime()));
       day.setDate(localDate.getDate() + i);
       days.push(day);
     }
 
     for (let i = 0; i < 15; i++) {
-      const day = new Date(localDate.getTime());
+      const day = parseStableDate(new Date(localDate.getTime()));
       day.setDate(localDate.getDate() + i);
       days.push(day);
     }
@@ -181,13 +185,16 @@ export function useCalendar() {
   function getLocalTimeFromUTC(utcDate: Date): Date {
     try {
       const browserTimezone = getSafeTimezone();
-
       const timezone = ical.TimezoneService.get(browserTimezone);
+
       if (timezone) {
         const utcTime = createICalTime(utcDate, true);
 
         const localTime = utcTime.convertToZone(timezone);
-        return localTime.toJSDate();
+
+        const result = new Date(localTime.year, localTime.month - 1, localTime.day, localTime.hour, localTime.minute, localTime.second);
+
+        return result;
       }
 
       return new Date(utcDate.getTime());
@@ -293,7 +300,10 @@ export function useCalendar() {
       endDay.setHours(0, 0, 0, 0);
 
       if (startDay.getTime() === endDay.getTime()) {
-        return start.toISOString().split("T")[0]!;
+        const year = startLocal.getFullYear();
+        const month = (startLocal.getMonth() + 1).toString().padStart(2, "0");
+        const day = startLocal.getDate().toString().padStart(2, "0");
+        return `${year}-${month}-${day}`;
       }
       else {
         const year = endLocal.getFullYear();
@@ -338,6 +348,7 @@ export function useCalendar() {
     calendarIntegrations.forEach((integration) => {
       try {
         const integrationEvents = getCachedIntegrationData("calendar", integration.id) as CalendarEvent[];
+
         if (integrationEvents && Array.isArray(integrationEvents)) {
           events.push(...integrationEvents);
         }
@@ -657,7 +668,7 @@ export function useCalendar() {
       return isSameUtcDay(day, eventStart);
     }
 
-    return isSameLocalDay(day, eventStart);
+    return isSameLocalDay(day, eventStart, event.allDay);
   }
 
   function isLastDay(day: Date, event: CalendarEvent) {
@@ -676,12 +687,12 @@ export function useCalendar() {
       return isSameUtcDay(day, dayBeforeEnd);
     }
 
-    if (isSameLocalDay(eventStart, eventEnd)) {
-      return isSameLocalDay(day, eventStart);
+    if (isSameLocalDay(eventStart, eventEnd, event.allDay)) {
+      return isSameLocalDay(day, eventStart, event.allDay);
     }
 
     const dayBeforeEnd = new Date(eventEnd.getTime() - 24 * 60 * 60 * 1000);
-    return isSameLocalDay(day, dayBeforeEnd);
+    return isSameLocalDay(day, dayBeforeEnd, event.allDay);
   }
 
   function isFirstVisibleDay(day: Date, event: CalendarEvent, visibleDays: Date[]): boolean {
@@ -727,7 +738,7 @@ export function useCalendar() {
       });
 
       const firstEventDay = eventDaysInView[0];
-      return firstEventDay ? isSameLocalDay(day, firstEventDay) : false;
+      return firstEventDay ? isSameLocalDay(day, firstEventDay, event.allDay) : false;
     }
 
     return false;
@@ -803,8 +814,8 @@ export function useCalendar() {
         const eventEnd = parseStableDate(event.end);
 
         return (
-          isSameLocalDay(day, eventStart)
-          || isLocalDayInRange(day, eventStart, eventEnd)
+          isSameLocalDay(day, eventStart, event.allDay)
+          || isLocalDayInRange(day, eventStart, eventEnd, event.allDay)
         );
       })
       .sort((a, b) => {
@@ -819,10 +830,10 @@ export function useCalendar() {
     const eventEnd = parseStableDate(event.end);
 
     if (event.allDay) {
-      return !isSameLocalDay(eventStart, eventEnd);
+      return !isSameLocalDay(eventStart, eventEnd, event.allDay);
     }
 
-    return !isSameLocalDay(eventStart, eventEnd);
+    return !isSameLocalDay(eventStart, eventEnd, event.allDay);
   }
 
   function getAllEventsForDay(events: CalendarEvent[], day: Date): CalendarEvent[] {
@@ -830,8 +841,8 @@ export function useCalendar() {
       const eventStart = parseStableDate(event.start);
       const eventEnd = parseStableDate(event.end);
 
-      const isSameStart = isSameLocalDay(day, eventStart);
-      const isInRange = isLocalDayInRange(day, eventStart, eventEnd);
+      const isSameStart = isSameLocalDay(day, eventStart, event.allDay);
+      const isInRange = isLocalDayInRange(day, eventStart, eventEnd, event.allDay);
 
       return isSameStart || isInRange;
     });
