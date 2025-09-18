@@ -3,7 +3,7 @@ import prisma from "~/lib/prisma";
 export default defineEventHandler(async (event) => {
   try {
     const body = await readBody(event);
-    const { title, description, start, end, allDay, color, label, location, rrule, users } = body;
+    const { title, description, start, end, allDay, color, location, ical_event, users } = body;
 
     const utcStart = new Date(start);
     const utcEnd = new Date(end);
@@ -16,9 +16,8 @@ export default defineEventHandler(async (event) => {
         end: utcEnd,
         allDay: allDay || false,
         color: color || null,
-        label,
         location,
-        rrule: rrule || null,
+        ical_event: ical_event || null,
         users: {
           create: users?.map((user: { id: string }) => ({
             userId: user.id,
@@ -49,9 +48,8 @@ export default defineEventHandler(async (event) => {
       end: calendarEvent.end,
       allDay: calendarEvent.allDay,
       color: calendarEvent.color as string | string[] | undefined,
-      label: calendarEvent.label,
       location: calendarEvent.location,
-      rrule: calendarEvent.rrule,
+      ical_event: calendarEvent.ical_event,
       users: calendarEvent.users.map(ce => ce.user),
     };
   }

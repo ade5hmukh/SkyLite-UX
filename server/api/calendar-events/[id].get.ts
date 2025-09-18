@@ -3,8 +3,6 @@ import prisma from "~/lib/prisma";
 export default defineEventHandler(async (event) => {
   try {
     const id = getRouterParam(event, "id");
-    const body = await readBody(event);
-    const { title, description, start, end, allDay, color, location, ical_event, users } = body;
 
     if (!id) {
       throw createError({
@@ -13,28 +11,18 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    const utcStart = new Date(start);
-    const utcEnd = new Date(end);
-
-    const calendarEvent = await prisma.calendarEvent.update({
+    const calendarEvent = await prisma.calendarEvent.findUnique({
       where: { id },
-      data: {
-        title,
-        description,
-        start: utcStart,
-        end: utcEnd,
-        allDay: allDay || false,
-        color: color || null,
-        location,
-        ical_event: ical_event || null,
-        users: {
-          deleteMany: {},
-          create: users?.map((user: { id: string }) => ({
-            userId: user.id,
-          })) || [],
-        },
-      },
-      include: {
+      select: {
+        id: true,
+        title: true,
+        description: true,
+        start: true,
+        end: true,
+        allDay: true,
+        color: true,
+        location: true,
+        ical_event: true,
         users: {
           include: {
             user: {
@@ -49,6 +37,13 @@ export default defineEventHandler(async (event) => {
         },
       },
     });
+
+    if (!calendarEvent) {
+      throw createError({
+        statusCode: 404,
+        message: "Calendar event not found",
+      });
+    }
 
     return {
       id: calendarEvent.id,
@@ -66,7 +61,7 @@ export default defineEventHandler(async (event) => {
   catch (error) {
     throw createError({
       statusCode: 500,
-      message: `Failed to update calendar event: ${error}`,
+      message: `Failed to fetch calendar event: ${error}`,
     });
   }
 });

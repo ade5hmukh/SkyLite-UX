@@ -143,10 +143,8 @@ export class ICalService implements CalendarIntegrationService {
         end,
         allDay: event.allDay || false,
         color,
-        label: event.label,
         location: event.location,
         integrationId: this.integrationId,
-        rrule: event.rrule,
         users: this.useUserColors ? users : undefined,
       };
     });

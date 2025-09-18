@@ -1,0 +1,5 @@
+---
+description: This project uses prisma and postgreslq
+globs:
+alwaysApply: true
+---

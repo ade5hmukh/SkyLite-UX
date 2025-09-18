@@ -108,11 +108,11 @@ export function useCalendar() {
       const endMidnight = new Date(localEnd.year, localEnd.month - 1, localEnd.day);
 
       return dayMidnight.getTime() >= startMidnight.getTime()
-        && dayMidnight.getTime() < endMidnight.getTime();
+        && dayMidnight.getTime() <= endMidnight.getTime();
     }
     catch (error) {
       consola.debug("Use Calendar: ical.js comparison failed, using UTC fallback:", error);
-      return day.getTime() >= start.getTime() && day.getTime() < end.getTime();
+      return day.getTime() >= start.getTime() && day.getTime() <= end.getTime();
     }
   }
 

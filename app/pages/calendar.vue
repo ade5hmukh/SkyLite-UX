@@ -38,9 +38,8 @@ async function handleEventAdd(event: CalendarEvent) {
           end: event.end,
           allDay: event.allDay,
           color: eventColor,
-          label: event.label,
           location: event.location,
-          rrule: event.rrule,
+          ical_event: event.ical_event,
           users: event.users,
         });
 
@@ -92,9 +91,8 @@ async function handleEventUpdate(event: CalendarEvent) {
           end: event.end,
           allDay: event.allDay,
           color: eventColor,
-          label: event.label,
           location: event.location,
-          rrule: event.rrule,
+          ical_event: event.ical_event,
           users: event.users,
         });
 

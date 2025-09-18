@@ -12,6 +12,8 @@ import { useCalendar } from "~/composables/useCalendar";
 import { useUsers } from "~/composables/useUsers";
 import { getBrowserTimezone } from "~/types/global";
 
+import type { ICalEvent } from "../../../server/integrations/iCal/types";
+
 const props = defineProps<{
   event: CalendarEvent | null;
   isOpen: boolean;
@@ -27,7 +29,7 @@ const emit = defineEmits<{
 
 const { users, fetchUsers } = useUsers();
 
-const { getEventStartTimeForInput, getEventEndTimeForInput, convertLocalToUTC, getLocalTimeFromUTC } = useCalendar();
+const { getEventStartTimeForInput, getEventEndTimeForInput, getLocalTimeFromUTC } = useCalendar();
 
 const StartHour = 0;
 const EndHour = 23;
@@ -174,8 +176,15 @@ watch(startDate, (newStartDate) => {
     const startTime = newStartDate.toDate(getLocalTimeZone());
     const endTime = endDate.value.toDate(getLocalTimeZone());
 
-    if (startTime > endTime) {
+    if (startTime.getTime() === endTime.getTime() && isStartTimeAfterEndTime()) {
       endDate.value = newStartDate;
+    }
+
+    if (isRecurring.value && recurrenceEndType.value === "until") {
+      const untilDate = recurrenceUntil.value.toDate(getLocalTimeZone());
+      if (isBefore(untilDate, startTime)) {
+        recurrenceUntil.value = newStartDate;
+      }
     }
   }
 });
@@ -185,7 +194,7 @@ watch(endDate, (newEndDate) => {
     const startTime = startDate.value.toDate(getLocalTimeZone());
     const endTime = newEndDate.toDate(getLocalTimeZone());
 
-    if (endTime < startTime) {
+    if (startTime.getTime() === endTime.getTime() && isStartTimeAfterEndTime()) {
       startDate.value = newEndDate;
     }
   }
@@ -198,6 +207,20 @@ watch(startAmPm, () => updateEndTime());
 watch(endHour, () => updateStartTime());
 watch(endMinute, () => updateStartTime());
 watch(endAmPm, () => updateStartTime());
+
+let isUpdatingUntil = false;
+watch(recurrenceUntil, () => {
+  if (!isUpdatingUntil && isRecurring.value && recurrenceEndType.value === "until") {
+    isUpdatingUntil = true;
+    const untilDate = recurrenceUntil.value.toDate(getLocalTimeZone());
+    const startLocalDate = startDate.value.toDate(getLocalTimeZone());
+
+    if (isBefore(untilDate, startLocalDate)) {
+      recurrenceUntil.value = startDate.value;
+    }
+    isUpdatingUntil = false;
+  }
+});
 
 function handleAllDayToggle() {
   if (!allDay.value) {
@@ -256,11 +279,37 @@ function handleAllDayToggle() {
   }
 }
 
-watch(() => props.event, (newEvent) => {
+watch(() => props.event, async (newEvent) => {
   if (newEvent && newEvent.id) {
-    title.value = newEvent.title || "";
-    description.value = newEvent.description || "";
-    const start = newEvent.start instanceof Date ? newEvent.start : new Date(newEvent.start);
+    const isExpandedEvent = newEvent.id.includes("-");
+    let originalEvent = newEvent;
+
+    if (isExpandedEvent) {
+      const originalId = newEvent.id.split("-")[0];
+
+      const fetchedEvent = await $fetch<CalendarEvent>(`/api/calendar-events/${originalId}`);
+      if (fetchedEvent) {
+        const fetchedCalendarEvent = fetchedEvent;
+        originalEvent = {
+          ...fetchedCalendarEvent,
+
+          start: newEvent.start,
+          end: newEvent.end,
+
+          ical_event: newEvent.ical_event
+            ? {
+                ...fetchedCalendarEvent.ical_event,
+                dtstart: newEvent.ical_event.dtstart,
+                dtend: newEvent.ical_event.dtend,
+              }
+            : null,
+        } as CalendarEvent;
+      }
+    }
+
+    title.value = originalEvent.title || "";
+    description.value = originalEvent.description || "";
+    const start = originalEvent.start instanceof Date ? originalEvent.start : new Date(originalEvent.start);
 
     let startLocal, endLocal;
 
@@ -304,21 +353,11 @@ watch(() => props.event, (newEvent) => {
     selectedUsers.value = newEvent.users?.map(user => user.id) || [];
     error.value = null;
 
-    if ("rrule" in newEvent && (newEvent as any).rrule) {
-      parseRRULEObject((newEvent as any).rrule);
+    if (newEvent.ical_event) {
+      parseICalEvent(newEvent.ical_event);
     }
     else {
-      isRecurring.value = false;
-      recurrenceType.value = "weekly";
-      recurrenceInterval.value = 1;
-      recurrenceEndType.value = "never";
-      recurrenceCount.value = 10;
-      recurrenceUntil.value = new CalendarDate(2025, 12, 31);
-      recurrenceDays.value = [];
-      recurrenceMonthlyType.value = "day";
-      recurrenceMonthlyWeekday.value = { week: 1, day: 1 };
-      recurrenceYearlyType.value = "day";
-      recurrenceYearlyWeekday.value = { week: 1, day: 1, month: 0 };
+      resetRecurrenceFields();
     }
   }
   else {
@@ -412,7 +451,7 @@ function updateEndTime() {
   if (allDay.value)
     return;
 
-  if (isStartTimeAfterEndTime()) {
+  if (startDate.value.toDate(getLocalTimeZone()).getTime() === endDate.value.toDate(getLocalTimeZone()).getTime() && isStartTimeAfterEndTime()) {
     let endHourValue = startHour.value;
     let endMinuteValue = startMinute.value + 30;
     let endAmPmValue = startAmPm.value;
@@ -441,7 +480,7 @@ function updateStartTime() {
   if (allDay.value)
     return;
 
-  if (isEndTimeBeforeStartTime()) {
+  if (startDate.value.toDate(getLocalTimeZone()).getTime() === endDate.value.toDate(getLocalTimeZone()).getTime() && isEndTimeBeforeStartTime()) {
     let startHourValue = endHour.value;
     let startMinuteValue = endMinute.value - 30;
     let startAmPmValue = endAmPm.value;
@@ -473,7 +512,11 @@ function isStartTimeAfterEndTime(): boolean {
   const startMinutes = startTime24 * 60 + startMinute.value;
   const endMinutes = endTime24 * 60 + endMinute.value;
 
-  return startMinutes > endMinutes;
+  if (startDate.value.toDate(getLocalTimeZone()).getTime() === endDate.value.toDate(getLocalTimeZone()).getTime()) {
+    return startMinutes > endMinutes;
+  }
+
+  return false;
 }
 
 function isEndTimeBeforeStartTime(): boolean {
@@ -493,150 +536,204 @@ function toggleRecurrenceDay(day: number) {
   }
 }
 
-function parseRRULEObject(rruleObj: any): void {
-  if (!rruleObj) {
-    isRecurring.value = false;
+function parseICalEvent(icalData: ICalEvent | null): void {
+  if (!icalData || icalData.type !== "VEVENT") {
+    resetRecurrenceFields();
     return;
   }
 
-  isRecurring.value = true;
+  try {
+    const event = icalData;
 
-  if (rruleObj.freq) {
-    const freq = rruleObj.freq.toLowerCase();
-    if (["daily", "weekly", "monthly", "yearly"].includes(freq)) {
-      recurrenceType.value = freq as "daily" | "weekly" | "monthly" | "yearly";
-    }
-  }
+    const rrule = event.rrule;
+    if (rrule) {
+      isRecurring.value = true;
 
-  if (rruleObj.interval) {
-    recurrenceInterval.value = Number.parseInt(rruleObj.interval, 10);
-  }
-  else {
-    recurrenceInterval.value = 1;
-  }
+      const freq = rrule.freq?.toLowerCase();
+      if (freq && ["daily", "weekly", "monthly", "yearly"].includes(freq)) {
+        recurrenceType.value = freq as "daily" | "weekly" | "monthly" | "yearly";
+      }
 
-  if (rruleObj.byday && recurrenceType.value === "weekly") {
-    const dayNames = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
-    const days = Array.isArray(rruleObj.byday) ? rruleObj.byday : [rruleObj.byday];
-    recurrenceDays.value = days.map((day: string) => dayNames.indexOf(day)).filter((day: number) => day !== -1);
-  }
-  else {
-    recurrenceDays.value = [];
-  }
+      recurrenceInterval.value = rrule.interval || 1;
 
-  if (rruleObj.byday && recurrenceType.value === "monthly") {
-    const bydayStr = Array.isArray(rruleObj.byday) ? rruleObj.byday[0] : rruleObj.byday;
-    if (bydayStr && bydayStr.length > 2) {
-      const weekMatch = bydayStr.match(/^(-?\d+)([A-Z]{2})$/);
-      if (weekMatch) {
-        const week = Number.parseInt(weekMatch[1], 10);
-        const dayCode = weekMatch[2];
-        const dayNames = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
-        const dayIndex = dayNames.indexOf(dayCode);
+      const dayNames = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
 
-        if (dayIndex !== -1) {
-          recurrenceMonthlyType.value = "weekday";
-          recurrenceMonthlyWeekday.value = { week, day: dayIndex };
+      if (recurrenceType.value === "weekly" && rrule.byday) {
+        recurrenceDays.value = rrule.byday.map((day: string) => dayNames.indexOf(day)).filter((day: number) => day !== -1);
+      }
+
+      if (recurrenceType.value === "monthly" && rrule.byday) {
+        const bydayStr = Array.isArray(rrule.byday) ? rrule.byday[0] : rrule.byday;
+        if (bydayStr) {
+          const weekMatch = bydayStr.match(/^(-?\d+)([A-Z]{2})$/);
+          if (weekMatch) {
+            const week = Number.parseInt(weekMatch[1] || "1", 10);
+            const dayCode = weekMatch[2] || "SU";
+            const dayIndex = dayNames.indexOf(dayCode);
+
+            if (dayIndex !== -1) {
+              recurrenceMonthlyType.value = "weekday";
+              recurrenceMonthlyWeekday.value = { week, day: dayIndex };
+            }
+          }
         }
+      }
+
+      if (recurrenceType.value === "yearly" && rrule.byday && rrule.bymonth) {
+        const bydayStr = Array.isArray(rrule.byday) ? rrule.byday[0] : rrule.byday;
+        if (bydayStr) {
+          const weekMatch = bydayStr.match(/^(-?\d+)([A-Z]{2})$/);
+          if (weekMatch) {
+            const week = Number.parseInt(weekMatch[1] || "1", 10);
+            const dayCode = weekMatch[2] || "SU";
+            const dayIndex = dayNames.indexOf(dayCode);
+
+            if (dayIndex !== -1) {
+              recurrenceYearlyType.value = "weekday";
+              const month = Array.isArray(rrule.bymonth) ? (rrule.bymonth[0] || 1) - 1 : (rrule.bymonth || 1) - 1;
+              recurrenceYearlyWeekday.value = { week, day: dayIndex, month };
+            }
+          }
+        }
+      }
+
+      if (rrule.count) {
+        recurrenceEndType.value = "count";
+        recurrenceCount.value = rrule.count;
+      }
+      else if (rrule.until) {
+        recurrenceEndType.value = "until";
+        const untilICal = ical.Time.fromString(rrule.until, "UTC");
+        if (untilICal) {
+          const untilDate = untilICal.toJSDate();
+          recurrenceUntil.value = new CalendarDate(
+            untilDate.getUTCFullYear(),
+            untilDate.getUTCMonth() + 1,
+            untilDate.getUTCDate(),
+          );
+        }
+      }
+      else {
+        recurrenceEndType.value = "never";
       }
     }
     else {
-      recurrenceMonthlyType.value = "day";
+      resetRecurrenceFields();
     }
   }
-  else if (recurrenceType.value === "monthly") {
-    recurrenceMonthlyType.value = "day";
-  }
-
-  if (rruleObj.byday && recurrenceType.value === "yearly") {
-    const bydayStr = Array.isArray(rruleObj.byday) ? rruleObj.byday[0] : rruleObj.byday;
-    if (bydayStr && bydayStr.length > 2) {
-      const weekMatch = bydayStr.match(/^(-?\d+)([A-Z]{2})$/);
-      if (weekMatch) {
-        const week = Number.parseInt(weekMatch[1], 10);
-        const dayCode = weekMatch[2];
-        const dayNames = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
-        const dayIndex = dayNames.indexOf(dayCode);
-
-        if (dayIndex !== -1) {
-          recurrenceYearlyType.value = "weekday";
-          const eventStart = props.event?.start instanceof Date ? props.event.start : new Date(props.event?.start || new Date());
-          const month = eventStart.getMonth();
-          recurrenceYearlyWeekday.value = { week, day: dayIndex, month };
-        }
-      }
-    }
-    else {
-      recurrenceYearlyType.value = "day";
-    }
-  }
-  else if (recurrenceType.value === "yearly") {
-    recurrenceYearlyType.value = "day";
-  }
-
-  if (rruleObj.count) {
-    recurrenceEndType.value = "count";
-    recurrenceCount.value = Number.parseInt(rruleObj.count, 10);
-  }
-  else if (rruleObj.until) {
-    recurrenceEndType.value = "until";
-    const untilString = rruleObj.until;
-    if (untilString && untilString.length >= 8) {
-      const year = Number.parseInt(untilString.substring(0, 4), 10);
-      const month = Number.parseInt(untilString.substring(4, 6), 10);
-      const day = Number.parseInt(untilString.substring(6, 8), 10);
-      recurrenceUntil.value = new CalendarDate(year, month, day);
-    }
-  }
-  else {
-    recurrenceEndType.value = "never";
+  catch (err) {
+    consola.error("Error parsing iCal event:", err);
+    resetRecurrenceFields();
   }
 }
 
-function generateRRULE(): string {
-  if (!isRecurring.value)
-    return "";
+function resetRecurrenceFields(): void {
+  isRecurring.value = false;
+  recurrenceType.value = "weekly";
+  recurrenceInterval.value = 1;
+  recurrenceEndType.value = "never";
+  recurrenceCount.value = 10;
+  recurrenceUntil.value = new CalendarDate(2025, 12, 31);
+  recurrenceDays.value = [];
+  recurrenceMonthlyType.value = "day";
+  recurrenceMonthlyWeekday.value = { week: 1, day: 1 };
+  recurrenceYearlyType.value = "day";
+  recurrenceYearlyWeekday.value = { week: 1, day: 1, month: 0 };
+}
 
-  let rrule = `FREQ=${recurrenceType.value.toUpperCase()}`;
+function generateICalEvent(start: Date, end: Date): ICalEvent {
+  const startTime = ical.Time.fromJSDate(start, true);
+  const endTime = ical.Time.fromJSDate(end, true);
 
-  if (recurrenceInterval.value > 1) {
-    rrule += `;INTERVAL=${recurrenceInterval.value}`;
-  }
+  const event: ICalEvent = {
+    type: "VEVENT",
+    uid: props.event?.id || `skylite-${Date.now()}`,
+    summary: title.value || "(no title)",
+    description: description.value || undefined,
+    location: location.value || undefined,
+    dtstart: startTime.toString(),
+    dtend: endTime.toString(),
+    attendees: selectedUsers.value.length > 0
+      ? users.value
+          .filter(user => selectedUsers.value.includes(user.id))
+          .map((user) => {
+            const sanitizedName = user.name.toLowerCase().replace(/[^a-z0-9]/g, "");
+            return {
+              cn: user.name,
+              mailto: user.email || `${sanitizedName}@skylite.local`,
+              role: "REQ-PARTICIPANT",
+            };
+          })
+      : undefined,
+  };
 
-  if (recurrenceType.value === "weekly" && recurrenceDays.value.length > 0) {
+  if (isRecurring.value) {
+    const rruleObj: ICalEvent["rrule"] = {
+      freq: recurrenceType.value.toUpperCase(),
+      ...(recurrenceInterval.value > 1 && { interval: recurrenceInterval.value }),
+    };
+
     const dayNames = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
-    const byDay = recurrenceDays.value.map(day => dayNames[day]).join(",");
-    rrule += `;BYDAY=${byDay}`;
+
+    if (recurrenceDays.value.length > 0) {
+      const startDay = start.getUTCDay();
+      const sortedDays = [...recurrenceDays.value].sort((a, b) => {
+        const relativeA = a >= startDay ? a - startDay : 7 - startDay + a;
+        const relativeB = b >= startDay ? b - startDay : 7 - startDay + b;
+        return relativeA - relativeB;
+      });
+
+      const firstDay = sortedDays[0] ?? startDay;
+      if (startDay !== firstDay) {
+        const daysToAdd = firstDay >= startDay
+          ? firstDay - startDay
+          : 7 - startDay + firstDay;
+
+        start = new Date(start.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+        end = new Date(end.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+
+        event.dtstart = ical.Time.fromJSDate(start, true).toString();
+        event.dtend = ical.Time.fromJSDate(end, true).toString();
+      }
+    }
+
+    if (recurrenceType.value === "weekly" && recurrenceDays.value.length > 0) {
+      rruleObj.byday = recurrenceDays.value
+        .map(day => dayNames[day] || "SU")
+        .filter((day): day is string => Boolean(day));
+    }
+
+    if (recurrenceType.value === "monthly" && recurrenceMonthlyType.value === "weekday") {
+      const week = recurrenceMonthlyWeekday.value.week;
+      const day = dayNames[recurrenceMonthlyWeekday.value.day];
+      rruleObj.byday = [`${week}${day}`];
+    }
+
+    if (recurrenceType.value === "yearly" && recurrenceYearlyType.value === "weekday") {
+      const week = recurrenceYearlyWeekday.value.week;
+      const day = dayNames[recurrenceYearlyWeekday.value.day];
+      const month = recurrenceYearlyWeekday.value.month + 1;
+      rruleObj.byday = [`${week}${day}`];
+      rruleObj.bymonth = [month];
+    }
+
+    if (recurrenceEndType.value === "count") {
+      rruleObj.count = recurrenceCount.value;
+    }
+    else if (recurrenceEndType.value === "until" && recurrenceUntil.value) {
+      const untilDate = recurrenceUntil.value.toDate(getLocalTimeZone());
+      if (untilDate) {
+        const endOfDay = new Date(untilDate);
+        endOfDay.setHours(23, 59, 59, 999);
+        const untilICal = ical.Time.fromJSDate(endOfDay, true);
+        rruleObj.until = untilICal.toString();
+      }
+    }
+
+    event.rrule = rruleObj;
   }
 
-  if (recurrenceType.value === "monthly" && recurrenceMonthlyType.value === "weekday") {
-    const dayNames = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
-    const week = recurrenceMonthlyWeekday.value.week;
-    const day = recurrenceMonthlyWeekday.value.day;
-    const byDay = `${week}${dayNames[day]}`;
-    rrule += `;BYDAY=${byDay}`;
-  }
-
-  if (recurrenceType.value === "yearly" && recurrenceYearlyType.value === "weekday") {
-    const dayNames = ["SU", "MO", "TU", "WE", "TH", "FR", "SA"];
-    const week = recurrenceYearlyWeekday.value.week;
-    const day = recurrenceYearlyWeekday.value.day;
-    const month = recurrenceYearlyWeekday.value.month;
-    const byDay = `${week}${dayNames[day]}`;
-    const byMonth = month + 1;
-    rrule += `;BYDAY=${byDay};BYMONTH=${byMonth}`;
-  }
-
-  if (recurrenceEndType.value === "count") {
-    rrule += `;COUNT=${recurrenceCount.value}`;
-  }
-  else if (recurrenceEndType.value === "until") {
-    const untilDate = recurrenceUntil.value.toDate(getLocalTimeZone());
-    const untilString = `${untilDate.toISOString().replace(/[-:]/g, "").split(".")[0]}Z`;
-    rrule += `;UNTIL=${untilString}`;
-  }
-
-  return rrule;
+  return event;
 }
 
 function handleSave() {
@@ -687,12 +784,16 @@ function handleSave() {
         const startUTC = startLocalICal.convertToZone(ical.TimezoneService.get("UTC"));
         const endUTC = endLocalICal.convertToZone(ical.TimezoneService.get("UTC"));
 
-        start = new Date(startUTC.year, startUTC.month - 1, startUTC.day, startUTC.hour, startUTC.minute, startUTC.second);
-        end = new Date(endUTC.year, endUTC.month - 1, endUTC.day, endUTC.hour, endUTC.minute, endUTC.second);
+        start = startUTC.toJSDate();
+        end = endUTC.toJSDate();
       }
       else {
-        start = new Date(Date.UTC(startLocal.getFullYear(), startLocal.getMonth(), startLocal.getDate()));
-        end = new Date(Date.UTC(endLocal.getFullYear(), endLocal.getMonth(), endLocal.getDate()));
+        const startICal = ical.Time.fromJSDate(startLocal, false)
+          .convertToZone(ical.TimezoneService.get("UTC"));
+        const endICal = ical.Time.fromJSDate(endLocal, false)
+          .convertToZone(ical.TimezoneService.get("UTC"));
+        start = startICal.toJSDate();
+        end = endICal.toJSDate();
       }
     }
     else {
@@ -728,16 +829,23 @@ function handleSave() {
         const startUTC = startLocalICal.convertToZone(ical.TimezoneService.get("UTC"));
         const endUTC = endLocalICal.convertToZone(ical.TimezoneService.get("UTC"));
 
-        start = new Date(startUTC.year, startUTC.month - 1, startUTC.day, startUTC.hour, startUTC.minute, startUTC.second);
-        end = new Date(endUTC.year, endUTC.month - 1, endUTC.day, endUTC.hour, endUTC.minute, endUTC.second);
+        start = startUTC.toJSDate();
+        end = endUTC.toJSDate();
       }
       else {
-        start = convertLocalToUTC(startLocal);
-        end = convertLocalToUTC(endLocal);
+        const startICal = ical.Time.fromJSDate(startLocal, false)
+          .convertToZone(ical.TimezoneService.get("UTC"));
+        const endICal = ical.Time.fromJSDate(endLocal, false)
+          .convertToZone(ical.TimezoneService.get("UTC"));
+        start = startICal.toJSDate();
+        end = endICal.toJSDate();
       }
     }
 
-    if (isBefore(end, start)) {
+    const startDateOnly = new Date(start.getFullYear(), start.getMonth(), start.getDate());
+    const endDateOnly = new Date(end.getFullYear(), end.getMonth(), end.getDate());
+
+    if (isBefore(endDateOnly, startDateOnly)) {
       error.value = "End date cannot be before start date";
       return;
     }
@@ -753,8 +861,32 @@ function handleSave() {
         color: user.color,
       }));
 
-    const eventData = {
-      id: props.event?.id || "",
+    const icalEvent = generateICalEvent(start, end);
+
+    if (isRecurring.value && recurrenceDays.value.length > 0) {
+      const startDay = start.getUTCDay();
+      const sortedDays = [...recurrenceDays.value].sort((a, b) => {
+        const relativeA = a >= startDay ? a - startDay : 7 - startDay + a;
+        const relativeB = b >= startDay ? b - startDay : 7 - startDay + b;
+        return relativeA - relativeB;
+      });
+
+      const firstDay = sortedDays[0] ?? startDay;
+      if (startDay !== firstDay) {
+        const daysToAdd = firstDay >= startDay
+          ? firstDay - startDay
+          : 7 - startDay + firstDay;
+
+        start = new Date(start.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+        end = new Date(end.getTime() + daysToAdd * 24 * 60 * 60 * 1000);
+      }
+    }
+
+    const isExpandedEvent = props.event?.id?.includes("-");
+    const eventId = isExpandedEvent ? props.event?.id.split("-")[0] : props.event?.id || "";
+
+    const eventData: CalendarEvent = {
+      id: eventId || "",
       title: eventTitle,
       description: description.value,
       start,
@@ -763,7 +895,7 @@ function handleSave() {
       location: location.value,
       color: props.event?.color || "sky",
       users: selectedUserObjects,
-      ...(isRecurring.value && { rrule: generateRRULE() }),
+      ical_event: icalEvent,
     };
 
     emit("save", eventData);
@@ -1020,6 +1152,13 @@ function handleDelete() {
               >
                 {{ day.label }}
               </UButton>
+            </div>
+            <div v-if="recurrenceDays.length > 0" class="text-sm text-amber-600 dark:text-amber-400">
+              <div class="flex items-center justify-center gap-2">
+                <span>
+                  Dates will be adjusted based on selected days
+                </span>
+              </div>
             </div>
           </div>
           <div v-if="recurrenceType === 'monthly'" class="space-y-4">

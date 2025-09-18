@@ -38,44 +38,46 @@ export class ICalServerService {
     const dtstart = vevent.getFirstPropertyValue("dtstart") as ical.Time;
     const dtend = vevent.getFirstPropertyValue("dtend") as ical.Time;
 
-    let start: Date;
-    let end: Date;
-
-    if (dtstart && dtend) {
-      const isAllDay = dtstart.isDate;
-
-      if (isAllDay) {
-        start = new Date(dtstart.year, dtstart.month - 1, dtstart.day, 0, 0, 0);
-        end = new Date(dtend.year, dtend.month - 1, dtend.day, 0, 0, 0);
-      }
-      else {
-        const startTime = dtstart.convertToZone(ical.TimezoneService.get("UTC"));
-        const endTime = dtend.convertToZone(ical.TimezoneService.get("UTC"));
-
-        start = new Date(startTime.year, startTime.month - 1, startTime.day, startTime.hour, startTime.minute, startTime.second);
-        end = new Date(endTime.year, endTime.month - 1, endTime.day, endTime.hour, endTime.minute, endTime.second);
-      }
-    }
-    else {
-      start = new Date();
-      end = new Date();
-    }
+    const startUTC = dtstart
+      ? dtstart.convertToZone(ical.TimezoneService.get("UTC")).toString()
+      : new Date().toISOString().replace(".000", "");
+    const endUTC = dtend
+      ? dtend.convertToZone(ical.TimezoneService.get("UTC")).toString()
+      : new Date().toISOString().replace(".000", "");
 
     return {
+      type: "VEVENT",
       uid: vevent.getFirstPropertyValue("uid") as string || "",
       summary: vevent.getFirstPropertyValue("summary") as string || "",
       description: vevent.getFirstPropertyValue("description") as string || "",
-      start,
-      end,
-      location: vevent.getFirstPropertyValue("location") as string || "",
-      allDay: dtstart?.isDate || false,
-      rrule: vevent.getFirstPropertyValue("rrule") as string || undefined,
+      dtstart: startUTC,
+      dtend: endUTC,
+      location: vevent.getFirstPropertyValue("location") as string || undefined,
       attendees: vevent.getAllSubcomponents("attendee")?.map((attendee: ical.Component) => ({
-        name: attendee.getFirstPropertyValue("cn") as string || "",
-        email: attendee.getFirstPropertyValue("email") as string || "",
-        role: attendee.getFirstPropertyValue("role") as string || "",
-        status: attendee.getFirstPropertyValue("partstat") as string || "",
-      })) || [],
+        cn: attendee.getFirstPropertyValue("cn") as string || "",
+        mailto: attendee.getFirstPropertyValue("email") as string || "",
+        role: attendee.getFirstPropertyValue("role") as string || "REQ-PARTICIPANT",
+      })) || undefined,
+      rrule: vevent.getFirstPropertyValue("rrule")
+        ? {
+            freq: (vevent.getFirstPropertyValue("rrule") as ical.Recur).freq,
+            ...(vevent.getFirstPropertyValue("rrule") as ical.Recur).interval && {
+              interval: (vevent.getFirstPropertyValue("rrule") as ical.Recur).interval,
+            },
+            ...((vevent.getFirstPropertyValue("rrule") as ical.Recur).getComponent("byday")?.length && {
+              byday: (vevent.getFirstPropertyValue("rrule") as ical.Recur).getComponent("byday") as string[],
+            }),
+            ...((vevent.getFirstPropertyValue("rrule") as ical.Recur).getComponent("bymonth")?.length && {
+              bymonth: (vevent.getFirstPropertyValue("rrule") as ical.Recur).getComponent("bymonth") as number[],
+            }),
+            ...(typeof (vevent.getFirstPropertyValue("rrule") as ical.Recur).count === "number" && {
+              count: (vevent.getFirstPropertyValue("rrule") as ical.Recur).count as number,
+            }),
+            ...(vevent.getFirstPropertyValue("rrule") as ical.Recur).until && {
+              until: (vevent.getFirstPropertyValue("rrule") as ical.Recur).until?.toString(),
+            },
+          }
+        : undefined,
     };
   }
 
@@ -158,21 +160,43 @@ export class ICalServerService {
         end = newEnd;
       }
 
-      const eventInstance = {
+      // Convert to UTC and format as iCal string
+      const startUTC = ical.Time.fromJSDate(start, true).toString();
+      const endUTC = ical.Time.fromJSDate(end, true).toString();
+
+      const eventInstance: ICalEvent = {
+        type: "VEVENT",
         uid: `${vevent.getFirstPropertyValue("uid")}-${occurrenceTime.toICALString()}`,
         summary: vevent.getFirstPropertyValue("summary") as string || "",
         description: vevent.getFirstPropertyValue("description") as string || "",
-        start,
-        end,
-        location: vevent.getFirstPropertyValue("location") as string || "",
-        allDay: isAllDay,
-        rrule: vevent.getFirstPropertyValue("rrule") as string || undefined,
+        dtstart: startUTC,
+        dtend: endUTC,
+        location: vevent.getFirstPropertyValue("location") as string || undefined,
         attendees: vevent.getAllSubcomponents("attendee")?.map((attendee: ical.Component) => ({
-          name: attendee.getFirstPropertyValue("cn") as string || "",
-          email: attendee.getFirstPropertyValue("email") as string || "",
-          role: attendee.getFirstPropertyValue("role") as string || "",
-          status: attendee.getFirstPropertyValue("partstat") as string || "",
-        })) || [],
+          cn: attendee.getFirstPropertyValue("cn") as string || "",
+          mailto: attendee.getFirstPropertyValue("email") as string || "",
+          role: attendee.getFirstPropertyValue("role") as string || "REQ-PARTICIPANT",
+        })) || undefined,
+        rrule: vevent.getFirstPropertyValue("rrule")
+          ? {
+              freq: (vevent.getFirstPropertyValue("rrule") as ical.Recur).freq,
+              ...(vevent.getFirstPropertyValue("rrule") as ical.Recur).interval && {
+                interval: (vevent.getFirstPropertyValue("rrule") as ical.Recur).interval,
+              },
+              ...((vevent.getFirstPropertyValue("rrule") as ical.Recur).getComponent("byday")?.length && {
+                byday: (vevent.getFirstPropertyValue("rrule") as ical.Recur).getComponent("byday") as string[],
+              }),
+              ...((vevent.getFirstPropertyValue("rrule") as ical.Recur).getComponent("bymonth")?.length && {
+                bymonth: (vevent.getFirstPropertyValue("rrule") as ical.Recur).getComponent("bymonth") as number[],
+              }),
+              ...(typeof (vevent.getFirstPropertyValue("rrule") as ical.Recur).count === "number" && {
+                count: (vevent.getFirstPropertyValue("rrule") as ical.Recur).count as number,
+              }),
+              ...(vevent.getFirstPropertyValue("rrule") as ical.Recur).until && {
+                until: (vevent.getFirstPropertyValue("rrule") as ical.Recur).until?.toString(),
+              },
+            }
+          : undefined,
       };
       return eventInstance;
     }

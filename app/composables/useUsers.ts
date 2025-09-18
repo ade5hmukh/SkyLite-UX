@@ -17,7 +17,6 @@ export function useUsers() {
     error.value = null;
     try {
       await refreshNuxtData("users");
-      consola.debug("Use Users: Users refreshed successfully");
       return currentUsers.value;
     }
     catch (err) {
