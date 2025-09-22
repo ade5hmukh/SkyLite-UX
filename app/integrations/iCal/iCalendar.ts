@@ -5,7 +5,7 @@ import type { CalendarIntegrationService, IntegrationStatus, UserWithColor } fro
 
 import { integrationRegistry } from "~/types/integrations";
 
-import type { ICalEventResponse } from "../../../server/integrations/iCal/types";
+import type { ICalEvent } from "../../../server/integrations/iCal/types";
 
 import { ICalServerService } from "../../../server/integrations/iCal";
 
@@ -46,7 +46,7 @@ export class ICalService implements CalendarIntegrationService {
 
   async validate(): Promise<boolean> {
     try {
-      await $fetch<{ events: ICalEventResponse[] }>("/api/integrations/iCal", { query: { baseUrl: this.baseUrl } });
+      await $fetch<{ events: ICalEvent[] }>("/api/integrations/iCal", { query: { baseUrl: this.baseUrl } });
 
       this.status = {
         isConnected: true,
@@ -71,7 +71,7 @@ export class ICalService implements CalendarIntegrationService {
 
   async testConnection(): Promise<boolean> {
     try {
-      await $fetch<{ events: ICalEventResponse[] }>("/api/integrations/iCal", { query: { baseUrl: this.baseUrl } });
+      await $fetch<{ events: ICalEvent[] }>("/api/integrations/iCal", { query: { baseUrl: this.baseUrl } });
 
       this.status = {
         isConnected: true,
@@ -97,7 +97,7 @@ export class ICalService implements CalendarIntegrationService {
   }
 
   async getEvents(): Promise<CalendarEvent[]> {
-    const result = await $fetch<{ events: ICalEventResponse[] }>("/api/integrations/iCal", { query: { baseUrl: this.baseUrl } });
+    const result = await $fetch<{ events: ICalEvent[] }>("/api/integrations/iCal", { query: { baseUrl: this.baseUrl } });
 
     let users: UserWithColor[] = [];
     if (this.useUserColors && this.user && this.user.length > 0) {
@@ -113,13 +113,12 @@ export class ICalService implements CalendarIntegrationService {
     }
 
     return result.events.map((event) => {
-      const start = event.allDay
-        ? new Date(event.start)
-        : new Date(event.start);
+      const start = new Date(event.dtstart);
+      const end = new Date(event.dtend);
 
-      const end = event.allDay
-        ? new Date(event.end)
-        : new Date(event.end);
+      // Determine if this is an all-day event based on iCalendar RFC 5545 standard
+      // All-day events have DATE value type for DTSTART (no time component)
+      const isAllDay = !event.dtstart.includes("T") && !event.dtstart.includes("Z");
 
       let color: string | string[] | undefined = this.eventColor || "sky";
       if (this.useUserColors && users.length > 0) {
@@ -141,9 +140,10 @@ export class ICalService implements CalendarIntegrationService {
         description: event.description || "",
         start,
         end,
-        allDay: event.allDay || false,
+        allDay: isAllDay,
         color,
         location: event.location,
+        ical_event: event,
         integrationId: this.integrationId,
         users: this.useUserColors ? users : undefined,
       };

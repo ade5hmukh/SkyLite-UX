@@ -284,7 +284,7 @@ watch(() => props.event, async (newEvent) => {
     const isExpandedEvent = newEvent.id.includes("-");
     let originalEvent = newEvent;
 
-    if (isExpandedEvent) {
+    if (isExpandedEvent && !newEvent.integrationId) {
       const originalId = newEvent.id.split("-")[0];
 
       const fetchedEvent = await $fetch<CalendarEvent>(`/api/calendar-events/${originalId}`);

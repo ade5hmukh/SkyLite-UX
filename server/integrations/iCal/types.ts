@@ -39,13 +39,3 @@ export type ICalCalendar = {
   version?: string;
   events: ICalEvent[];
 };
-
-export type ICalEventResponse = {
-  uid: string;
-  summary: string;
-  description?: string;
-  start: string | Date;
-  end: string | Date;
-  location?: string;
-  allDay?: boolean;
-};
