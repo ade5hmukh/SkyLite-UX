@@ -6,6 +6,7 @@ import { addDays, addMonths, addWeeks, endOfWeek, isSameMonth, startOfWeek, subM
 import type { CalendarEvent, CalendarView } from "~/types/calendar";
 
 import GlobalFloatingActionButton from "~/components/global/globalFloatingActionButton.vue";
+import { useCalendar } from "~/composables/useCalendar";
 import { useStableDate } from "~/composables/useStableDate";
 
 const props = defineProps<{
@@ -23,6 +24,7 @@ const _emit = defineEmits<{
 }>();
 
 const { getStableDate } = useStableDate();
+const { getEventsForDateRange } = useCalendar();
 const currentDate = useState<Date>("calendar-current-date", () => getStableDate());
 const view = ref<CalendarView>(props.initialView || "week");
 const isEventDialogOpen = ref(false);
@@ -196,6 +198,38 @@ const viewTitle = computed(() => {
   return "month";
 });
 
+const filteredEvents = computed(() => {
+  if (!props.events)
+    return [];
+
+  const now = currentDate.value;
+
+  switch (view.value) {
+    case "month": {
+      const start = new Date(now.getFullYear(), now.getMonth(), 1);
+      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      return getEventsForDateRange(start, end);
+    }
+    case "week": {
+      const start = startOfWeek(now, { weekStartsOn: 0 });
+      const end = endOfWeek(now, { weekStartsOn: 0 });
+      return getEventsForDateRange(start, end);
+    }
+    case "day": {
+      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      return getEventsForDateRange(start, end);
+    }
+    case "agenda": {
+      const start = now;
+      const end = addDays(now, 30);
+      return getEventsForDateRange(start, end);
+    }
+    default:
+      return props.events;
+  }
+});
+
 function getWeeksForMonth(date: Date) {
   const { getLocalMonthWeeks } = useCalendar();
   return getLocalMonthWeeks(date);
@@ -323,7 +357,7 @@ function getDaysForAgenda(date: Date) {
       <GlobalMonthView
         v-if="view === 'month'"
         :weeks="getWeeksForMonth(currentDate)"
-        :events="events || []"
+        :events="filteredEvents"
         :is-current-month="isCurrentMonth"
         cell-id="month-cell"
         @event-click="handleEventSelect"
@@ -332,14 +366,14 @@ function getDaysForAgenda(date: Date) {
       <GlobalWeekView
         v-if="view === 'week'"
         :start-date="currentDate"
-        :events="events || []"
+        :events="filteredEvents"
         @event-click="handleEventSelect"
         @event-create="handleEventCreate"
       />
       <GlobalDayView
         v-if="view === 'day'"
         :current-date="currentDate"
-        :events="events || []"
+        :events="filteredEvents"
         :show-all-day-section="true"
         @event-click="handleEventSelect"
         @event-create="handleEventCreate"
@@ -348,7 +382,7 @@ function getDaysForAgenda(date: Date) {
       <GlobalAgendaView
         v-if="view === 'agenda'"
         :days="getDaysForAgenda(currentDate)"
-        :events="events || []"
+        :events="filteredEvents"
         @event-click="handleEventSelect"
       />
     </div>

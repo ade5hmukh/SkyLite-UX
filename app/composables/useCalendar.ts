@@ -850,6 +850,17 @@ export function useCalendar() {
     return result;
   }
 
+  function getEventsForDateRange(start: Date, end: Date): CalendarEvent[] {
+    const events = allEvents.value;
+
+    return events.filter((event) => {
+      const eventStart = parseStableDate(event.start);
+      const eventEnd = parseStableDate(event.end);
+
+      return eventStart <= end && eventEnd >= start;
+    });
+  }
+
   function isPlaceholderEvent(event: CalendarEvent): boolean {
     return event.id.startsWith("__placeholder_") || (event as PlaceholderEvent).isPlaceholder === true;
   }
@@ -1015,6 +1026,7 @@ export function useCalendar() {
     getAgendaEventsForDay,
     isMultiDayEvent,
     getAllEventsForDay,
+    getEventsForDateRange,
     createPlaceholderEvent,
     isPlaceholderEvent,
     assignSpanningEventLanes,
