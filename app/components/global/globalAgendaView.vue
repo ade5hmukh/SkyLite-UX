@@ -39,13 +39,13 @@ watch(() => props.days, () => {
 </script>
 
 <template>
-  <div class="border-gray-200 dark:border-gray-700 border-t ps-4 h-full w-full">
+  <div class="border-default border-t ps-4 h-full w-full">
     <div v-show="!hasEvents" class="flex min-h-[70svh] flex-col items-center justify-center py-16 text-center">
       <UIcon name="i-lucide-calendar-off" class="size-8" />
-      <h2 class="text-lg font-medium text-gray-900 dark:text-gray-100">
+      <h2 class="text-lg font-medium text-highlighted">
         No events found
       </h2>
-      <p class="text-gray-600 dark:text-gray-400">
+      <p class="text-muted">
         There are no events scheduled for this time period.
       </p>
     </div>
@@ -54,19 +54,19 @@ watch(() => props.days, () => {
         v-for="day in days"
         :key="day.toString()"
         :data-date="format(day, 'yyyy-MM-dd')"
-        class="border-gray-200 dark:border-gray-700 relative my-12 border-t border-r"
+        class="border-default relative my-12 border-t border-r"
       >
-        <span class="bg-white dark:bg-gray-900 absolute -top-3 left-0 flex h-6 items-center pe-4 text-[10px] uppercase sm:pe-4 sm:text-xs">
+        <span class="bg-default absolute -top-3 left-0 flex h-6 items-center pe-4 text-[10px] uppercase sm:pe-4 sm:text-xs">
           <span
             class="inline-flex h-6 w-6 items-center justify-center rounded-full text-xs font-semibold mr-2"
             :class="{
               'bg-primary text-white': isToday(day),
-              'text-gray-600 dark:text-gray-400': !isToday(day),
+              'text-muted': !isToday(day),
             }"
           >
             <NuxtTime :datetime="day" day="numeric" />
           </span>
-          <span :class="{ 'font-medium text-gray-900 dark:text-gray-100': isToday(day), 'text-gray-600 dark:text-gray-400': !isToday(day) }">
+          <span :class="{ 'font-medium text-highlighted': isToday(day), 'text-muted': !isToday(day) }">
             <NuxtTime
               :datetime="day"
               month="short"
@@ -76,9 +76,9 @@ watch(() => props.days, () => {
         </span>
         <div class="mt-6 space-y-2">
           <div v-show="getAgendaEventsForDay(events, day).length === 0" class="text-center py-8">
-            <div class="flex items-center justify-center gap-2 text-gray-400 dark:text-gray-600">
+            <div class="flex items-center justify-center gap-2 text-muted">
               <UIcon name="i-lucide-calendar-off" class="w-6 h-6" />
-              <span class="text-md font-medium text-gray-900 dark:text-gray-100">
+              <span class="text-md font-medium text-highlighted">
                 {{ isToday(day) ? 'No events today' : 'No events' }}
               </span>
             </div>

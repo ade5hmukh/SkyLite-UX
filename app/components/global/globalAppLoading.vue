@@ -28,15 +28,13 @@ defineProps<{
 .appLoadingOverlay {
   position: fixed;
   inset: 0;
-  background: white;
-  z-index: 9999;
+  background: var(--ui-bg-default);
+  z-index: 99999;
   display: flex;
   align-items: center;
   justify-content: center;
-}
-
-.dark .appLoadingOverlay {
-  background: #111827;
+  backdrop-filter: none;
+  opacity: 1;
 }
 
 .loadingContent {
@@ -59,18 +57,10 @@ defineProps<{
   filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.1));
 }
 
-.dark .skyliteLogo {
-  filter: drop-shadow(0 4px 6px rgba(0, 0, 0, 0.3));
-}
-
 .loadingText {
   font-size: 1.125rem;
-  color: #6b7280;
+  color: var(--ui-text-muted);
   margin: -4rem 0 0 -2rem;
-}
-
-.dark .loadingText {
-  color: #9ca3af;
 }
 
 .fade-enter-active,

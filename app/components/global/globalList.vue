@@ -83,18 +83,18 @@ function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyList
         <div v-if="loading" class="flex items-center justify-center h-full">
           <div class="text-center">
             <UIcon name="i-lucide-loader-2" class="h-8 w-8 animate-spin text-primary-500" />
-            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            <p class="mt-2 text-sm text-muted">
               Loading lists...
             </p>
           </div>
         </div>
         <div v-else-if="lists.length === 0" class="flex items-center justify-center h-full">
           <div class="text-center">
-            <UIcon :name="emptyStateIcon || 'i-lucide-list'" class="h-8 w-8 text-gray-400" />
-            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            <UIcon :name="emptyStateIcon || 'i-lucide-list'" class="h-8 w-8 text-muted" />
+            <p class="mt-2 text-sm text-muted">
               {{ emptyStateTitle || 'No lists found' }}
             </p>
-            <p v-if="emptyStateDescription" class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <p v-if="emptyStateDescription" class="mt-1 text-sm text-muted">
               {{ emptyStateDescription }}
             </p>
             <UButton
@@ -112,9 +112,9 @@ function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyList
               <div
                 v-for="(list, listIndex) in sortedLists"
                 :key="list.id"
-                class="flex-shrink-0 w-80 h-full flex flex-col bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"
+                class="flex-shrink-0 w-80 h-full flex flex-col bg-default rounded-lg border border-default shadow-sm"
               >
-                <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-t-lg">
+                <div class="p-4 border-b border-default bg-default rounded-t-lg">
                   <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2 flex-1 min-w-0">
                       <div
@@ -141,7 +141,7 @@ function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyList
                           @error="(event) => { const target = event.target as HTMLImageElement; if (target) target.style.display = 'none'; }"
                         >
                       </div>
-                      <h2 class="text-lg font-semibold text-gray-900 dark:text-white truncate">
+                      <h2 class="text-lg font-semibold text-highlighted truncate">
                         {{ list.name }}
                       </h2>
                     </div>
@@ -208,14 +208,14 @@ function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyList
 
                   <div v-if="showProgress && list.items && list.items.length > 0" class="space-y-2">
                     <div class="flex justify-between text-sm">
-                      <span class="text-gray-600 dark:text-gray-400">
+                      <span class="text-muted">
                         {{ list.items.filter((item: BaseListItem) => item.checked).length }} of {{ list.items.length }} items
                       </span>
-                      <span class="text-gray-600 dark:text-gray-400 font-medium">
+                      <span class="text-muted font-medium">
                         {{ getProgressPercentage(list) }}%
                       </span>
                     </div>
-                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div class="w-full bg-muted rounded-full h-2">
                       <div
                         class="h-2 rounded-full transition-all duration-300"
                         :class="getProgressColor(getProgressPercentage(list))"
@@ -223,7 +223,7 @@ function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyList
                       />
                     </div>
                   </div>
-                  <div v-else-if="!list.items || list.items.length === 0 && showProgress" class="text-sm text-gray-500 dark:text-gray-400 py-4.5" />
+                  <div v-else-if="!list.items || list.items.length === 0 && showProgress" class="text-sm text-muted py-4.5" />
                 </div>
 
                 <div class="flex-1 p-4 overflow-y-auto">
@@ -239,7 +239,7 @@ function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyList
                     </UButton>
                   </div>
 
-                  <div v-if="!list.items || list.items.length === 0" class="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
+                  <div v-if="!list.items || list.items.length === 0" class="flex flex-col items-center justify-center py-12 text-muted">
                     <UIcon name="i-lucide-list" class="h-12 w-12 mb-3 opacity-30" />
                     <p class="text-sm font-medium mb-1">
                       No items yet
@@ -268,7 +268,7 @@ function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyList
 
                     <div v-if="(typeof showCompleted === 'function' ? showCompleted(list) : showCompleted) && list.completedItems.length > 0" class="space-y-2">
                       <div class="flex items-center justify-between px-1">
-                        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        <h3 class="text-sm font-medium text-muted">
                           Completed ({{ list.completedItems.length }})
                         </h3>
                         <UButton

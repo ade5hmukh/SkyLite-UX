@@ -110,10 +110,10 @@ function handleDelete() {
     @click="emit('close')"
   >
     <div
-      class="w-[425px] max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg"
+      class="w-[425px] max-h-[90vh] overflow-y-auto bg-default rounded-lg border border-default shadow-lg"
       @click.stop
     >
-      <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center justify-between p-4 border-b border-default">
         <h3 class="text-base font-semibold leading-6">
           {{ item ? 'Edit Item' : 'Add Item' }}
         </h3>
@@ -128,19 +128,19 @@ function handleDelete() {
       </div>
 
       <div class="p-4 space-y-6">
-        <div v-if="error" class="bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 rounded-md px-3 py-2 text-sm">
+        <div v-if="error" class="bg-error/10 text-error rounded-md px-3 py-2 text-sm">
           {{ error }}
         </div>
 
         <template v-for="field in fields" :key="field.key">
           <div v-if="field.key === 'quantity'" class="flex gap-4">
             <div class="w-1/2 space-y-2">
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-1">
+              <label class="block text-sm font-medium text-highlighted flex items-center gap-1">
                 {{ field.label }}
                 <UIcon
                   v-if="field.disabled"
                   name="i-lucide-lock"
-                  class="h-3 w-3 text-gray-400"
+                  class="h-3 w-3 text-muted"
                 />
               </label>
               <UInput
@@ -154,12 +154,12 @@ function handleDelete() {
             </div>
 
             <div v-if="fields.find((f: DialogField) => f.key === 'unit')" class="w-1/2 space-y-2">
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-1">
+              <label class="block text-sm font-medium text-highlighted flex items-center gap-1">
                 Unit
                 <UIcon
                   v-if="fields.find((f: DialogField) => f.key === 'unit')?.disabled"
                   name="i-lucide-lock"
-                  class="h-3 w-3 text-gray-400"
+                  class="h-3 w-3 text-muted"
                 />
               </label>
               <UInput
@@ -173,12 +173,12 @@ function handleDelete() {
           </div>
 
           <div v-else-if="field.key !== 'unit'" class="space-y-2">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200 flex items-center gap-1">
+            <label class="block text-sm font-medium text-highlighted flex items-center gap-1">
               {{ field.label }}
               <UIcon
                 v-if="field.disabled"
                 name="i-lucide-lock"
-                class="h-3 w-3 text-gray-400"
+                class="h-3 w-3 text-muted"
               />
             </label>
 
@@ -214,7 +214,7 @@ function handleDelete() {
         </template>
       </div>
 
-      <div class="flex justify-between p-4 border-t border-gray-200 dark:border-gray-700">
+      <div class="flex justify-between p-4 border-t border-default">
         <UButton
           v-if="item?.id && canDelete"
           color="error"

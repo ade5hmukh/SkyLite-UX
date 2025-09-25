@@ -266,10 +266,10 @@ function handleDelete() {
     @click="emit('close')"
   >
     <div
-      class="w-[425px] max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg"
+      class="w-[425px] max-h-[90vh] overflow-y-auto bg-default rounded-lg border border-default shadow-lg"
       @click.stop
     >
-      <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center justify-between p-4 border-b border-default">
         <h3 class="text-base font-semibold leading-6">
           {{ integration?.id ? 'Edit Integration' : 'Add Integration' }}
         </h3>
@@ -284,21 +284,21 @@ function handleDelete() {
       </div>
 
       <div class="p-4 space-y-6">
-        <div v-if="error" class="bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 rounded-md px-3 py-2 text-sm">
+        <div v-if="error" class="bg-error/10 text-error rounded-md px-3 py-2 text-sm">
           {{ error }}
         </div>
 
-        <div v-if="isTestingConnection" class="bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 rounded-md px-3 py-2 text-sm flex items-center gap-2">
+        <div v-if="isTestingConnection" class="bg-info/10 text-info rounded-md px-3 py-2 text-sm flex items-center gap-2">
           <UIcon name="i-lucide-loader-2" class="animate-spin h-4 w-4" />
           {{ props.connectionTestResult?.message || 'Testing connection...' }}
         </div>
 
         <div v-if="props.connectionTestResult && !props.connectionTestResult.isLoading">
-          <div v-if="props.connectionTestResult.success" class="bg-green-50 dark:bg-green-950 text-green-600 dark:text-green-400 rounded-md px-3 py-2 text-sm flex items-center gap-2">
+          <div v-if="props.connectionTestResult.success" class="bg-success/10 text-success rounded-md px-3 py-2 text-sm flex items-center gap-2">
             <UIcon name="i-lucide-check-circle" class="h-4 w-4" />
             {{ props.connectionTestResult.message || 'Connection test successful! Integration saved.' }}
           </div>
-          <div v-else class="bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 rounded-md px-3 py-2 text-sm flex items-center gap-2">
+          <div v-else class="bg-error/10 text-error rounded-md px-3 py-2 text-sm flex items-center gap-2">
             <UIcon name="i-lucide-x-circle" class="h-4 w-4" />
             {{ props.connectionTestResult.error || 'Connection test failed. Check your API key and base URL.' }}
           </div>
@@ -306,7 +306,7 @@ function handleDelete() {
 
         <template v-if="!integration?.id">
           <div class="space-y-2">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Integration Type *</label>
+            <label class="block text-sm font-medium text-highlighted">Integration Type *</label>
             <USelect
               v-model="type"
               :items="availableTypes"
@@ -315,7 +315,7 @@ function handleDelete() {
           </div>
 
           <div class="space-y-2">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Service *</label>
+            <label class="block text-sm font-medium text-highlighted">Service *</label>
             <USelect
               v-model="service"
               :items="availableServices"
@@ -325,14 +325,14 @@ function handleDelete() {
         </template>
 
         <div class="space-y-2">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Integration Name</label>
+          <label class="block text-sm font-medium text-highlighted">Integration Name</label>
           <UInput
             v-model="name"
             placeholder="Jane's Calendar"
             class="w-full"
             :ui="{ base: 'w-full' }"
           />
-          <p class="text-sm text-gray-500 dark:text-gray-400">
+          <p class="text-sm text-muted">
             Optional: If not provided, a name will be generated.
           </p>
         </div>
@@ -344,10 +344,10 @@ function handleDelete() {
             class="space-y-2"
           >
             <template v-if="field.type === 'color'">
-              <label :for="field.key" class="block text-sm font-medium text-gray-700 dark:text-gray-200">
+              <label :for="field.key" class="block text-sm font-medium text-highlighted">
                 {{ field.label }}{{ field.required ? ' *' : '' }}
               </label>
-              <p v-if="field.description" class="text-sm text-gray-500 dark:text-gray-400">
+              <p v-if="field.description" class="text-sm text-muted">
                 {{ field.description }}
               </p>
               <UPopover class="mt-2">
@@ -400,7 +400,7 @@ function handleDelete() {
                 </template>
               </UInput>
             </template>
-            <p v-if="field.description" class="text-sm text-gray-500 dark:text-gray-400">
+            <p v-if="field.description" class="text-sm text-muted">
               {{ field.description }}
             </p>
           </div>
@@ -416,7 +416,7 @@ function handleDelete() {
         </div>
       </div>
 
-      <div class="flex justify-between p-4 border-t border-gray-200 dark:border-gray-700">
+      <div class="flex justify-between p-4 border-t border-default">
         <UButton
           v-if="integration?.id"
           color="error"

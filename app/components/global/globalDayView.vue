@@ -17,9 +17,16 @@ const emit = defineEmits<{
   (e: "dateSelect", date: Date): void;
 }>();
 
-const { isToday, isSelectedDate: _isSelectedDate, handleDateSelect: _handleDateSelect, getMiniCalendarWeeks, getAllEventsForDay, getAgendaEventsForDay } = useCalendar();
+const { isToday, isSelectedDate: _isSelectedDate, handleDateSelect: _handleDateSelect, getMiniCalendarWeeks, getAllEventsForDay, getAgendaEventsForDay, getEventsForDateRange } = useCalendar();
 
 const miniCalendarWeeks = computed(() => getMiniCalendarWeeks(props.currentDate));
+
+const monthEvents = computed(() => {
+  const currentDate = props.currentDate;
+  const start = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+  const end = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+  return getEventsForDateRange(start, end);
+});
 
 const todaysEvents = computed(() => getAgendaEventsForDay(props.events, props.currentDate));
 
@@ -38,10 +45,10 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
 
 <template>
   <div class="flex h-full w-full">
-    <div class="w-[30%] flex-shrink-0 border-r border-gray-200 dark:border-gray-700">
+    <div class="w-[30%] flex-shrink-0 border-r border-default">
       <div class="p-4">
         <div class="flex items-center justify-center mb-4">
-          <h2 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
+          <h2 class="text-lg font-semibold text-highlighted">
             <NuxtTime
               :datetime="currentDate"
               month="long"
@@ -53,7 +60,7 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
           <div
             v-for="day in ['S', 'M', 'T', 'W', 'T', 'F', 'S']"
             :key="day"
-            class="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-2"
+            class="text-center text-xs font-medium text-muted py-2"
           >
             {{ day }}
           </div>
@@ -61,9 +68,9 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
 
         <div class="grid grid-cols-7 gap-1">
           <template v-for="day in miniCalendarWeeks.flat()" :key="day.toISOString()">
-            <div class="bg-gray-50 dark:bg-gray-900 rounded-lg p-3 shadow-sm border border-gray-200 dark:border-gray-700">
+            <div class="bg-muted rounded-lg p-3 shadow-sm border border-default">
               <UChip
-                v-if="getAllEventsForDay(events, day).length > 0"
+                v-if="getAllEventsForDay(monthEvents, day).length > 0"
                 size="xl"
                 color="primary"
                 position="bottom-left"
@@ -71,12 +78,12 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
               >
                 <button
                   type="button"
-                  class="w-full h-full flex items-center justify-center text-sm transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+                  class="w-full h-full flex items-center justify-center text-sm transition-colors rounded-md hover:bg-accented"
                   :class="{
-                    'text-gray-400 dark:text-gray-600': !isSameMonth(day, currentDate),
-                    'text-gray-900 dark:text-gray-100': isSameMonth(day, currentDate) && !isToday(day) && !isSelectedDate(day),
+                    'text-dimmed': !isSameMonth(day, currentDate),
+                    'text-highlighted': isSameMonth(day, currentDate) && !isToday(day) && !isSelectedDate(day),
                     'bg-primary text-white font-semibold': isSelectedDate(day),
-                    'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 font-medium': isToday(day) && !isSelectedDate(day),
+                    'bg-info/10 text-info font-medium': isToday(day) && !isSelectedDate(day),
                   }"
                   @click="handleDateSelect(day)"
                 >
@@ -87,12 +94,12 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
               <button
                 v-else
                 type="button"
-                class="w-full h-full flex items-center justify-center text-sm transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
+                class="w-full h-full flex items-center justify-center text-sm transition-colors rounded-md hover:bg-accented"
                 :class="{
-                  'text-gray-400 dark:text-gray-600': !isSameMonth(day, currentDate),
-                  'text-gray-900 dark:text-gray-100': isSameMonth(day, currentDate) && !isToday(day) && !isSelectedDate(day),
+                  'text-dimmed': !isSameMonth(day, currentDate),
+                  'text-highlighted': isSameMonth(day, currentDate) && !isToday(day) && !isSelectedDate(day),
                   'bg-primary text-white font-semibold': isSelectedDate(day),
-                  'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 font-medium': isToday(day) && !isSelectedDate(day),
+                  'bg-info/10 text-info font-medium': isToday(day) && !isSelectedDate(day),
                 }"
                 @click="handleDateSelect(day)"
               >
@@ -105,22 +112,22 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
     </div>
     <div class="w-[70%] flex-1">
       <div class="h-full">
-        <div class="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex items-center p-4 border-b border-default">
           <div class="flex items-center gap-3">
             <div
               class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold"
               :class="{
                 'bg-primary text-white': isToday(currentDate),
-                'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400': !isToday(currentDate),
+                'bg-muted text-muted': !isToday(currentDate),
               }"
             >
               <NuxtTime :datetime="currentDate" day="numeric" />
             </div>
             <div>
-              <h3 class="text-base font-semibold text-gray-900 dark:text-gray-100">
+              <h3 class="text-base font-semibold text-highlighted">
                 <NuxtTime :datetime="currentDate" weekday="long" />
               </h3>
-              <p class="text-xs text-gray-500 dark:text-gray-400">
+              <p class="text-xs text-muted">
                 <NuxtTime
                   :datetime="currentDate"
                   month="long"
@@ -133,8 +140,8 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
         </div>
         <div class="p-4">
           <div v-show="todaysEvents.length === 0" class="text-center py-8">
-            <UIcon name="i-lucide-calendar-off" class="w-8 h-8 text-gray-400 dark:text-gray-600 mx-auto mb-2" />
-            <h4 class="text-sm font-medium text-gray-900 dark:text-gray-100">
+            <UIcon name="i-lucide-calendar-off" class="w-8 h-8 text-muted mx-auto mb-2" />
+            <h4 class="text-sm font-medium text-highlighted">
               No events today
             </h4>
           </div>

@@ -251,7 +251,7 @@ function getDaysForAgenda(date: Date) {
       '--week-cells-height': '60px',
     }"
   >
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-5 sm:px-4 sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-5 sm:px-4 sticky top-0 z-40 bg-default border-b border-default">
       <div class="flex sm:flex-col max-sm:items-center justify-between gap-1.5">
         <div class="flex items-center gap-1.5">
           <h1 class="font-semibold text-xl">

@@ -53,10 +53,10 @@ function handleDelete() {
     @click="emit('close')"
   >
     <div
-      class="w-[425px] max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg"
+      class="w-[425px] max-h-[90vh] overflow-y-auto bg-default rounded-lg border border-default shadow-lg"
       @click.stop
     >
-      <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center justify-between p-4 border-b border-default">
         <h3 class="text-base font-semibold leading-6">
           {{ list ? 'Edit Shopping List' : 'Create Shopping List' }}
         </h3>
@@ -71,12 +71,12 @@ function handleDelete() {
       </div>
 
       <div class="p-4 space-y-6">
-        <div v-if="error" class="bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 rounded-md px-3 py-2 text-sm">
+        <div v-if="error" class="bg-error/10 text-error rounded-md px-3 py-2 text-sm">
           {{ error }}
         </div>
 
         <div class="space-y-2">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">List Name</label>
+          <label class="block text-sm font-medium text-highlighted">List Name</label>
           <UInput
             v-model="name"
             placeholder="Groceries, Hardware Store, etc."
@@ -86,12 +86,12 @@ function handleDelete() {
           />
         </div>
 
-        <div v-if="!list" class="text-sm text-gray-600 dark:text-gray-400">
+        <div v-if="!list" class="text-sm text-muted">
           You can add items to the list after creating it.
         </div>
       </div>
 
-      <div class="flex justify-between gap-2 p-4 border-t border-gray-200 dark:border-gray-700">
+      <div class="flex justify-between gap-2 p-4 border-t border-default">
         <div class="flex gap-2">
           <UButton
             v-if="list"

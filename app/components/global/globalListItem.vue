@@ -32,15 +32,15 @@ function getPriorityColor(priority: Priority) {
     case "MEDIUM": return "text-yellow-600 bg-yellow-50 dark:bg-yellow-950";
     case "HIGH": return "text-orange-600 bg-orange-50 dark:bg-orange-950";
     case "URGENT": return "text-red-600 bg-red-50 dark:bg-red-950";
-    default: return "text-gray-600 bg-gray-50 dark:bg-gray-950";
+    default: return "text-muted bg-muted";
   }
 }
 </script>
 
 <template>
   <div
-    class="group flex items-start gap-3 p-3 rounded-lg transition-all bg-gray-50 dark:bg-gray-700/40"
-    :class="{ 'opacity-60 bg-gray-50 dark:bg-gray-800/50': item.checked }"
+    class="group flex items-start gap-3 p-3 rounded-lg transition-all bg-muted"
+    :class="{ 'opacity-60 bg-default': item.checked }"
   >
     <UCheckbox
       v-if="item.checked !== undefined"
@@ -54,7 +54,7 @@ function getPriorityColor(priority: Priority) {
     <div class="flex-1 min-w-0">
       <div class="flex items-center gap-2">
         <span
-          class="text-sm font-medium text-gray-900 dark:text-white truncate"
+          class="text-sm font-medium text-highlighted truncate"
           :class="{ 'line-through': item.checked }"
         >
           {{ item.name }}
@@ -70,7 +70,7 @@ function getPriorityColor(priority: Priority) {
         </span>
         <span
           v-if="isTodoItem(item) && item.dueDate"
-          class="text-xs text-gray-500 dark:text-gray-400"
+          class="text-xs text-muted"
         >
           <NuxtTime
             :datetime="item.dueDate"
@@ -81,14 +81,14 @@ function getPriorityColor(priority: Priority) {
         </span>
         <span
           v-if="isShoppingItem(item) && showQuantity && item.quantity"
-          class="text-xs text-gray-500 dark:text-gray-400"
+          class="text-xs text-muted"
         >
           {{ item.quantity > 1 ? item.quantity : "" }} {{ item.unit === null || item.unit === "" ? "" : item.unit }}
         </span>
       </div>
       <p
         v-if="showNotes && item.notes && item.notes !== item.name"
-        class="text-xs text-gray-700 dark:text-gray-300 line-clamp-2 mt-1"
+        class="text-xs text-toned line-clamp-2 mt-1"
         :class="{ 'line-through': item.checked }"
       >
         {{ item.notes }}

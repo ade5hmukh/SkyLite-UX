@@ -125,7 +125,7 @@ export function useCalendar() {
     const days: Date[] = [];
     const start = getLocalTimeFromUTC(startDate);
 
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 7; i++) {
       const day = parseStableDate(new Date(start.getTime()));
       day.setDate(start.getDate() + i);
       days.push(day);
@@ -626,31 +626,16 @@ export function useCalendar() {
           return { style: `background-color: ${lightenedColor}; color: ${textColor}; text-shadow: 0 1px 2px ${shadowColor};` };
         }
       }
-      color = "sky";
     }
 
-    const eventColor = color || "sky";
-
-    switch (eventColor) {
-      case "sky":
-        return "bg-blue-200/50 hover:bg-blue-200/40 text-blue-900/90 dark:bg-blue-400/25 dark:hover:bg-blue-400/20 dark:text-blue-200 shadow-blue-700/8 backdrop-blur-[2px]";
-      case "violet":
-        return "bg-violet-200/50 hover:bg-violet-200/40 text-violet-900/90 dark:bg-violet-400/25 dark:hover:bg-violet-400/20 dark:text-violet-200 shadow-violet-700/8 backdrop-blur-[2px]";
-      case "rose":
-        return "bg-rose-200/50 hover:bg-rose-200/40 text-rose-900/90 dark:bg-rose-400/25 dark:hover:bg-rose-400/20 dark:text-rose-200 shadow-rose-700/8 backdrop-blur-[2px]";
-      case "emerald":
-        return "bg-emerald-200/50 hover:bg-emerald-200/40 text-emerald-900/90 dark:bg-emerald-400/25 dark:hover:bg-emerald-400/20 dark:text-emerald-200 shadow-emerald-700/8 backdrop-blur-[2px]";
-      case "orange":
-        return "bg-orange-200/50 hover:bg-orange-200/40 text-orange-900/90 dark:bg-orange-400/25 dark:hover:bg-orange-400/20 dark:text-orange-200 shadow-orange-700/8 backdrop-blur-[2px]";
-      default:
-        if (typeof eventColor === "string" && /^#(?:[0-9A-F]{3}){1,2}$/i.test(eventColor)) {
-          const lightenedColor = lightenColor(eventColor, 0.4);
-          const textColor = getTextColor(lightenedColor);
-          const shadowColor = textColor === "black" ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)";
-          return { style: `background-color: ${lightenedColor}; color: ${textColor}; text-shadow: 0 1px 2px ${shadowColor};` };
-        }
-        return "bg-blue-200/50 hover:bg-blue-200/40 text-blue-900/90 dark:bg-blue-400/25 dark:hover:bg-blue-400/20 dark:text-blue-200 shadow-blue-700/8 backdrop-blur-[2px]";
+    if (typeof color === "string" && /^#(?:[0-9A-F]{3}){1,2}$/i.test(color)) {
+      const lightenedColor = lightenColor(color, 0.4);
+      const textColor = getTextColor(lightenedColor);
+      const shadowColor = textColor === "black" ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)";
+      return { style: `background-color: ${lightenedColor}; color: ${textColor}; text-shadow: 0 1px 2px ${shadowColor};` };
     }
+
+    return "bg-secondary/20 hover:bg-secondary/30 text-elevated shadow-elevated/8 backdrop-blur-[2px]";
   }
 
   function isToday(date: Date) {

@@ -926,10 +926,10 @@ function handleDelete() {
     @click="emit('close')"
   >
     <div
-      class="w-[425px] max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg"
+      class="w-[425px] max-h-[90vh] overflow-y-auto bg-default rounded-lg border border-default shadow-lg"
       @click.stop
     >
-      <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center justify-between p-4 border-b border-default">
         <h2 class="text-base font-semibold leading-6">
           {{ event?.id ? 'Edit Event' : 'Create Event' }}
         </h2>
@@ -943,14 +943,14 @@ function handleDelete() {
         />
       </div>
       <div class="p-4 space-y-6">
-        <div v-if="error" class="bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 rounded-md px-3 py-2 text-sm">
+        <div v-if="error" class="bg-error/10 text-error rounded-md px-3 py-2 text-sm">
           {{ error }}
         </div>
-        <div v-if="isReadOnly" class="bg-blue-50 dark:bg-blue-950 text-blue-600 dark:text-blue-400 rounded-md px-3 py-2 text-sm">
+        <div v-if="isReadOnly" class="bg-info/10 text-info rounded-md px-3 py-2 text-sm">
           This event cannot be edited. {{ integrationServiceName || 'This integration' }} does not support editing events.
         </div>
         <div class="space-y-2">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Title</label>
+          <label class="block text-sm font-medium text-highlighted">Title</label>
           <UInput
             v-model="title"
             placeholder="Event title"
@@ -960,7 +960,7 @@ function handleDelete() {
           />
         </div>
         <div class="space-y-2">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Description</label>
+          <label class="block text-sm font-medium text-highlighted">Description</label>
           <UTextarea
             v-model="description"
             placeholder="Event description"
@@ -972,7 +972,7 @@ function handleDelete() {
         </div>
         <div class="flex gap-4">
           <div class="w-1/2 space-y-2">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Start Date</label>
+            <label class="block text-sm font-medium text-highlighted">Start Date</label>
             <UPopover>
               <UButton
                 color="neutral"
@@ -1001,7 +1001,7 @@ function handleDelete() {
             </UPopover>
           </div>
           <div v-if="!allDay" class="w-1/2 space-y-2">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Start Time</label>
+            <label class="block text-sm font-medium text-highlighted">Start Time</label>
             <div class="flex gap-2">
               <USelect
                 v-model="startHour"
@@ -1035,7 +1035,7 @@ function handleDelete() {
         </div>
         <div class="flex gap-4">
           <div class="w-1/2 space-y-2">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">End Date</label>
+            <label class="block text-sm font-medium text-highlighted">End Date</label>
             <UPopover>
               <UButton
                 color="neutral"
@@ -1064,7 +1064,7 @@ function handleDelete() {
             </UPopover>
           </div>
           <div v-if="!allDay" class="w-1/2 space-y-2">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">End Time</label>
+            <label class="block text-sm font-medium text-highlighted">End Time</label>
             <div class="flex gap-2">
               <USelect
                 v-model="endHour"
@@ -1111,10 +1111,10 @@ function handleDelete() {
             :disabled="isReadOnly"
           />
         </div>
-        <div v-if="isRecurring" class="space-y-4 p-4 bg-gray-50 dark:bg-gray-800 rounded-lg">
+        <div v-if="isRecurring" class="space-y-4 p-4 bg-muted rounded-lg">
           <div class="flex gap-4">
             <div class="w-1/2 space-y-2">
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Repeat</label>
+              <label class="block text-sm font-medium text-highlighted">Repeat</label>
               <USelect
                 v-model="recurrenceType"
                 :items="recurrenceTypeOptions"
@@ -1126,7 +1126,7 @@ function handleDelete() {
               />
             </div>
             <div class="w-1/2 space-y-2">
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Every</label>
+              <label class="block text-sm font-medium text-highlighted">Every</label>
               <UInput
                 v-model.number="recurrenceInterval"
                 type="number"
@@ -1139,7 +1139,7 @@ function handleDelete() {
             </div>
           </div>
           <div v-if="recurrenceType === 'weekly'" class="space-y-2">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Repeat on</label>
+            <label class="block text-sm font-medium text-highlighted">Repeat on</label>
             <div class="flex gap-1">
               <UButton
                 v-for="day in dayOptions"
@@ -1153,7 +1153,7 @@ function handleDelete() {
                 {{ day.label }}
               </UButton>
             </div>
-            <div v-if="recurrenceDays.length > 0" class="text-sm text-amber-600 dark:text-amber-400">
+            <div v-if="recurrenceDays.length > 0" class="text-sm text-warning">
               <div class="flex items-center justify-center gap-2">
                 <span>
                   Dates will be adjusted based on selected days
@@ -1163,7 +1163,7 @@ function handleDelete() {
           </div>
           <div v-if="recurrenceType === 'monthly'" class="space-y-4">
             <div class="space-y-2">
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Repeat on</label>
+              <label class="block text-sm font-medium text-highlighted">Repeat on</label>
               <USelect
                 v-model="recurrenceMonthlyType"
                 :items="monthlyTypeOptions"
@@ -1175,7 +1175,7 @@ function handleDelete() {
               />
             </div>
             <div v-if="recurrenceMonthlyType === 'weekday'" class="space-y-2">
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Weekday</label>
+              <label class="block text-sm font-medium text-highlighted">Weekday</label>
               <div class="flex gap-2">
                 <USelect
                   v-model="recurrenceMonthlyWeekday.week"
@@ -1200,7 +1200,7 @@ function handleDelete() {
           </div>
           <div v-if="recurrenceType === 'yearly'" class="space-y-4">
             <div class="space-y-2">
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Repeat on</label>
+              <label class="block text-sm font-medium text-highlighted">Repeat on</label>
               <USelect
                 v-model="recurrenceYearlyType"
                 :items="yearlyTypeOptions"
@@ -1212,7 +1212,7 @@ function handleDelete() {
               />
             </div>
             <div v-if="recurrenceYearlyType === 'weekday'" class="space-y-2">
-              <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Weekday</label>
+              <label class="block text-sm font-medium text-highlighted">Weekday</label>
               <div class="flex gap-2">
                 <USelect
                   v-model="recurrenceYearlyWeekday.week"
@@ -1245,7 +1245,7 @@ function handleDelete() {
             </div>
           </div>
           <div class="space-y-2">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Ends</label>
+            <label class="block text-sm font-medium text-highlighted">Ends</label>
             <div class="flex gap-4">
               <USelect
                 v-model="recurrenceEndType"
@@ -1297,7 +1297,7 @@ function handleDelete() {
           </div>
         </div>
         <div class="space-y-2">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Location</label>
+          <label class="block text-sm font-medium text-highlighted">Location</label>
           <UInput
             v-model="location"
             placeholder="Event location"
@@ -1307,9 +1307,9 @@ function handleDelete() {
           />
         </div>
         <div class="space-y-2">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Users</label>
+          <label class="block text-sm font-medium text-highlighted">Users</label>
           <div class="space-y-2">
-            <div class="text-sm text-gray-600 dark:text-gray-400 mb-2">
+            <div class="text-sm text-muted mb-2">
               {{ event?.id ? 'Edit users for this event:' : 'Select users for this event:' }}
             </div>
             <div class="flex flex-wrap gap-2">
@@ -1330,7 +1330,7 @@ function handleDelete() {
                 />
               </UButton>
             </div>
-            <div v-if="!users.length" class="text-sm text-gray-500 dark:text-gray-400">
+            <div v-if="!users.length" class="text-sm text-muted">
               No users found! Please add some users in the <NuxtLink to="/settings" class="text-primary">
                 settings
               </NuxtLink> page.
@@ -1338,7 +1338,7 @@ function handleDelete() {
           </div>
         </div>
       </div>
-      <div class="flex justify-between p-4 border-t border-gray-200 dark:border-gray-700">
+      <div class="flex justify-between p-4 border-t border-default">
         <UButton
           v-if="event?.id && canDelete"
           color="error"

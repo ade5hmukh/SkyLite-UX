@@ -8,7 +8,7 @@ const now = computed(() => getStableDate());
 
 <template>
   <div class="flex flex-col gap-1.5">
-    <h1 class="font-semibold text-xl text-gray-900 dark:text-white">
+    <h1 class="font-semibold text-xl text-highlighted">
       <NuxtTime
         :datetime="now"
         hour="numeric"
@@ -16,7 +16,7 @@ const now = computed(() => getStableDate());
         :hour12="true"
       />
     </h1>
-    <p class="text-sm text-gray-600 dark:text-gray-400">
+    <p class="text-sm text-muted">
       <NuxtTime
         :datetime="now"
         weekday="long"

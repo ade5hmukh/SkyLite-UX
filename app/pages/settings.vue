@@ -419,16 +419,16 @@ function getIntegrationIconUrl(integration: Integration) {
 
 <template>
   <div class="flex w-full flex-col rounded-lg">
-    <div class="py-5 sm:px-4 sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+    <div class="py-5 sm:px-4 sticky top-0 z-40 bg-default border-b border-default">
       <GlobalDateHeader />
     </div>
 
-    <div class="flex-1 bg-gray-50 dark:bg-gray-900 p-6">
+    <div class="flex-1 bg-default p-6">
       <div class="max-w-4xl mx-auto">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+        <div class="bg-default rounded-lg shadow-sm border border-default p-6 mb-6">
           <div class="flex items-center justify-between mb-6">
             <div>
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              <h2 class="text-lg font-semibold text-highlighted">
                 Users
               </h2>
             </div>
@@ -442,23 +442,23 @@ function getIntegrationIconUrl(integration: Integration) {
 
           <div v-if="loading" class="text-center py-8">
             <UIcon name="i-lucide-loader-2" class="animate-spin h-8 w-8 mx-auto" />
-            <p class="text-gray-500 dark:text-gray-400 mt-2">
+            <p class="text-default mt-2">
               Loading users...
             </p>
           </div>
 
-          <div v-else-if="error" class="text-center py-8 text-red-600 dark:text-red-400">
+          <div v-else-if="error" class="text-center py-8 text-error">
             {{ error }}
           </div>
 
           <div v-else-if="users.length === 0" class="text-center py-8">
-            <div class="flex items-center justify-center gap-2 text-gray-500 dark:text-gray-400">
+            <div class="flex items-center justify-center gap-2 text-default">
               <UIcon name="i-lucide-frown" class="h-10 w-10" />
               <div class="text-center">
                 <p class="text-lg">
                   No users found
                 </p>
-                <p class="text-gray-400 dark:text-gray-500">
+                <p class="text-dimmed">
                   Create your first user to get started
                 </p>
               </div>
@@ -470,21 +470,21 @@ function getIntegrationIconUrl(integration: Integration) {
               <div
                 v-for="user in users"
                 :key="user.id"
-                class="flex items-center gap-3 p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700"
+                class="flex items-center gap-3 p-4 rounded-lg border border-default bg-muted"
               >
                 <img
                   :src="user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=${(user.color || '#06b6d4').replace('#', '')}&color=374151&size=96`"
-                  class="w-10 h-10 rounded-full object-cover border border-gray-300 dark:border-gray-700"
+                  class="w-10 h-10 rounded-full object-cover border border-muted"
                   :alt="user.name"
                 >
                 <div class="flex-1 min-w-0">
-                  <p class="font-medium text-gray-900 dark:text-white truncate">
+                  <p class="font-medium text-highlighted truncate">
                     {{ user.name }}
                   </p>
-                  <p v-if="user.email" class="text-sm text-gray-500 dark:text-gray-400 truncate">
+                  <p v-if="user.email" class="text-sm text-muted truncate">
                     {{ user.email }}
                   </p>
-                  <p v-else class="text-sm text-gray-500 dark:text-gray-400">
+                  <p v-else class="text-sm text-muted">
                     No email
                   </p>
                 </div>
@@ -502,10 +502,10 @@ function getIntegrationIconUrl(integration: Integration) {
           </div>
         </div>
 
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+        <div class="bg-default rounded-lg shadow-sm border border-default p-6 mb-6">
           <div class="flex items-center justify-between mb-6">
             <div>
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              <h2 class="text-lg font-semibold text-highlighted">
                 Integrations
               </h2>
             </div>
@@ -517,7 +517,7 @@ function getIntegrationIconUrl(integration: Integration) {
             </UButton>
           </div>
 
-          <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
+          <div class="border-b border-default mb-6">
             <nav class="-mb-px flex space-x-8">
               <button
                 v-for="type in availableIntegrationTypes"
@@ -526,8 +526,8 @@ function getIntegrationIconUrl(integration: Integration) {
                 class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm"
                 :class="[
                   activeIntegrationTab === type
-                    ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300',
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted hover:text-toned hover:border-muted',
                 ]"
                 @click="activeIntegrationTab = type"
               >
@@ -538,26 +538,26 @@ function getIntegrationIconUrl(integration: Integration) {
 
           <div v-if="integrationsLoading" class="text-center py-8">
             <UIcon name="i-lucide-loader-2" class="animate-spin h-8 w-8 mx-auto" />
-            <p class="text-gray-500 dark:text-gray-400 mt-2">
+            <p class="text-default mt-2">
               Loading integrations...
             </p>
           </div>
 
           <div v-else-if="servicesInitializing" class="text-center py-8">
             <UIcon name="i-lucide-loader-2" class="animate-spin h-8 w-8 mx-auto" />
-            <p class="text-gray-500 dark:text-gray-400 mt-2">
+            <p class="text-default mt-2">
               Initializing integration services...
             </p>
           </div>
 
           <div v-else-if="filteredIntegrations.length === 0" class="text-center py-8">
-            <div class="flex items-center justify-center gap-2 text-gray-500 dark:text-gray-400">
+            <div class="flex items-center justify-center gap-2 text-default">
               <UIcon name="i-lucide-frown" class="h-10 w-10" />
               <div class="text-center">
                 <p class="text-lg">
                   No {{ getIntegrationTypeLabel(activeIntegrationTab) }} integrations configured
                 </p>
-                <p class="text-gray-400 dark:text-gray-500">
+                <p class="text-dimmed">
                   Connect external services to enhance your experience
                 </p>
               </div>
@@ -572,17 +572,17 @@ function getIntegrationIconUrl(integration: Integration) {
                 class="flex items-center justify-between p-4 rounded-lg border"
                 :class="[
                   integration.enabled
-                    ? 'border-primary-200 dark:border-primary-800 bg-primary-50/50 dark:bg-primary-900/20'
-                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800',
+                    ? 'border-primary bg-primary/10'
+                    : 'border-default bg-default',
                 ]"
               >
                 <div class="flex items-center gap-3">
                   <div
-                    class="w-10 h-10 rounded-full flex items-center justify-center text-white"
+                    class="w-10 h-10 rounded-full flex items-center justify-center text-inverted"
                     :class="[
                       integration.enabled
-                        ? 'bg-gray-700'
-                        : 'bg-gray-400',
+                        ? 'bg-accented'
+                        : 'bg-muted',
                     ]"
                   >
                     <img
@@ -599,13 +599,13 @@ function getIntegrationIconUrl(integration: Integration) {
                     />
                   </div>
                   <div class="flex-1 min-w-0">
-                    <p class="font-medium text-gray-900 dark:text-white">
+                    <p class="font-medium text-highlighted">
                       {{ integration.name }}
                     </p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 capitalize">
+                    <p class="text-sm text-default capitalize">
                       {{ integration.service }}
                     </p>
-                    <p class="text-xs text-gray-400 dark:text-gray-500 truncate">
+                    <p class="text-xs text-dimmed truncate">
                       {{ integration.baseUrl }}
                     </p>
                   </div>
@@ -633,17 +633,17 @@ function getIntegrationIconUrl(integration: Integration) {
           </div>
         </div>
 
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <div class="bg-default rounded-lg shadow-sm border border-default p-6">
+          <h2 class="text-lg font-semibold text-highlighted mb-4">
             Application Settings
           </h2>
           <div class="space-y-4">
             <div class="flex items-center justify-between">
               <div>
-                <p class="font-medium text-gray-900 dark:text-white">
+                <p class="font-medium text-highlighted">
                   Dark Mode
                 </p>
-                <p class="text-sm text-gray-600 dark:text-gray-400">
+                <p class="text-sm text-muted">
                   Toggle between light and dark themes (Coming Soon™)
                 </p>
               </div>
@@ -658,10 +658,10 @@ function getIntegrationIconUrl(integration: Integration) {
             </div>
             <div class="flex items-center justify-between">
               <div>
-                <p class="font-medium text-gray-900 dark:text-white">
+                <p class="font-medium text-highlighted">
                   Notifications
                 </p>
-                <p class="text-sm text-gray-600 dark:text-gray-400">
+                <p class="text-sm text-muted">
                   Enable push notifications (Coming Soon™)
                 </p>
               </div>

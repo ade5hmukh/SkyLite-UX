@@ -740,7 +740,7 @@ function getFilteredFieldsForItem(item: ShoppingListItem, integrationType: strin
 
 <template>
   <div class="flex h-[calc(100vh-2rem)] w-full flex-col rounded-lg">
-    <div class="py-5 sm:px-4 sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+    <div class="py-5 sm:px-4 sticky top-0 z-40 bg-default border-b border-default">
       <GlobalDateHeader />
     </div>
 
