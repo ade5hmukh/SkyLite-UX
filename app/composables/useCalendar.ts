@@ -838,12 +838,14 @@ export function useCalendar() {
   function getEventsForDateRange(start: Date, end: Date): CalendarEvent[] {
     const events = allEvents.value;
 
-    return events.filter((event) => {
+    const filteredEvents = events.filter((event) => {
       const eventStart = parseStableDate(event.start);
       const eventEnd = parseStableDate(event.end);
 
       return eventStart <= end && eventEnd >= start;
     });
+
+    return filteredEvents;
   }
 
   function isPlaceholderEvent(event: CalendarEvent): boolean {

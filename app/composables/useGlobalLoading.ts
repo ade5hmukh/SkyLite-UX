@@ -1,6 +1,6 @@
 const globalState = {
   isLoading: ref(true),
-  loadingMessage: ref("Family Life, Organized."),
+  loadingMessage: ref("Life, Organized."),
 };
 
 export function useGlobalLoading() {

@@ -1,7 +1,4 @@
 <script setup lang="ts">
-import { consola } from "consola";
-import { endOfWeek, startOfWeek } from "date-fns";
-
 import type { CalendarEvent } from "~/types/calendar";
 
 import { useCalendar } from "~/composables/useCalendar";
@@ -20,26 +17,37 @@ const emit = defineEmits<{
 
 const { getStableDate } = useStableDate();
 
-const { isToday, getAllEventsForDay, assignSpanningEventLanes, sortEvents, handleEventClick: _handleEventClick, getLocalWeekDays, getEventsForDateRange } = useCalendar();
+const { isToday, getAllEventsForDay, assignSpanningEventLanes, handleEventClick: _handleEventClick, getLocalWeekDays, getEventsForDateRange } = useCalendar();
 
 const weekDays = computed(() => {
   const start = props.startDate || getStableDate();
-  const days = getLocalWeekDays(start);
+  const sunday = new Date(start.getTime());
+  const dayOfWeek = sunday.getDay();
+  sunday.setDate(sunday.getDate() - dayOfWeek);
 
+  const days = getLocalWeekDays(sunday);
   return days;
 });
 
 const nextWeekDays = computed(() => {
   const start = props.startDate || getStableDate();
-  const nextWeekStart = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
-  return getLocalWeekDays(nextWeekStart);
+  const sunday = new Date(start.getTime());
+  const dayOfWeek = sunday.getDay();
+  sunday.setDate(sunday.getDate() - dayOfWeek);
+  const nextWeekSunday = new Date(sunday.getTime() + 7 * 24 * 60 * 60 * 1000);
+
+  return getLocalWeekDays(nextWeekSunday);
 });
 
 const nextWeekEvents = computed(() => {
   const start = props.startDate || getStableDate();
-  const nextWeekStart = new Date(start.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const nextWeekEnd = new Date(nextWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
-  return getEventsForDateRange(nextWeekStart, nextWeekEnd);
+  const sunday = new Date(start.getTime());
+  const dayOfWeek = sunday.getDay();
+  sunday.setDate(sunday.getDate() - dayOfWeek);
+  const nextWeekSunday = new Date(sunday.getTime() + 7 * 24 * 60 * 60 * 1000);
+  const nextWeekSaturday = new Date(nextWeekSunday.getTime() + 6 * 24 * 60 * 60 * 1000);
+
+  return getEventsForDateRange(nextWeekSunday, nextWeekSaturday);
 });
 
 const firstRow = computed(() => weekDays.value.slice(0, 4));
@@ -60,83 +68,16 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
   _handleEventClick(event, e, emit);
 }
 
-function getEventForDayAndPosition(day: Date, position: number): CalendarEvent | null {
-  const dayEvents = getAllEventsForDay(props.events, day);
-  const sortedEvents = sortEvents(dayEvents);
-  const result = sortedEvents[position] || null;
-
-  // Debug logging for event rendering
-  if (day.getDay() === 0) { // Sunday
-    consola.log(`Sunday ${day.toDateString()} - getEventForDayAndPosition:`, {
-      dayEvents: dayEvents.map(e => ({ id: e.id, title: e.title })),
-      sortedEvents: sortedEvents.map(e => ({ id: e.id, title: e.title })),
-      position,
-      result: result ? { id: result.id, title: result.title } : null,
-    });
-  }
-
-  return result;
-}
-
 const nextWeekEventCount = computed(() => {
   const uniqueEvents = new Set<string>();
 
   nextWeekDays.value.forEach((day) => {
     const dayEvents = getAllEventsForDay(nextWeekEvents.value, day);
-    consola.log(`Events for ${day.toDateString()}:`, dayEvents.map(e => ({ id: e.id, title: e.title, start: e.start, end: e.end })));
     dayEvents.forEach((event) => {
-      // Use base ID without timestamp suffixes for counting
       const baseId = event.id.split("-")[0] || event.id;
       uniqueEvents.add(baseId);
     });
   });
-
-  // Check specifically for Sunday events that might be missing from the display
-  const sundayEvents = nextWeekEvents.value.filter((event) => {
-    const eventStart = new Date(event.start);
-    const eventEnd = new Date(event.end);
-    const sunday = nextWeekDays.value.find(day => day.getDay() === 0); // Find Sunday in next week
-    if (!sunday)
-      return false;
-
-    const sundayStart = new Date(sunday.getFullYear(), sunday.getMonth(), sunday.getDate());
-    const sundayEnd = new Date(sundayStart.getTime() + 24 * 60 * 60 * 1000);
-
-    return eventStart < sundayEnd && eventEnd > sundayStart;
-  });
-
-  if (sundayEvents.length > 0) {
-    consola.log("Sunday events found:", sundayEvents.map(e => ({ id: e.id, title: e.title, start: e.start, end: e.end })));
-  }
-
-  // Debug logging to understand the data structure
-  consola.log("Next week events:", nextWeekEvents.value.map(e => ({ id: e.id, title: e.title, start: e.start, end: e.end })));
-  consola.log("Next week days:", nextWeekDays.value.map(d => d.toDateString()));
-  consola.log("Unique event IDs:", Array.from(uniqueEvents));
-  consola.log("Count:", uniqueEvents.size);
-
-  // Compare with main events prop
-  consola.log("Main events prop length:", props.events.length);
-  consola.log("Main events:", props.events.map(e => ({ id: e.id, title: e.title, start: e.start, end: e.end })));
-
-  // Check what events are available for the current week being displayed
-  const currentWeekStart = startOfWeek(props.startDate || getStableDate(), { weekStartsOn: 0 });
-  const currentWeekEnd = endOfWeek(props.startDate || getStableDate(), { weekStartsOn: 0 });
-  consola.log("Current week being displayed:", currentWeekStart.toDateString(), "to", currentWeekEnd.toDateString());
-
-  const currentWeekEvents = props.events.filter((event) => {
-    const eventStart = new Date(event.start);
-    const eventEnd = new Date(event.end);
-    return eventStart < currentWeekEnd && eventEnd > currentWeekStart;
-  });
-  consola.log("Events for current week being displayed:", currentWeekEvents.map(e => ({ id: e.id, title: e.title, start: e.start, end: e.end })));
-
-  consola.log("props.startDate:", props.startDate?.toDateString(), "getStableDate():", getStableDate().toDateString());
-
-  // Check our manual calculation
-  const manualNextWeekStart = new Date((props.startDate || getStableDate()).getTime() + 7 * 24 * 60 * 60 * 1000);
-  const manualNextWeekEnd = new Date(manualNextWeekStart.getTime() + 6 * 24 * 60 * 60 * 1000);
-  consola.log("Manual next week range:", manualNextWeekStart.toDateString(), "to", manualNextWeekEnd.toDateString());
 
   return uniqueEvents.size;
 });
@@ -177,34 +118,17 @@ function isLastDay(day: Date) {
           class="overflow-y-auto px-2 py-1 space-y-1 relative z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col"
           style="height: 240px;"
         >
-          <div class="rounded">
+          <div
+            v-for="(event) in getAllEventsForDay(events, day)"
+            :key="event.id"
+            class="rounded"
+          >
             <CalendarEventItem
-              v-if="getEventForDayAndPosition(day, 0)"
-              :event="getEventForDayAndPosition(day, 0)!"
+              :event="event"
               view="week"
               :current-day="day"
               class="rounded"
-              @click="(e) => handleEventClick(getEventForDayAndPosition(day, 0)!, e)"
-            />
-          </div>
-          <div class="rounded">
-            <CalendarEventItem
-              v-if="getEventForDayAndPosition(day, 1)"
-              :event="getEventForDayAndPosition(day, 1)!"
-              view="week"
-              :current-day="day"
-              class="rounded"
-              @click="(e) => handleEventClick(getEventForDayAndPosition(day, 1)!, e)"
-            />
-          </div>
-          <div class="rounded">
-            <CalendarEventItem
-              v-if="getEventForDayAndPosition(day, 2)"
-              :event="getEventForDayAndPosition(day, 2)!"
-              view="week"
-              :current-day="day"
-              class="rounded"
-              @click="(e) => handleEventClick(getEventForDayAndPosition(day, 2)!, e)"
+              @click="(e) => handleEventClick(event, e)"
             />
           </div>
           <div
@@ -248,34 +172,17 @@ function isLastDay(day: Date) {
             class="overflow-y-auto px-2 py-1 space-y-1 relative z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col"
             style="height: 240px;"
           >
-            <div class="rounded">
+            <div
+              v-for="(event) in getAllEventsForDay(events, day)"
+              :key="event.id"
+              class="rounded"
+            >
               <CalendarEventItem
-                v-if="getEventForDayAndPosition(day, 0)"
-                :event="getEventForDayAndPosition(day, 0)!"
+                :event="event"
                 view="week"
                 :current-day="day"
                 class="rounded"
-                @click="(e) => handleEventClick(getEventForDayAndPosition(day, 0)!, e)"
-              />
-            </div>
-            <div class="rounded">
-              <CalendarEventItem
-                v-if="getEventForDayAndPosition(day, 1)"
-                :event="getEventForDayAndPosition(day, 1)!"
-                view="week"
-                :current-day="day"
-                class="rounded"
-                @click="(e) => handleEventClick(getEventForDayAndPosition(day, 1)!, e)"
-              />
-            </div>
-            <div class="rounded">
-              <CalendarEventItem
-                v-if="getEventForDayAndPosition(day, 2)"
-                :event="getEventForDayAndPosition(day, 2)!"
-                view="week"
-                :current-day="day"
-                class="rounded"
-                @click="(e) => handleEventClick(getEventForDayAndPosition(day, 2)!, e)"
+                @click="(e) => handleEventClick(event, e)"
               />
             </div>
             <div

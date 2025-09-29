@@ -117,8 +117,15 @@ export class ICalService implements CalendarIntegrationService {
       const end = new Date(event.dtend);
 
       // Determine if this is an all-day event based on iCalendar RFC 5545 standard
-      // All-day events have DATE value type for DTSTART (no time component)
-      const isAllDay = !event.dtstart.includes("T") && !event.dtstart.includes("Z");
+      // All-day events typically have:
+      // 1. DATE value type for DTSTART (no time component)
+      // 2. DATETIME with time 00:00:00 for both DTSTART and DTEND
+      const isDateOnly = !event.dtstart.includes("T") && !event.dtstart.includes("Z");
+      const isMidnightToMidnight = event.dtstart.includes("T00:00:00")
+        && event.dtend.includes("T00:00:00")
+        && new Date(event.dtend).getTime() - new Date(event.dtstart).getTime() === 24 * 60 * 60 * 1000;
+
+      const isAllDay = isDateOnly || isMidnightToMidnight;
 
       let color: string | string[] | undefined = this.eventColor || "sky";
       if (this.useUserColors && users.length > 0) {

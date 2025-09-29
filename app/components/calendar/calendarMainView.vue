@@ -203,31 +203,48 @@ const filteredEvents = computed(() => {
     return [];
 
   const now = currentDate.value;
+  let start: Date;
+  let end: Date;
+  let events: CalendarEvent[];
 
   switch (view.value) {
     case "month": {
-      const start = new Date(now.getFullYear(), now.getMonth(), 1);
-      const end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      return getEventsForDateRange(start, end);
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      start.setDate(start.getDate() - 6);
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      end.setDate(end.getDate() + 6);
+      events = getEventsForDateRange(start, end);
+      break;
     }
     case "week": {
-      const start = startOfWeek(now, { weekStartsOn: 0 });
-      const end = endOfWeek(now, { weekStartsOn: 0 });
-      return getEventsForDateRange(start, end);
+      const sunday = new Date(now.getTime());
+      const dayOfWeek = sunday.getDay();
+      sunday.setDate(sunday.getDate() - dayOfWeek);
+      const saturday = new Date(sunday.getTime() + 6 * 24 * 60 * 60 * 1000);
+      start = sunday;
+      end = saturday;
+      events = getEventsForDateRange(start, end);
+      break;
     }
     case "day": {
-      const start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      const end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-      return getEventsForDateRange(start, end);
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      events = getEventsForDateRange(start, end);
+      break;
     }
     case "agenda": {
-      const start = now;
-      const end = addDays(now, 30);
-      return getEventsForDateRange(start, end);
+      start = addDays(now, -15);
+      end = addDays(now, 15);
+      events = getEventsForDateRange(start, end);
+      break;
     }
     default:
-      return props.events;
+      events = props.events;
+      start = new Date();
+      end = new Date();
   }
+
+  return events;
 });
 
 function getWeeksForMonth(date: Date) {

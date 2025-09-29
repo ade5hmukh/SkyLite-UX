@@ -757,44 +757,22 @@ function handleSave() {
 
   try {
     if (allDay.value) {
-      const startLocal = startDate.value.toDate(getLocalTimeZone());
-      const endLocal = endDate.value.toDate(getLocalTimeZone());
+      const startUTC = new Date(Date.UTC(
+        startDate.value.year,
+        startDate.value.month - 1,
+        startDate.value.day,
+        0, 0, 0, 0
+      ));
+      
+      const endUTC = new Date(Date.UTC(
+        endDate.value.year,
+        endDate.value.month - 1,
+        endDate.value.day + 1,
+        0, 0, 0, 0
+      ));
 
-      startLocal.setHours(0, 0, 0, 0);
-
-      if (startDate.value.toDate(getLocalTimeZone()).getTime() === endDate.value.toDate(getLocalTimeZone()).getTime()) {
-        endLocal.setDate(endLocal.getDate() + 1);
-        endLocal.setHours(0, 0, 0, 0);
-      }
-      else {
-        endLocal.setDate(endLocal.getDate() + 1);
-        endLocal.setHours(0, 0, 0, 0);
-      }
-
-      const browserTimezone = getBrowserTimezone();
-      const timezone = browserTimezone ? ical.TimezoneService.get(browserTimezone) : null;
-
-      if (timezone) {
-        const startICal = ical.Time.fromJSDate(startLocal, true);
-        const endICal = ical.Time.fromJSDate(endLocal, true);
-
-        const startLocalICal = startICal.convertToZone(timezone);
-        const endLocalICal = endICal.convertToZone(timezone);
-
-        const startUTC = startLocalICal.convertToZone(ical.TimezoneService.get("UTC"));
-        const endUTC = endLocalICal.convertToZone(ical.TimezoneService.get("UTC"));
-
-        start = startUTC.toJSDate();
-        end = endUTC.toJSDate();
-      }
-      else {
-        const startICal = ical.Time.fromJSDate(startLocal, false)
-          .convertToZone(ical.TimezoneService.get("UTC"));
-        const endICal = ical.Time.fromJSDate(endLocal, false)
-          .convertToZone(ical.TimezoneService.get("UTC"));
-        start = startICal.toJSDate();
-        end = endICal.toJSDate();
-      }
+      start = startUTC;
+      end = endUTC;
     }
     else {
       const startLocal = startDate.value.toDate(getLocalTimeZone());
