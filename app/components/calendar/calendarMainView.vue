@@ -1,10 +1,9 @@
 <script setup lang="ts">
-import type { DropdownMenuItem } from "@nuxt/ui";
-
-import { addDays, addMonths, addWeeks, endOfWeek, isSameMonth, startOfWeek, subMonths, subWeeks } from "date-fns";
+import { addDays, addMonths, addWeeks, isSameMonth, subMonths, subWeeks } from "date-fns";
 
 import type { CalendarEvent, CalendarView } from "~/types/calendar";
 
+import GlobalDateHeader from "~/components/global/globalDateHeader.vue";
 import GlobalFloatingActionButton from "~/components/global/globalFloatingActionButton.vue";
 import { useCalendar } from "~/composables/useCalendar";
 import { useStableDate } from "~/composables/useStableDate";
@@ -29,34 +28,6 @@ const currentDate = useState<Date>("calendar-current-date", () => getStableDate(
 const view = ref<CalendarView>(props.initialView || "week");
 const isEventDialogOpen = ref(false);
 const selectedEvent = ref<CalendarEvent | null>(null);
-
-const items: DropdownMenuItem[][] = [
-  [
-    {
-      label: "Month",
-      icon: "i-lucide-calendar-days",
-      onSelect: () => view.value = "month",
-    },
-    {
-      label: "Week",
-      icon: "i-lucide-calendar-range",
-      onSelect: () => {
-        view.value = "week";
-        currentDate.value = getStableDate();
-      },
-    },
-    {
-      label: "Day",
-      icon: "i-lucide-calendar-1",
-      onSelect: () => view.value = "day",
-    },
-    {
-      label: "Agenda",
-      icon: "i-lucide-list",
-      onSelect: () => view.value = "agenda",
-    },
-  ],
-];
 
 onMounted(() => {
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -168,36 +139,6 @@ const isCurrentMonth = computed(() => {
   return isSameMonth(currentDate.value, getStableDate());
 });
 
-const viewTitle = computed(() => {
-  if (view.value === "month") {
-    return "month";
-  }
-  else if (view.value === "week") {
-    const start = startOfWeek(currentDate.value, { weekStartsOn: 0 });
-    const end = endOfWeek(currentDate.value, { weekStartsOn: 0 });
-    if (isSameMonth(start, end)) {
-      return "week-same-month";
-    }
-    else {
-      return "week-different-months";
-    }
-  }
-  else if (view.value === "day") {
-    return "day";
-  }
-  else if (view.value === "agenda") {
-    const start = currentDate.value;
-    const end = addDays(currentDate.value, 30 - 1);
-    if (isSameMonth(start, end)) {
-      return "agenda-same-month";
-    }
-    else {
-      return "agenda-different-months";
-    }
-  }
-  return "month";
-});
-
 const filteredEvents = computed(() => {
   if (!props.events)
     return [];
@@ -259,116 +200,19 @@ function getDaysForAgenda(date: Date) {
 </script>
 
 <template>
-  <div
-    class="flex h-full w-full flex-col rounded-lg"
-    :class="[className, props.class]"
-    :style="{
-      '--event-height': '24px',
-      '--event-gap': '2px',
-      '--week-cells-height': '60px',
-    }"
-  >
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-5 sm:px-4 sticky top-0 z-40 bg-default border-b border-default">
-      <div class="flex sm:flex-col max-sm:items-center justify-between gap-1.5">
-        <div class="flex items-center gap-1.5">
-          <h1 class="font-semibold text-xl">
-            <NuxtTime
-              v-if="viewTitle === 'month'"
-              :datetime="currentDate"
-              month="long"
-              year="numeric"
-            />
-            <NuxtTime
-              v-else-if="viewTitle === 'week-same-month'"
-              :datetime="startOfWeek(currentDate, { weekStartsOn: 0 })"
-              month="long"
-              year="numeric"
-            />
-            <span v-else-if="viewTitle === 'week-different-months'">
-              <NuxtTime
-                :datetime="startOfWeek(currentDate, { weekStartsOn: 0 })"
-                month="short"
-              /> -
-              <NuxtTime
-                :datetime="endOfWeek(currentDate, { weekStartsOn: 0 })"
-                month="short"
-                year="numeric"
-              />
-            </span>
-            <NuxtTime
-              v-else-if="viewTitle === 'day'"
-              :datetime="currentDate"
-              month="long"
-              day="numeric"
-              year="numeric"
-            />
-            <NuxtTime
-              v-else-if="viewTitle === 'agenda-same-month'"
-              :datetime="currentDate"
-              month="long"
-              year="numeric"
-            />
-            <span v-else-if="viewTitle === 'agenda-different-months'">
-              <NuxtTime
-                :datetime="currentDate"
-                month="short"
-              /> -
-              <NuxtTime
-                :datetime="addDays(currentDate, 30 - 1)"
-                month="short"
-                year="numeric"
-              />
-            </span>
-            <NuxtTime
-              v-else
-              :datetime="currentDate"
-              month="long"
-              year="numeric"
-            />
-          </h1>
-        </div>
-      </div>
-      <div class="flex items-center justify-between gap-2">
-        <div class="flex items-center justify-between gap-2">
-          <div class="flex items-center sm:gap-2 max-sm:order-1">
-            <UButton
-              icon="i-lucide-chevron-left"
-              color="neutral"
-              variant="ghost"
-              size="xl"
-              aria-label="Previous"
-              @click="handlePrevious"
-            />
-            <UButton
-              icon="i-lucide-chevron-right"
-              color="neutral"
-              variant="ghost"
-              size="xl"
-              aria-label="Next"
-              @click="handleNext"
-            />
-          </div>
-          <UButton
-            color="primary"
-            size="xl"
-            @click="handleToday"
-          >
-            Today
-          </UButton>
-        </div>
-        <div class="flex items-center justify-between gap-2">
-          <UDropdownMenu :items="items">
-            <UButton
-              color="neutral"
-              variant="outline"
-              size="xl"
-              trailing-icon="i-lucide-chevron-down"
-            >
-              <span class="capitalize">{{ view }}</span>
-            </UButton>
-          </UDropdownMenu>
-        </div>
-      </div>
+  <div class="flex h-[calc(100vh-2rem)] w-full flex-col rounded-lg">
+    <div class="py-5 sm:px-4 sticky top-0 z-40 bg-default border-b border-default">
+      <GlobalDateHeader
+        :show-navigation="true"
+        :show-view-selector="true"
+        :current-date="currentDate"
+        :view="view"
+        @previous="handlePrevious"
+        @next="handleNext"
+        @today="handleToday"
+        @view-change="(newView) => view = newView"
+        @date-change="(newDate) => currentDate = newDate"
+      />
     </div>
     <div class="flex flex-1 flex-col min-h-0">
       <GlobalMonthView
