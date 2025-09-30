@@ -32,6 +32,10 @@ const monthEvents = computed(() => {
 
 const todaysEvents = computed(() => getAgendaEventsForDay(props.events, props.currentDate));
 
+function getChipColor(day: Date): "error" | "info" | "success" | "primary" | "secondary" | "warning" | "neutral" | undefined {
+  return isSameMonth(day, props.currentDate) ? "primary" : "secondary";
+}
+
 function isSelectedDate(date: Date) {
   return _isSelectedDate(date, props.currentDate);
 }
@@ -47,7 +51,7 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
 
 <template>
   <div class="flex h-full w-full">
-    <div class="w-[30%] flex-shrink-0 border-r border-default">
+    <div class="w-[40%] flex-shrink-0 border-r border-default">
       <div class="p-4">
         <div class="flex items-center justify-center mb-4">
           <h2 class="text-lg font-semibold text-highlighted">
@@ -70,11 +74,12 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
 
         <div class="grid grid-cols-7 gap-1">
           <template v-for="day in miniCalendarWeeks.flat()" :key="day.toISOString()">
-            <div class="bg-muted rounded-lg p-3 shadow-sm border border-default">
+            <div class="bg-muted rounded-lg shadow-sm border border-default aspect-square">
               <UChip
                 v-if="getAllEventsForDay(monthEvents, day).length > 0"
-                size="xl"
-                color="primary"
+                inset
+                size="3xl"
+                :color="getChipColor(day)"
                 position="bottom-left"
                 class="w-full h-full flex items-center justify-center"
               >
@@ -112,7 +117,7 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
         </div>
       </div>
     </div>
-    <div class="w-[70%] flex-1">
+    <div class="w-[60%] flex-1">
       <div class="h-full">
         <div class="flex items-center p-4 border-b border-default">
           <div class="flex items-center gap-3">
