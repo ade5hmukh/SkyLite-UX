@@ -23,7 +23,7 @@ const _emit = defineEmits<{
 }>();
 
 const { getStableDate } = useStableDate();
-const { getEventsForDateRange } = useCalendar();
+const { getEventsForDateRange, scrollToDate } = useCalendar();
 const currentDate = useState<Date>("calendar-current-date", () => getStableDate());
 const view = ref<CalendarView>(props.initialView || "week");
 const isEventDialogOpen = ref(false);
@@ -94,6 +94,10 @@ function handleNext() {
 
 function handleToday() {
   currentDate.value = getStableDate();
+
+  nextTick(() => {
+    scrollToDate(getStableDate(), view.value);
+  });
 }
 
 function handleEventSelect(event: CalendarEvent) {

@@ -668,15 +668,18 @@ export function useCalendar() {
       const dateElement = document.querySelector(`[data-date="${targetDate}"]`);
 
       if (dateElement) {
-        const headerHeight = 80;
-        const padding = 20;
-        const elementPosition = dateElement.getBoundingClientRect().top;
-        const offsetPosition = elementPosition + window.pageYOffset - headerHeight - padding;
+        const scrollableContainer = dateElement.closest(".overflow-y-auto");
 
-        window.scrollTo({
-          top: offsetPosition,
-          behavior: "smooth",
-        });
+        if (scrollableContainer) {
+          const containerRect = scrollableContainer.getBoundingClientRect();
+          const elementRect = dateElement.getBoundingClientRect();
+          const scrollTop = scrollableContainer.scrollTop + (elementRect.top - containerRect.top) - 20;
+
+          scrollableContainer.scrollTo({
+            top: scrollTop,
+            behavior: "smooth",
+          });
+        }
       }
     }
   }

@@ -134,14 +134,6 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
               <h3 class="text-base font-semibold text-highlighted">
                 <NuxtTime :datetime="currentDate" weekday="long" />
               </h3>
-              <p class="text-xs text-muted">
-                <NuxtTime
-                  :datetime="currentDate"
-                  month="long"
-                  day="numeric"
-                  year="numeric"
-                />
-              </p>
             </div>
           </div>
         </div>

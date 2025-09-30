@@ -46,7 +46,11 @@ export class ICalService implements CalendarIntegrationService {
 
   async validate(): Promise<boolean> {
     try {
-      await $fetch<{ events: ICalEvent[] }>("/api/integrations/iCal", { query: { baseUrl: this.baseUrl } });
+      const query: Record<string, string> = { integrationId: this.integrationId };
+      if (this.integrationId === "temp" || this.integrationId.startsWith("temp-")) {
+        query.baseUrl = this.baseUrl;
+      }
+      await $fetch<{ events: ICalEvent[] }>("/api/integrations/iCal", { query });
 
       this.status = {
         isConnected: true,
@@ -71,7 +75,11 @@ export class ICalService implements CalendarIntegrationService {
 
   async testConnection(): Promise<boolean> {
     try {
-      await $fetch<{ events: ICalEvent[] }>("/api/integrations/iCal", { query: { baseUrl: this.baseUrl } });
+      const query: Record<string, string> = { integrationId: this.integrationId };
+      if (this.integrationId === "temp" || this.integrationId.startsWith("temp-")) {
+        query.baseUrl = this.baseUrl;
+      }
+      await $fetch<{ events: ICalEvent[] }>("/api/integrations/iCal", { query });
 
       this.status = {
         isConnected: true,
@@ -97,7 +105,11 @@ export class ICalService implements CalendarIntegrationService {
   }
 
   async getEvents(): Promise<CalendarEvent[]> {
-    const result = await $fetch<{ events: ICalEvent[] }>("/api/integrations/iCal", { query: { baseUrl: this.baseUrl } });
+    const query: Record<string, string> = { integrationId: this.integrationId };
+    if (this.integrationId === "temp" || this.integrationId.startsWith("temp-")) {
+      query.baseUrl = this.baseUrl;
+    }
+    const result = await $fetch<{ events: ICalEvent[] }>("/api/integrations/iCal", { query });
 
     let users: UserWithColor[] = [];
     if (this.useUserColors && this.user && this.user.length > 0) {
