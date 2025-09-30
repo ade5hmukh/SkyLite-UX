@@ -210,9 +210,9 @@ const filteredEvents = computed(() => {
   switch (view.value) {
     case "month": {
       start = new Date(now.getFullYear(), now.getMonth(), 1);
-      start.setDate(start.getDate() - 6);
+      start.setDate(start.getDate() - 7);
       end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
-      end.setDate(end.getDate() + 6);
+      end.setDate(end.getDate() + 7);
       events = getEventsForDateRange(start, end);
       break;
     }

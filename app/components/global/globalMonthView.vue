@@ -22,21 +22,13 @@ const emit = defineEmits<{
   (e: "eventClick", event: CalendarEvent, mouseEvent: MouseEvent): void;
 }>();
 
-const { isToday, isFirstDay, isLastDay, isFirstVisibleDay, handleEventClick: _handleEventClick, scrollToDate, getAllEventsForDay, isPlaceholderEvent, assignSpanningEventLanes, sortEvents, computedEventHeight: getEventHeight, isMultiDayEvent } = useCalendar();
+const { isToday, handleEventClick: _handleEventClick, scrollToDate, getAllEventsForDay, isPlaceholderEvent, sortEvents, computedEventHeight: getEventHeight } = useCalendar();
 
 const { getStableDate } = useStableDate();
 
 const computedEventHeight = computed(() => getEventHeight("month", props.eventHeight));
 
 const eventGap = 4;
-
-watch(() => props.events, (events) => {
-  assignSpanningEventLanes(events);
-}, { immediate: true });
-
-const allEvents = computed(() => {
-  return props.events;
-});
 
 onMounted(() => {
   scrollToDate(getStableDate(), "month");
@@ -100,32 +92,15 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
               v-for="event in sortEvents(getAllEventsForDay(events, day))"
               v-show="!isPlaceholderEvent(event)"
               :key="`${event.id}-${day.toISOString().slice(0, 10)}`"
+              class="rounded"
             >
               <CalendarEventItem
                 :event="event"
                 view="month"
-                :is-first-day="isFirstVisibleDay(day, event, props.weeks.flat())"
-                :is-last-day="isLastDay(day, event)"
                 :current-day="day"
-                :class="{
-                  'rounded-l rounded-r-none -mr-3 !w-[calc(100%+0.75rem)]': isMultiDayEvent(event) && isFirstDay(day, event) && !isLastDay(day, event),
-                  'rounded-r rounded-l-none -ml-3 !w-[calc(100%+0.75rem)]': isMultiDayEvent(event) && !isFirstDay(day, event) && isLastDay(day, event),
-                  'rounded-none -ml-3 -mr-3 !w-[calc(100%+1.5rem)]': isMultiDayEvent(event) && !isFirstDay(day, event) && !isLastDay(day, event),
-                  'rounded': !isMultiDayEvent(event) || (isFirstDay(day, event) && isLastDay(day, event)),
-                }"
+                class="rounded"
                 @click="(e) => handleEventClick(event, e)"
-              >
-                <div v-if="isFirstVisibleDay(day, event, props.weeks.flat())" class="invisible">
-                  <span v-if="!event.allDay">
-                    <NuxtTime
-                      :datetime="event.start"
-                      hour="numeric"
-                      minute="2-digit"
-                    />
-                  </span>
-                  {{ event.title }}
-                </div>
-              </CalendarEventItem>
+              />
             </div>
 
             <div v-show="getAllEventsForDay(events, day).length === 0" class="flex flex-col items-center justify-center gap-1 text-muted flex-1">
@@ -160,15 +135,14 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
                     </div>
                     <div class="space-y-1">
                       <div
-                        v-for="event in sortEvents(allEvents)"
+                        v-for="event in sortEvents(getAllEventsForDay(events, day))"
                         v-show="!isPlaceholderEvent(event)"
                         :key="event.id"
                       >
                         <CalendarEventItem
                           :event="event"
                           view="month"
-                          :is-first-day="isFirstVisibleDay(day, event, props.weeks.flat())"
-                          :is-last-day="isLastDay(day, event)"
+                          :current-day="day"
                           @click="(e) => handleEventClick(event, e)"
                         />
                       </div>

@@ -24,7 +24,9 @@ const miniCalendarWeeks = computed(() => getMiniCalendarWeeks(props.currentDate)
 const monthEvents = computed(() => {
   const currentDate = props.currentDate;
   const start = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+  start.setDate(start.getDate() - 7);
   const end = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+  end.setDate(end.getDate() + 7);
   return getEventsForDateRange(start, end);
 });
 

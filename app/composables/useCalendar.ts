@@ -12,8 +12,6 @@ import { useSyncManager } from "~/composables/useSyncManager";
 import { getBrowserTimezone, isTimezoneRegistered } from "~/types/global";
 
 export function useCalendar() {
-  const spanningEventLanes = new Map<string, number>();
-
   const { data: nativeEvents } = useNuxtData<CalendarEvent[]>("calendar-events");
 
   const { integrations } = useIntegrations();
@@ -642,93 +640,6 @@ export function useCalendar() {
     return isSameUtcDay(date, getStableDate());
   }
 
-  function isFirstDay(day: Date, event: CalendarEvent) {
-    const eventStart = parseStableDate(event.start);
-
-    const browserTimezone = getSafeTimezone();
-    const timezone = ical.TimezoneService.get(browserTimezone);
-
-    if (!timezone) {
-      consola.warn("Use Calendar: Browser timezone not registered with ical.js, using UTC fallback for isFirstDay");
-      return isSameUtcDay(day, eventStart);
-    }
-
-    return isSameLocalDay(day, eventStart, event.allDay);
-  }
-
-  function isLastDay(day: Date, event: CalendarEvent) {
-    const eventStart = parseStableDate(event.start);
-    const eventEnd = parseStableDate(event.end);
-
-    const browserTimezone = getSafeTimezone();
-    const timezone = ical.TimezoneService.get(browserTimezone);
-
-    if (!timezone) {
-      consola.warn("Use Calendar: Browser timezone not registered with ical.js, using UTC fallback for isLastDay");
-      if (isSameUtcDay(eventStart, eventEnd)) {
-        return isSameUtcDay(day, eventStart);
-      }
-      const dayBeforeEnd = new Date(eventEnd.getTime() - 24 * 60 * 60 * 1000);
-      return isSameUtcDay(day, dayBeforeEnd);
-    }
-
-    if (isSameLocalDay(eventStart, eventEnd, event.allDay)) {
-      return isSameLocalDay(day, eventStart, event.allDay);
-    }
-
-    const dayBeforeEnd = new Date(eventEnd.getTime() - 24 * 60 * 60 * 1000);
-    return isSameLocalDay(day, dayBeforeEnd, event.allDay);
-  }
-
-  function isFirstVisibleDay(day: Date, event: CalendarEvent, visibleDays: Date[]): boolean {
-    if (isFirstDay(day, event)) {
-      return true;
-    }
-
-    const firstVisibleDay = visibleDays[0];
-    if (!firstVisibleDay) {
-      return false;
-    }
-
-    const eventStart = parseStableDate(event.start);
-
-    const browserTimezone = getSafeTimezone();
-    const timezone = ical.TimezoneService.get(browserTimezone);
-
-    if (!timezone) {
-      consola.warn("Use Calendar: Browser timezone not registered with ical.js, using UTC fallback for isFirstVisibleDay");
-      if (getUtcMidnightTime(eventStart) < getUtcMidnightTime(firstVisibleDay)) {
-        const eventDaysInView = visibleDays.filter((visibleDay) => {
-          const eventsForDay = getAllEventsForDay([event], visibleDay);
-          return eventsForDay.length > 0;
-        });
-        const firstEventDay = eventDaysInView[0];
-        return firstEventDay ? isSameUtcDay(day, firstEventDay) : false;
-      }
-      return false;
-    }
-
-    const eventStartLocal = getLocalTimeFromUTC(eventStart);
-    const eventStartDay = new Date(eventStartLocal.getTime());
-    eventStartDay.setHours(0, 0, 0, 0);
-
-    const firstVisibleDayLocal = getLocalTimeFromUTC(firstVisibleDay);
-    const firstVisibleDayMidnight = new Date(firstVisibleDayLocal.getTime());
-    firstVisibleDayMidnight.setHours(0, 0, 0, 0);
-
-    if (eventStartDay.getTime() < firstVisibleDayMidnight.getTime()) {
-      const eventDaysInView = visibleDays.filter((visibleDay) => {
-        const eventsForDay = getAllEventsForDay([event], visibleDay);
-        return eventsForDay.length > 0;
-      });
-
-      const firstEventDay = eventDaysInView[0];
-      return firstEventDay ? isSameLocalDay(day, firstEventDay, event.allDay) : false;
-    }
-
-    return false;
-  }
-
   function handleEventClick(
     calendarEvent: CalendarEvent,
     e: MouseEvent,
@@ -810,17 +721,6 @@ export function useCalendar() {
       });
   }
 
-  function isMultiDayEvent(event: CalendarEvent): boolean {
-    const eventStart = parseStableDate(event.start);
-    const eventEnd = parseStableDate(event.end);
-
-    if (event.allDay) {
-      return !isSameLocalDay(eventStart, eventEnd, event.allDay);
-    }
-
-    return !isSameLocalDay(eventStart, eventEnd, event.allDay);
-  }
-
   function getAllEventsForDay(events: CalendarEvent[], day: Date): CalendarEvent[] {
     const result = events.filter((event) => {
       const eventStart = parseStableDate(event.start);
@@ -864,130 +764,8 @@ export function useCalendar() {
     };
   }
 
-  function assignSpanningEventLanes(allEvents: CalendarEvent[]): Map<string, number> {
-    const spanningEvents = allEvents.filter(isMultiDayEvent);
-
-    const sortedSpanningEvents = spanningEvents.sort((a, b) => {
-      const aStart = parseStableDate(a.start).getTime();
-      const bStart = parseStableDate(b.start).getTime();
-      const timeComparison = aStart - bStart;
-      if (timeComparison !== 0)
-        return timeComparison;
-      return a.id.localeCompare(b.id);
-    });
-
-    const lanes: Array<{ eventId: string; start: Date; end: Date }> = [];
-    const eventLaneMap = new Map<string, number>();
-
-    sortedSpanningEvents.forEach((event) => {
-      const eventStart = parseStableDate(event.start);
-      const eventEnd = parseStableDate(event.end);
-
-      let laneIndex = 0;
-      let placed = false;
-
-      while (!placed) {
-        if (laneIndex >= lanes.length) {
-          lanes.push({ eventId: event.id, start: eventStart, end: eventEnd });
-          eventLaneMap.set(event.id, laneIndex);
-          placed = true;
-        }
-        else {
-          const laneEvent = lanes[laneIndex];
-          if (!laneEvent) {
-            laneIndex++;
-            continue;
-          }
-          const laneStart = laneEvent.start;
-          const laneEnd = laneEvent.end;
-
-          const noOverlap = eventEnd <= laneStart || eventStart >= laneEnd;
-
-          if (noOverlap) {
-            lanes[laneIndex] = { eventId: event.id, start: eventStart, end: eventEnd };
-            eventLaneMap.set(event.id, laneIndex);
-            placed = true;
-          }
-          else {
-            laneIndex++;
-          }
-        }
-      }
-    });
-
-    spanningEventLanes.clear();
-    eventLaneMap.forEach((lane, eventId) => {
-      spanningEventLanes.set(eventId, lane);
-    });
-
-    return eventLaneMap;
-  }
-
-  function sortEventsWithLanes(events: CalendarEvent[]): CalendarEvent[] {
-    const spanningEvents = events.filter(isMultiDayEvent);
-    const singleDayEvents = events.filter(event => !isMultiDayEvent(event));
-
-    const sortedSingleDay = singleDayEvents.sort((a, b) => {
-      const timeComparison = parseStableDate(a.start).getTime() - parseStableDate(b.start).getTime();
-      if (timeComparison !== 0)
-        return timeComparison;
-      return a.id.localeCompare(b.id);
-    });
-
-    const spanningByLane = new Map<number, CalendarEvent>();
-    spanningEvents.forEach((event) => {
-      const lane = spanningEventLanes.get(event.id) ?? 999;
-      spanningByLane.set(lane, event);
-    });
-
-    const result: CalendarEvent[] = [];
-    let singleDayIndex = 0;
-
-    const maxLane = Math.max(...Array.from(spanningByLane.keys()), -1);
-
-    for (let position = 0; position <= maxLane; position++) {
-      const spanningEventInLane = spanningByLane.get(position);
-
-      if (spanningEventInLane) {
-        result.push(spanningEventInLane);
-      }
-      else if (singleDayIndex < sortedSingleDay.length) {
-        const singleDayEvent = sortedSingleDay[singleDayIndex];
-        if (singleDayEvent) {
-          result.push(singleDayEvent);
-        }
-        singleDayIndex++;
-      }
-      else {
-        result.push(createPlaceholderEvent(position));
-      }
-    }
-
-    while (singleDayIndex < sortedSingleDay.length) {
-      const remainingEvent = sortedSingleDay[singleDayIndex];
-      if (remainingEvent) {
-        result.push(remainingEvent);
-      }
-      singleDayIndex++;
-    }
-
-    return result;
-  }
-
   function sortEvents(events: CalendarEvent[]): CalendarEvent[] {
-    if (spanningEventLanes.size > 0) {
-      return sortEventsWithLanes(events);
-    }
-
     return [...events].sort((a, b) => {
-      const aIsMultiDay = isMultiDayEvent(a);
-      const bIsMultiDay = isMultiDayEvent(b);
-
-      if (aIsMultiDay && !bIsMultiDay)
-        return -1;
-      if (!aIsMultiDay && bIsMultiDay)
-        return 1;
-
       return parseStableDate(a.start).getTime() - parseStableDate(b.start).getTime();
     });
   }
@@ -1001,9 +779,6 @@ export function useCalendar() {
     getIntegrationEvents,
 
     isToday,
-    isFirstDay,
-    isLastDay,
-    isFirstVisibleDay,
     handleEventClick,
     scrollToDate,
     computedEventHeight,
@@ -1011,13 +786,10 @@ export function useCalendar() {
     handleDateSelect,
     getMiniCalendarWeeks,
     getAgendaEventsForDay,
-    isMultiDayEvent,
     getAllEventsForDay,
     getEventsForDateRange,
     createPlaceholderEvent,
     isPlaceholderEvent,
-    assignSpanningEventLanes,
-    sortEventsWithLanes,
     sortEvents,
     lightenColor,
     getTextColor,

@@ -17,7 +17,7 @@ const emit = defineEmits<{
 
 const { getStableDate } = useStableDate();
 
-const { isToday, getAllEventsForDay, assignSpanningEventLanes, handleEventClick: _handleEventClick, getLocalWeekDays, getEventsForDateRange } = useCalendar();
+const { isToday, getAllEventsForDay, handleEventClick: _handleEventClick, getLocalWeekDays, getEventsForDateRange } = useCalendar();
 
 const weekDays = computed(() => {
   const start = props.startDate || getStableDate();
@@ -59,10 +59,6 @@ const secondRow = computed(() => {
   }
   return [...currentWeekDays, nextWeekFirstDay];
 });
-
-watch(() => props.events, (events) => {
-  assignSpanningEventLanes(events);
-}, { immediate: true });
 
 function handleEventClick(event: CalendarEvent, e: MouseEvent) {
   _handleEventClick(event, e, emit);

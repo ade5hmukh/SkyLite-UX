@@ -11,8 +11,6 @@ const props = defineProps<{
   onMouseDown?: (e: MouseEvent) => void;
   onTouchStart?: (e: TouchEvent) => void;
   view: string;
-  isFirstDay?: boolean;
-  isLastDay?: boolean;
   currentDay?: Date;
 }>();
 
@@ -49,19 +47,6 @@ const displayEnd = computed(() => {
 const { getEventColorClasses } = useCalendar();
 
 const eventColorClasses = computed(() => {
-  if (props.view === "week") {
-    return getEventColorClasses(props.event.color);
-  }
-
-  if (props.currentDay && (props.isFirstDay !== undefined || props.isLastDay !== undefined)) {
-    return getEventColorClasses(props.event.color, {
-      event: props.event,
-      currentDay: props.currentDay,
-      isFirstDay: props.isFirstDay,
-      isLastDay: props.isLastDay,
-    });
-  }
-
   return getEventColorClasses(props.event.color);
 });
 
@@ -135,8 +120,8 @@ function handleKeydown(e: KeyboardEvent) {
   >
     <div v-show="view === 'month'">
       <div class="flex items-center justify-between">
-        <span class="truncate flex-1" :class="{ invisible: !isFirstDay }">
-          {{ isFirstDay ? event.title : '&#8203;' }}
+        <span class="truncate flex-1">
+          {{ event.title }}
         </span>
       </div>
     </div>
