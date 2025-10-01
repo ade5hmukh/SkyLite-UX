@@ -8,7 +8,19 @@ export default defineEventHandler(async (_event) => {
       },
     });
 
-    return integrations;
+    // Remove sensitive fields before sending to client
+    return integrations.map(integration => ({
+      id: integration.id,
+      name: integration.name,
+      type: integration.type,
+      service: integration.service,
+      icon: integration.icon,
+      enabled: integration.enabled,
+      settings: integration.settings,
+      createdAt: integration.createdAt,
+      updatedAt: integration.updatedAt,
+      // Explicitly exclude apiKey and baseUrl for security
+    }));
   }
   catch (error) {
     throw createError({

@@ -121,7 +121,19 @@ export default defineEventHandler(async (event) => {
       },
     });
 
-    return integration;
+    // Remove sensitive fields before sending to client
+    return {
+      id: integration.id,
+      name: integration.name,
+      type: integration.type,
+      service: integration.service,
+      icon: integration.icon,
+      enabled: integration.enabled,
+      settings: integration.settings,
+      createdAt: integration.createdAt,
+      updatedAt: integration.updatedAt,
+      // Explicitly exclude apiKey and baseUrl for security
+    };
   }
   catch (error: unknown) {
     consola.error("Integrations id put: Error updating integration:", error);

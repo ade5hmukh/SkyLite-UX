@@ -244,17 +244,24 @@ export function useShoppingLists() {
     }
   };
 
-  const deleteCompletedItems = async (listId: string) => {
+  const deleteCompletedItems = async (listId: string, completedItemIds?: string[]) => {
     try {
-      const list = currentShoppingLists.value.find(l => l.id === listId);
-      if (!list)
-        return;
+      let itemsToDelete: string[] = [];
 
-      const completedItemIds = list.items
-        .filter(item => item.checked)
-        .map(item => item.id);
+      if (completedItemIds && completedItemIds.length > 0) {
+        itemsToDelete = completedItemIds;
+      }
+      else {
+        const list = currentShoppingLists.value.find(l => l.id === listId);
+        if (!list)
+          return;
 
-      if (completedItemIds.length === 0)
+        itemsToDelete = list.items
+          .filter(item => item.checked)
+          .map(item => item.id);
+      }
+
+      if (itemsToDelete.length === 0)
         return;
 
       await $fetch(`/api/shopping-lists/${listId}/items/clear-completed`, {

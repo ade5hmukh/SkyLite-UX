@@ -8,6 +8,8 @@ import type { IntegrationService, IntegrationStatus } from "~/types/integrations
 import { useStableDate } from "~/composables/useStableDate";
 import { integrationRegistry } from "~/types/integrations";
 
+import type { MealieShoppingList } from "../../../server/integrations/mealie/types";
+
 import { MealieService as ServerMealieService } from "../../../server/integrations/mealie";
 
 export class MealieService implements IntegrationService {
@@ -30,11 +32,29 @@ export class MealieService implements IntegrationService {
     this.baseUrl = baseUrl;
     this.serverService = new ServerMealieService(integrationId);
 
-    const { parseStableDate } = useStableDate();
-    this.parseStableDate = parseStableDate;
+    if (import.meta.client) {
+      const { parseStableDate, getStableDate } = useStableDate();
+      this.parseStableDate = parseStableDate;
+      this.status.lastChecked = getStableDate();
+    }
+    else {
+      this.parseStableDate = (dateInput: string | Date | undefined, fallback?: Date) => {
+        if (!dateInput)
+          return fallback || new Date();
+        return new Date(dateInput);
+      };
+      this.status.lastChecked = new Date();
+    }
+  }
 
-    const { getStableDate } = useStableDate();
-    this.status.lastChecked = getStableDate();
+  private getCurrentDate(): Date {
+    if (import.meta.client) {
+      const { getStableDate } = useStableDate();
+      return getStableDate();
+    }
+    else {
+      return new Date();
+    }
   }
 
   async initialize(): Promise<void> {
@@ -45,19 +65,17 @@ export class MealieService implements IntegrationService {
     try {
       await this.serverService.getShoppingLists();
 
-      const { getStableDate } = useStableDate();
       this.status = {
         isConnected: true,
-        lastChecked: getStableDate(),
+        lastChecked: this.getCurrentDate(),
       };
 
       return true;
     }
     catch (error) {
-      const { getStableDate } = useStableDate();
       this.status = {
         isConnected: false,
-        lastChecked: getStableDate(),
+        lastChecked: this.getCurrentDate(),
         error: error instanceof Error ? error.message : "Unknown error",
       };
       return false;
@@ -81,10 +99,9 @@ export class MealieService implements IntegrationService {
       if (!response.ok) {
         const errorText = await response.text();
         consola.error("Mealie Shopping Lists: API error:", response.status, response.statusText, errorText);
-        const { getStableDate } = useStableDate();
         this.status = {
           isConnected: false,
-          lastChecked: getStableDate(),
+          lastChecked: this.getCurrentDate(),
           error: `API error: ${response.status} ${response.statusText}`,
         };
         return false;
@@ -92,10 +109,9 @@ export class MealieService implements IntegrationService {
 
       await response.json();
 
-      const { getStableDate } = useStableDate();
       this.status = {
         isConnected: true,
-        lastChecked: getStableDate(),
+        lastChecked: this.getCurrentDate(),
       };
 
       return true;
@@ -118,7 +134,9 @@ export class MealieService implements IntegrationService {
 
   async getShoppingLists(): Promise<ShoppingList[]> {
     try {
-      const response = await this.serverService.getShoppingLists();
+      const response = await $fetch<{ items: MealieShoppingList[] }>("/api/integrations/mealie/api/households/shopping/lists", {
+        query: { integrationId: this.integrationId },
+      });
 
       if (!response || !response.items || !Array.isArray(response.items)) {
         consola.warn("Mealie Shopping Lists: Service returned invalid response:", response);
@@ -129,7 +147,9 @@ export class MealieService implements IntegrationService {
 
       for (const mealieList of response.items) {
         try {
-          const fullList = await this.serverService.getShoppingList(mealieList.id);
+          const fullList = await $fetch<MealieShoppingList>(`/api/integrations/mealie/api/households/shopping/lists/${mealieList.id}`, {
+            query: { integrationId: this.integrationId },
+          });
 
           shoppingLists.push({
             id: fullList.id,

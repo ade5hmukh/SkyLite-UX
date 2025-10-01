@@ -62,7 +62,7 @@ watch(() => [props.isOpen, props.item], ([isOpen, item]) => {
             formData.value[fieldKey] = Number(fieldValue);
           }
           else {
-            formData.value[fieldKey] = String(fieldValue);
+            formData.value[fieldKey] = fieldValue ? String(fieldValue) : "";
           }
         }
       });
@@ -85,15 +85,16 @@ function handleSave() {
   const saveData: CreateShoppingListItemInput = {
     name: formData.value.name?.toString().trim() || formData.value.notes?.toString().trim() || "Unknown",
     quantity: Number(formData.value.quantity) || 0,
-    unit: formData.value.unit?.toString().trim() || null,
-    notes: formData.value.notes?.toString().trim() || null,
-    food: formData.value.food?.toString().trim() || null,
+    unit: formData.value.unit?.toString().trim() || "",
+    notes: formData.value.notes?.toString().trim() || "",
+    food: formData.value.food?.toString().trim() || "",
     checked: false,
     order: 0,
     label: null,
   };
 
   emit("save", saveData);
+  emit("close");
 }
 
 function handleDelete() {

@@ -124,6 +124,10 @@ watch(() => props.isOpen, (isOpen) => {
 });
 
 watch(type, (_newType) => {
+  if (props.integration?.id) {
+    return;
+  }
+
   service.value = "";
 
   if (availableServices.value.length > 0) {
@@ -132,7 +136,7 @@ watch(type, (_newType) => {
       service.value = firstService.value;
     }
   }
-}, { immediate: true });
+});
 
 watch(service, () => {
   if (!props.integration?.id || Object.keys(settingsData.value).length === 0) {
@@ -142,28 +146,24 @@ watch(service, () => {
 
 watch(() => props.integration, (newIntegration) => {
   if (newIntegration) {
-    name.value = newIntegration.name || "";
-    type.value = newIntegration.type || "";
-    service.value = newIntegration.service || "";
-    enabled.value = newIntegration.enabled;
-    error.value = null;
+    nextTick(() => {
+      name.value = newIntegration.name || "";
+      type.value = newIntegration.type || "";
+      service.value = newIntegration.service || "";
+      enabled.value = newIntegration.enabled;
+      error.value = null;
 
-    initializeSettingsData();
-    if (newIntegration.apiKey) {
-      settingsData.value.apiKey = newIntegration.apiKey;
-    }
-    if (newIntegration.baseUrl) {
-      settingsData.value.baseUrl = newIntegration.baseUrl;
-    }
-    if (newIntegration.settings && newIntegration.settings.user) {
-      settingsData.value.user = newIntegration.settings.user as string[];
-    }
-    if (newIntegration.settings && newIntegration.settings.eventColor) {
-      settingsData.value.eventColor = newIntegration.settings.eventColor as string;
-    }
-    if (newIntegration.settings && typeof newIntegration.settings.useUserColors === "boolean") {
-      settingsData.value.useUserColors = newIntegration.settings.useUserColors as boolean;
-    }
+      initializeSettingsData();
+      if (newIntegration.settings && newIntegration.settings.user) {
+        settingsData.value.user = newIntegration.settings.user as string[];
+      }
+      if (newIntegration.settings && newIntegration.settings.eventColor) {
+        settingsData.value.eventColor = newIntegration.settings.eventColor as string;
+      }
+      if (newIntegration.settings && typeof newIntegration.settings.useUserColors === "boolean") {
+        settingsData.value.useUserColors = newIntegration.settings.useUserColors as boolean;
+      }
+    });
   }
   else {
     resetForm();
@@ -198,6 +198,19 @@ function generateUniqueName(serviceName: string, existingIntegrations: Integrati
   return `${baseName}${counter}`;
 }
 
+function getFieldPlaceholder(field: IntegrationSettingsField): string {
+  if (props.integration?.id) {
+    if (field.key === "apiKey") {
+      return "Leave empty to keep current API key, or enter new key";
+    }
+    if (field.key === "baseUrl") {
+      return "Leave empty to keep current URL, or enter new URL";
+    }
+  }
+
+  return field.placeholder || "";
+}
+
 async function handleSave() {
   if (!type.value || !service.value) {
     error.value = "Integration type and service are required";
@@ -210,13 +223,15 @@ async function handleSave() {
     return;
   }
 
-  const missingFields = settingsFields.value
-    .filter(field => field.required && !settingsData.value[field.key]?.toString().trim())
-    .map(field => field.label);
+  if (!props.integration?.id) {
+    const missingFields = settingsFields.value
+      .filter(field => field.required && !settingsData.value[field.key]?.toString().trim())
+      .map(field => field.label);
 
-  if (missingFields.length > 0) {
-    error.value = `Missing required fields: ${missingFields.join(", ")}`;
-    return;
+    if (missingFields.length > 0) {
+      error.value = `Missing required fields: ${missingFields.join(", ")}`;
+      return;
+    }
   }
 
   isSaving.value = true;
@@ -229,8 +244,8 @@ async function handleSave() {
       name: integrationName,
       type: type.value,
       service: service.value,
-      apiKey: settingsData.value.apiKey?.toString().trim() || "",
-      baseUrl: settingsData.value.baseUrl?.toString().trim() || "",
+      apiKey: null as string | null,
+      baseUrl: null as string | null,
       icon: null,
       enabled: enabled.value,
       settings: {
@@ -241,6 +256,22 @@ async function handleSave() {
       createdAt: new Date(),
       updatedAt: new Date(),
     };
+
+    if (!props.integration?.id) {
+      integrationData.apiKey = settingsData.value.apiKey?.toString().trim() || "";
+      integrationData.baseUrl = settingsData.value.baseUrl?.toString().trim() || "";
+    }
+    else {
+      const apiKeyValue = settingsData.value.apiKey?.toString().trim();
+      const baseUrlValue = settingsData.value.baseUrl?.toString().trim();
+
+      if (apiKeyValue) {
+        integrationData.apiKey = apiKeyValue;
+      }
+      if (baseUrlValue) {
+        integrationData.baseUrl = baseUrlValue;
+      }
+    }
 
     emit("save", integrationData);
   }
@@ -283,7 +314,7 @@ function handleDelete() {
         />
       </div>
 
-      <div class="p-4 space-y-6">
+      <form class="p-4 space-y-6" @submit.prevent="handleSave">
         <div v-if="error" class="bg-error/10 text-error rounded-md px-3 py-2 text-sm">
           {{ error }}
         </div>
@@ -301,6 +332,20 @@ function handleDelete() {
           <div v-else class="bg-error/10 text-error rounded-md px-3 py-2 text-sm flex items-center gap-2">
             <UIcon name="i-lucide-x-circle" class="h-4 w-4" />
             {{ props.connectionTestResult.error || 'Connection test failed. Check your API key and base URL.' }}
+          </div>
+        </div>
+
+        <div v-if="integration?.id" class="bg-info/10 text-info rounded-md px-3 py-2 text-sm">
+          <div class="flex items-start gap-2">
+            <UIcon name="i-lucide-info" class="h-4 w-4 mt-0.5 flex-shrink-0" />
+            <div>
+              <p class="font-medium">
+                Editing existing integration
+              </p>
+              <p class="text-xs mt-1">
+                For security reasons, API keys and URLs are not displayed. Leave these fields empty to keep current values, or enter new values to update them.
+              </p>
+            </div>
           </div>
         </div>
 
@@ -328,7 +373,7 @@ function handleDelete() {
           <label class="block text-sm font-medium text-highlighted">Integration Name</label>
           <UInput
             v-model="name"
-            placeholder="Jane's Calendar"
+            placeholder="Jane's Integration"
             class="w-full"
             :ui="{ base: 'w-full' }"
           />
@@ -385,7 +430,7 @@ function handleDelete() {
                 :id="field.key"
                 v-model="settingsData[field.key] as string"
                 :type="field.type === 'password' ? (show ? 'text' : 'password') : field.type"
-                :placeholder="field.placeholder"
+                :placeholder="getFieldPlaceholder(field)"
                 class="w-full"
                 :ui="{ base: 'w-full' }"
               >
@@ -414,7 +459,7 @@ function handleDelete() {
             />
           </div>
         </div>
-      </div>
+      </form>
 
       <div class="flex justify-between p-4 border-t border-default">
         <UButton

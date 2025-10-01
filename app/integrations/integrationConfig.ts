@@ -120,7 +120,7 @@ export const integrationConfigs: IntegrationConfig[] = [
         canEdit: false,
       },
     ],
-    syncInterval: 1,
+    syncInterval: 5,
   },
   {
     type: "shopping",
@@ -180,7 +180,7 @@ export const integrationConfigs: IntegrationConfig[] = [
         canEdit: false,
       },
     ],
-    syncInterval: 1,
+    syncInterval: 5,
   },
   // ================================================
   // TODO integration configs can support the following list-level capabilities:

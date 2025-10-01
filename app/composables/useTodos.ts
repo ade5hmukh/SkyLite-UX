@@ -132,11 +132,18 @@ export function useTodos() {
     }
   };
 
-  const clearCompleted = async (columnId: string) => {
+  const clearCompleted = async (columnId: string, completedTodos?: TodoWithOrder[]) => {
     try {
-      const completedTodos = currentTodos.value.filter(t => t.todoColumnId === columnId && t.completed);
+      let todosToDelete: TodoWithOrder[] = [];
 
-      if (completedTodos.length === 0)
+      if (completedTodos && completedTodos.length > 0) {
+        todosToDelete = completedTodos;
+      }
+      else {
+        todosToDelete = currentTodos.value.filter(t => t.todoColumnId === columnId && t.completed);
+      }
+
+      if (todosToDelete.length === 0)
         return;
 
       await $fetch(`/api/todo-columns/${columnId}/todos/clear-completed`, {

@@ -164,15 +164,38 @@ export function useShoppingIntegrations() {
     }
   };
 
-  const clearCompletedItems = async (integrationId: string, listId: string): Promise<void> => {
+  const clearCompletedItems = async (integrationId: string, listId: string, completedItemIds?: string[]): Promise<void> => {
     const service = shoppingServices.value.get(integrationId);
     if (!service) {
       throw new Error(`Integration service not found for ${integrationId}`);
     }
 
     try {
-      await (service as unknown as { deleteShoppingListItems?: (ids: string[]) => Promise<void> }).deleteShoppingListItems?.([listId]);
-      consola.debug(`Use Shopping Integrations: Completed items cleared from list ${listId} in integration ${integrationId}`);
+      let itemsToDelete: string[] = [];
+
+      if (completedItemIds && completedItemIds.length > 0) {
+        itemsToDelete = completedItemIds;
+      }
+      else {
+        const lists = getCachedIntegrationData("shopping", integrationId) as ShoppingList[];
+        const targetList = lists?.find(list => list.id === listId);
+
+        if (!targetList || !targetList.items) {
+          throw new Error(`List ${listId} not found or has no items`);
+        }
+
+        itemsToDelete = targetList.items
+          .filter(item => item.checked)
+          .map(item => item.id);
+      }
+
+      if (itemsToDelete.length === 0) {
+        consola.warn(`Use Shopping Integrations: No completed items to clear from list ${listId}`);
+        return;
+      }
+
+      await (service as unknown as { deleteShoppingListItems?: (ids: string[]) => Promise<void> }).deleteShoppingListItems?.(itemsToDelete);
+      consola.debug(`Use Shopping Integrations: ${itemsToDelete.length} completed items cleared from list ${listId} in integration ${integrationId}`);
     }
     catch (err) {
       consola.error(`Use Shopping Integrations: Error clearing completed items from list ${listId} in integration ${integrationId}:`, err);

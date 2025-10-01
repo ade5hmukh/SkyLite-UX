@@ -602,11 +602,8 @@ function getIntegrationIconUrl(integration: Integration) {
                     <p class="font-medium text-highlighted">
                       {{ integration.name }}
                     </p>
-                    <p class="text-sm text-default capitalize">
+                    <p class="text-sm text-muted capitalize">
                       {{ integration.service }}
-                    </p>
-                    <p class="text-xs text-dimmed truncate">
-                      {{ integration.baseUrl }}
                     </p>
                   </div>
                 </div>

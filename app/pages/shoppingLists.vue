@@ -12,10 +12,21 @@ import ShoppingListDialog from "~/components/shopping/shoppingListDialog.vue";
 import ShoppingListItemDialog from "~/components/shopping/shoppingListItemDialog.vue";
 import { useAlertToast } from "~/composables/useAlertToast";
 import { useStableDate } from "~/composables/useStableDate";
+import { useSyncManager } from "~/composables/useSyncManager";
 import { getFieldsForItem, getIntegrationFields } from "~/integrations/integrationConfig";
 import { integrationRegistry } from "~/types/integrations";
 
 const { parseStableDate, getStableDate } = useStableDate();
+const { getCachedIntegrationData } = useSyncManager();
+const nuxtApp = useNuxtApp();
+
+function updateIntegrationCache(integrationType: string, integrationId: string, data: unknown) {
+  const cacheKey = integrationType === "shopping" ? `shopping-lists-${integrationId}` : `${integrationType}-${integrationId}`;
+  nuxtApp.payload.data = {
+    ...nuxtApp.payload.data,
+    [cacheKey]: data,
+  };
+}
 
 function getDateWithFallback(dateString: string | Date | null): Date {
   if (!dateString)
@@ -259,76 +270,220 @@ async function handleListDelete() {
 
 async function handleItemSave(itemData: CreateShoppingListItemInput) {
   try {
+    let targetList: ShoppingList | undefined;
+    let isIntegrationList = false;
+
     if (editingItem.value?.id) {
-      const { data: cachedLists } = useNuxtData("native-shopping-lists");
-      const previousLists = cachedLists.value ? [...cachedLists.value] : [];
-
-      if (cachedLists.value && Array.isArray(cachedLists.value)) {
-        const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === selectedListId.value);
-        if (listIndex !== -1) {
-          const list = cachedLists.value[listIndex];
-          const itemIndex = list.items?.findIndex((i: ShoppingListItem) => i.id === editingItem.value!.id);
-          if (itemIndex !== -1 && list.items) {
-            list.items[itemIndex] = { ...list.items[itemIndex], ...itemData };
-          }
-        }
-      }
-
-      try {
-        await updateShoppingListItem(editingItem.value.id, itemData);
-        consola.debug("Shopping List: Shopping list item updated successfully");
-      }
-      catch (error) {
-        if (cachedLists.value && previousLists.length > 0) {
-          cachedLists.value.splice(0, cachedLists.value.length, ...previousLists);
-        }
-        throw error;
-      }
+      targetList = allShoppingLists.value.find(list =>
+        list.items?.some((item: ShoppingListItem) => item.id === editingItem.value!.id),
+      );
+      isIntegrationList = targetList?.source === "integration";
     }
     else {
-      const { data: cachedLists } = useNuxtData("native-shopping-lists");
-      const previousLists = cachedLists.value ? [...cachedLists.value] : [];
-      const newItem = {
-        id: `temp-${Date.now()}`,
-        ...itemData,
-        checked: false,
-        order: 0,
-        createdAt: new Date(),
-        updatedAt: new Date(),
-      };
+      targetList = allShoppingLists.value.find(list => list.id === selectedListId.value);
+      isIntegrationList = targetList?.source === "integration";
+    }
 
-      if (cachedLists.value && Array.isArray(cachedLists.value)) {
-        const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === selectedListId.value);
-        if (listIndex !== -1) {
-          const list = cachedLists.value[listIndex];
-          if (!list.items)
-            list.items = [];
-          list.items.push(newItem);
-          if (list._count)
-            list._count.items = (list._count.items || 0) + 1;
-        }
-      }
+    if (editingItem.value?.id) {
+      if (isIntegrationList && targetList?.integrationId) {
+        const integrationLists = getCachedIntegrationData("shopping", targetList.integrationId) as ShoppingList[];
+        const previousLists = integrationLists ? [...integrationLists] : [];
 
-      try {
-        const createdItem = await addItemToList(selectedListId.value, itemData);
-        consola.debug("Shopping List: Shopping list item created successfully");
-
-        if (cachedLists.value && Array.isArray(cachedLists.value)) {
-          const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === selectedListId.value);
+        if (integrationLists && Array.isArray(integrationLists)) {
+          const listIndex = integrationLists.findIndex((l: ShoppingList) => l.id === targetList!.id);
           if (listIndex !== -1) {
-            const list = cachedLists.value[listIndex];
-            const tempIndex = list.items?.findIndex((i: ShoppingListItem) => i.id === newItem.id);
-            if (tempIndex !== -1 && list.items) {
-              list.items[tempIndex] = createdItem;
+            const list = integrationLists[listIndex];
+            if (list) {
+              const itemIndex = list.items?.findIndex((i: ShoppingListItem) => i.id === editingItem.value!.id);
+              if (itemIndex !== -1 && itemIndex >= 0 && list.items) {
+                const updatedItems = [...list.items];
+                const currentItem = updatedItems[itemIndex];
+                if (currentItem) {
+                  updatedItems[itemIndex] = {
+                    ...currentItem,
+                    name: itemData.name || currentItem.name,
+                    notes: itemData.notes !== undefined ? itemData.notes : currentItem.notes,
+                    quantity: itemData.quantity !== undefined ? itemData.quantity : currentItem.quantity,
+                    unit: itemData.unit !== undefined ? itemData.unit : currentItem.unit,
+                  };
+                }
+                const updatedList = { ...list, items: updatedItems };
+                const updatedLists = [...integrationLists];
+                updatedLists[listIndex] = updatedList;
+
+                updateIntegrationCache("shopping", targetList.integrationId, updatedLists);
+              }
             }
           }
         }
-      }
-      catch (error) {
-        if (cachedLists.value && previousLists.length > 0) {
-          cachedLists.value.splice(0, cachedLists.value.length, ...previousLists);
+
+        try {
+          await _updateIntegrationItem(targetList.integrationId, editingItem.value.id, itemData);
+          consola.debug("Shopping List: Integration shopping list item updated successfully");
         }
-        throw error;
+        catch (error) {
+          if (integrationLists && previousLists.length > 0) {
+            updateIntegrationCache("shopping", targetList.integrationId, previousLists);
+          }
+          throw error;
+        }
+      }
+      else {
+        const { data: cachedLists } = useNuxtData("native-shopping-lists");
+        const previousLists = cachedLists.value ? [...cachedLists.value] : [];
+
+        if (cachedLists.value && Array.isArray(cachedLists.value)) {
+          const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === targetList!.id);
+          if (listIndex !== -1) {
+            const list = cachedLists.value[listIndex];
+            if (list && list.items) {
+              const itemIndex = list.items.findIndex((i: ShoppingListItem) => i.id === editingItem.value!.id);
+              if (itemIndex !== -1 && itemIndex >= 0) {
+                const updatedItems = [...list.items];
+                const currentItem = updatedItems[itemIndex];
+                if (currentItem) {
+                  updatedItems[itemIndex] = {
+                    ...currentItem,
+                    name: itemData.name || currentItem.name,
+                    notes: itemData.notes !== undefined ? itemData.notes : currentItem.notes,
+                    quantity: itemData.quantity !== undefined ? itemData.quantity : currentItem.quantity,
+                    unit: itemData.unit !== undefined ? itemData.unit : currentItem.unit,
+                  };
+                }
+                const updatedList = { ...list, items: updatedItems };
+                const updatedLists = [...cachedLists.value];
+                updatedLists[listIndex] = updatedList;
+                cachedLists.value = updatedLists;
+              }
+            }
+          }
+        }
+
+        try {
+          await updateShoppingListItem(editingItem.value.id, itemData);
+          consola.debug("Shopping List: Native shopping list item updated successfully");
+        }
+        catch (error) {
+          if (cachedLists.value && previousLists.length > 0) {
+            cachedLists.value.splice(0, cachedLists.value.length, ...previousLists);
+          }
+          throw error;
+        }
+      }
+    }
+    else {
+      if (isIntegrationList && targetList?.integrationId) {
+        const integrationLists = getCachedIntegrationData("shopping", targetList.integrationId) as ShoppingList[];
+        const previousLists = integrationLists ? [...integrationLists] : [];
+
+        if (integrationLists && Array.isArray(integrationLists)) {
+          const listIndex = integrationLists.findIndex((l: ShoppingList) => l.id === targetList!.id);
+          if (listIndex !== -1) {
+            const list = integrationLists[listIndex];
+            if (list) {
+              const newItem: ShoppingListItem = {
+                id: `temp-${Date.now()}`,
+                name: itemData.name || "",
+                checked: false,
+                order: 0,
+                notes: itemData.notes || null,
+                quantity: itemData.quantity || 1,
+                unit: itemData.unit || null,
+                label: null,
+                food: null,
+                source: "integration" as const,
+                integrationId: targetList.integrationId,
+              };
+
+              const currentItems = list.items || [];
+              const updatedItems = [...currentItems, newItem];
+              const updatedList = {
+                ...list,
+                items: updatedItems,
+                _count: list._count ? { ...list._count, items: (list._count.items || 0) + 1 } : undefined,
+              };
+              const updatedLists = [...integrationLists];
+              updatedLists[listIndex] = updatedList;
+
+              updateIntegrationCache("shopping", targetList.integrationId, updatedLists);
+            }
+          }
+        }
+
+        try {
+          await _addItemToIntegrationList(targetList.integrationId, selectedListId.value, itemData);
+          consola.debug("Shopping List: Integration shopping list item created successfully");
+        }
+        catch (error) {
+          if (integrationLists && previousLists.length > 0) {
+            updateIntegrationCache("shopping", targetList.integrationId, previousLists);
+          }
+          throw error;
+        }
+      }
+      else {
+        const { data: cachedLists } = useNuxtData("native-shopping-lists");
+        const previousLists = cachedLists.value ? [...cachedLists.value] : [];
+        const newItem: ShoppingListItem = {
+          id: `temp-${Date.now()}`,
+          name: itemData.name || "",
+          checked: false,
+          order: 0,
+          notes: itemData.notes || null,
+          quantity: itemData.quantity || 1,
+          unit: itemData.unit || null,
+          label: null,
+          food: null,
+          source: "native" as const,
+        };
+
+        if (cachedLists.value && Array.isArray(cachedLists.value)) {
+          const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === targetList!.id);
+          if (listIndex !== -1) {
+            const list = cachedLists.value[listIndex];
+            if (list) {
+              const currentItems = list.items || [];
+              const updatedItems = [...currentItems, newItem];
+              const updatedList = {
+                ...list,
+                items: updatedItems,
+                _count: list._count ? { ...list._count, items: (list._count.items || 0) + 1 } : undefined,
+              };
+              const updatedLists = [...cachedLists.value];
+              updatedLists[listIndex] = updatedList;
+              cachedLists.value = updatedLists;
+            }
+          }
+        }
+
+        try {
+          const createdItem = await addItemToList(targetList!.id, itemData);
+          consola.debug("Shopping List: Native shopping list item created successfully");
+
+          if (cachedLists.value && Array.isArray(cachedLists.value)) {
+            const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === targetList!.id);
+            if (listIndex !== -1) {
+              const list = cachedLists.value[listIndex];
+              if (list && list.items) {
+                const tempIndex = list.items.findIndex((i: ShoppingListItem) => i.id === newItem.id);
+                if (tempIndex !== -1 && tempIndex >= 0) {
+                  const updatedItems = [...list.items];
+                  updatedItems[tempIndex] = createdItem;
+                  const updatedList = { ...list, items: updatedItems };
+                  const updatedLists = [...cachedLists.value];
+                  updatedLists[listIndex] = updatedList;
+                  cachedLists.value = updatedLists;
+                }
+              }
+            }
+          }
+        }
+        catch (error) {
+          if (cachedLists.value && previousLists.length > 0) {
+            cachedLists.value.splice(0, cachedLists.value.length, ...previousLists);
+          }
+          throw error;
+        }
       }
     }
 
@@ -365,28 +520,85 @@ async function handleItemDelete(itemId: string) {
 
 async function handleToggleItem(itemId: string, checked: boolean) {
   try {
-    const { data: cachedLists } = useNuxtData("native-shopping-lists");
-    const previousLists = cachedLists.value ? [...cachedLists.value] : [];
+    const targetList = allShoppingLists.value.find(list =>
+      list.items?.some((item: ShoppingListItem) => item.id === itemId),
+    );
+    const isIntegrationList = targetList?.source === "integration";
 
-    if (cachedLists.value && Array.isArray(cachedLists.value)) {
-      for (const list of cachedLists.value) {
-        const item = list.items?.find((i: ShoppingListItem) => i.id === itemId);
-        if (item) {
-          item.checked = checked;
-          break;
+    if (isIntegrationList && targetList?.integrationId) {
+      const integrationLists = getCachedIntegrationData("shopping", targetList.integrationId) as ShoppingList[];
+      const previousLists = integrationLists ? [...integrationLists] : [];
+
+      if (integrationLists && Array.isArray(integrationLists)) {
+        for (const list of integrationLists) {
+          const item = list.items?.find((i: ShoppingListItem) => i.id === itemId);
+          if (item) {
+            const itemIndex = list.items?.findIndex((i: ShoppingListItem) => i.id === itemId);
+            if (itemIndex !== -1 && itemIndex >= 0 && list.items) {
+              const updatedItems = [...list.items];
+              const currentItem = updatedItems[itemIndex];
+              if (currentItem) {
+                updatedItems[itemIndex] = { ...currentItem, checked };
+              }
+
+              const listIndex = integrationLists.findIndex((l: ShoppingList) => l.id === list.id);
+              if (listIndex !== -1) {
+                const updatedList = { ...list, items: updatedItems };
+                const updatedLists = [...integrationLists];
+                updatedLists[listIndex] = updatedList;
+
+                updateIntegrationCache("shopping", targetList.integrationId, updatedLists);
+              }
+            }
+            break;
+          }
         }
       }
-    }
 
-    try {
-      await updateShoppingListItem(itemId, { checked });
-      consola.debug("Shopping List: Item toggled successfully");
-    }
-    catch (error) {
-      if (cachedLists.value && previousLists.length > 0) {
-        cachedLists.value.splice(0, cachedLists.value.length, ...previousLists);
+      try {
+        await _toggleIntegrationItem(targetList.integrationId, itemId, checked);
+        consola.debug("Shopping List: Integration item toggled successfully");
       }
-      throw error;
+      catch (error) {
+        if (integrationLists && previousLists.length > 0) {
+          updateIntegrationCache("shopping", targetList.integrationId, previousLists);
+        }
+        throw error;
+      }
+    }
+    else {
+      const { data: cachedLists } = useNuxtData("native-shopping-lists");
+      const previousLists = cachedLists.value ? [...cachedLists.value] : [];
+
+      if (cachedLists.value && Array.isArray(cachedLists.value)) {
+        for (let listIndex = 0; listIndex < cachedLists.value.length; listIndex++) {
+          const list = cachedLists.value[listIndex];
+          const itemIndex = list.items?.findIndex((i: ShoppingListItem) => i.id === itemId);
+          if (itemIndex !== -1 && itemIndex >= 0 && list.items) {
+            const updatedItems = [...list.items];
+            const currentItem = updatedItems[itemIndex];
+            if (currentItem) {
+              updatedItems[itemIndex] = { ...currentItem, checked };
+            }
+            const updatedList = { ...list, items: updatedItems };
+            const updatedLists = [...cachedLists.value];
+            updatedLists[listIndex] = updatedList;
+            cachedLists.value = updatedLists;
+            break;
+          }
+        }
+      }
+
+      try {
+        await updateShoppingListItem(itemId, { checked });
+        consola.debug("Shopping List: Native item toggled successfully");
+      }
+      catch (error) {
+        if (cachedLists.value && previousLists.length > 0) {
+          cachedLists.value.splice(0, cachedLists.value.length, ...previousLists);
+        }
+        throw error;
+      }
     }
   }
   catch (error) {
@@ -565,30 +777,46 @@ async function handleClearCompleted(listId: string) {
         throw new Error("Integration ID is required");
       }
 
-      const { data: cachedLists } = useNuxtData("native-shopping-lists");
-      const previousLists = cachedLists.value ? [...cachedLists.value] : [];
+      const integrationLists = getCachedIntegrationData("shopping", list.integrationId) as ShoppingList[];
+      const previousLists = integrationLists ? [...integrationLists] : [];
+      let completedItemIds: string[] = [];
 
-      try {
-        await clearIntegrationCompletedItems(list.integrationId, listId);
-        consola.debug("Shopping List: Completed items cleared successfully");
+      if (integrationLists && Array.isArray(integrationLists)) {
+        const listIndex = integrationLists.findIndex((l: ShoppingList) => l.id === listId);
+        if (listIndex !== -1) {
+          const cachedList = integrationLists[listIndex];
+          if (cachedList && cachedList.items) {
+            completedItemIds = cachedList.items
+              .filter((item: ShoppingListItem) => item.checked)
+              .map((item: ShoppingListItem) => item.id);
 
-        if (cachedLists.value && Array.isArray(cachedLists.value)) {
-          const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === listId);
-          if (listIndex !== -1) {
-            const cachedList = cachedLists.value[listIndex];
-            if (cachedList.items) {
-              const completedItems = cachedList.items.filter((item: ShoppingListItem) => item.checked);
-              cachedList.items = cachedList.items.filter((item: ShoppingListItem) => !item.checked);
-              if (cachedList._count) {
-                cachedList._count.items = Math.max(0, (cachedList._count.items || 0) - completedItems.length);
-              }
-            }
+            const completedItems = cachedList.items.filter((item: ShoppingListItem) => item.checked);
+            const updatedItems = cachedList.items.filter((item: ShoppingListItem) => !item.checked);
+            const updatedList: ShoppingList = {
+              ...cachedList,
+              items: updatedItems,
+              _count: cachedList._count
+                ? {
+                    ...cachedList._count,
+                    items: Math.max(0, (cachedList._count.items || 0) - completedItems.length),
+                  }
+                : undefined,
+            };
+            const updatedLists = [...integrationLists];
+            updatedLists[listIndex] = updatedList;
+
+            updateIntegrationCache("shopping", list.integrationId, updatedLists);
           }
         }
       }
+
+      try {
+        await clearIntegrationCompletedItems(list.integrationId, listId, completedItemIds);
+        consola.debug("Shopping List: Integration completed items cleared successfully");
+      }
       catch (error) {
-        if (cachedLists.value && previousLists.length > 0) {
-          cachedLists.value.splice(0, cachedLists.value.length, ...previousLists);
+        if (integrationLists && previousLists.length > 0) {
+          updateIntegrationCache("shopping", list.integrationId, previousLists);
         }
         throw error;
       }
@@ -597,23 +825,38 @@ async function handleClearCompleted(listId: string) {
       const { data: cachedLists } = useNuxtData("native-shopping-lists");
       const previousLists = cachedLists.value ? [...cachedLists.value] : [];
 
-      try {
-        await deleteCompletedItems(listId);
-        consola.debug("Shopping List: Completed items cleared successfully");
+      let completedItemIds: string[] = [];
+      if (cachedLists.value && Array.isArray(cachedLists.value)) {
+        const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === listId);
+        if (listIndex !== -1) {
+          const cachedList = cachedLists.value[listIndex];
+          if (cachedList && cachedList.items) {
+            completedItemIds = cachedList.items
+              .filter((item: ShoppingListItem) => item.checked)
+              .map((item: ShoppingListItem) => item.id);
 
-        if (cachedLists.value && Array.isArray(cachedLists.value)) {
-          const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === listId);
-          if (listIndex !== -1) {
-            const cachedList = cachedLists.value[listIndex];
-            if (cachedList.items) {
-              const completedItems = cachedList.items.filter((item: ShoppingListItem) => item.checked);
-              cachedList.items = cachedList.items.filter((item: ShoppingListItem) => !item.checked);
-              if (cachedList._count) {
-                cachedList._count.items = Math.max(0, (cachedList._count.items || 0) - completedItems.length);
-              }
-            }
+            const completedItems = cachedList.items.filter((item: ShoppingListItem) => item.checked);
+            const updatedItems = cachedList.items.filter((item: ShoppingListItem) => !item.checked);
+            const updatedList: ShoppingList = {
+              ...cachedList,
+              items: updatedItems,
+              _count: cachedList._count
+                ? {
+                    ...cachedList._count,
+                    items: Math.max(0, (cachedList._count.items || 0) - completedItems.length),
+                  }
+                : undefined,
+            };
+            const updatedLists = [...cachedLists.value];
+            updatedLists[listIndex] = updatedList;
+            cachedLists.value = updatedLists;
           }
         }
+      }
+
+      try {
+        await deleteCompletedItems(listId, completedItemIds);
+        consola.debug("Shopping List: Native completed items cleared successfully");
       }
       catch (error) {
         if (cachedLists.value && previousLists.length > 0) {

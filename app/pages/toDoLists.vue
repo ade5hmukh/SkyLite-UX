@@ -12,7 +12,7 @@ import { useStableDate } from "~/composables/useStableDate";
 import { useTodoColumns } from "~/composables/useTodoColumns";
 import { useTodos } from "~/composables/useTodos";
 
-const { parseStableDate, getStableDate } = useStableDate();
+const { parseStableDate } = useStableDate();
 
 const { data: todoColumns } = useNuxtData<TodoColumn[]>("todo-columns");
 const { data: todos } = useNuxtData<Todo[]>("todos");
@@ -89,7 +89,7 @@ function openEditTodo(item: BaseListItem) {
     name: todo.title,
     description: todo.description ?? "",
     priority: todo.priority,
-    dueDate: todo.dueDate ? parseStableDate(todo.dueDate) : getStableDate(),
+    dueDate: todo.dueDate ? parseStableDate(todo.dueDate) : null,
     todoColumnId: todo.todoColumnId ?? "",
     checked: todo.completed,
     order: todo.order,
@@ -108,8 +108,9 @@ async function handleTodoSave(todoData: TodoListItem) {
       if (cachedTodos.value && Array.isArray(cachedTodos.value)) {
         const todoIndex = cachedTodos.value.findIndex((t: Todo) => t.id === editingTodo.value!.id);
         if (todoIndex !== -1) {
-          cachedTodos.value[todoIndex] = {
-            ...cachedTodos.value[todoIndex],
+          const currentTodo = cachedTodos.value[todoIndex];
+          const updatedTodo = {
+            ...currentTodo,
             title: todoData.name,
             description: todoData.description,
             priority: todoData.priority,
@@ -118,6 +119,9 @@ async function handleTodoSave(todoData: TodoListItem) {
             order: todoData.order,
             todoColumnId: todoData.todoColumnId,
           };
+          const updatedTodos = [...cachedTodos.value];
+          updatedTodos[todoIndex] = updatedTodo;
+          cachedTodos.value = updatedTodos;
         }
       }
 
@@ -143,7 +147,7 @@ async function handleTodoSave(todoData: TodoListItem) {
     else {
       const { data: cachedTodos } = useNuxtData("todos");
       const previousTodos = cachedTodos.value ? [...cachedTodos.value] : [];
-      const newTodo = {
+      const newTodo: Todo = {
         id: `temp-${Date.now()}`,
         title: todoData.name,
         description: todoData.description,
@@ -154,11 +158,11 @@ async function handleTodoSave(todoData: TodoListItem) {
         todoColumnId: todoData.todoColumnId,
         createdAt: new Date(),
         updatedAt: new Date(),
-        userId: null,
       };
 
       if (cachedTodos.value && Array.isArray(cachedTodos.value)) {
-        cachedTodos.value.push(newTodo);
+        const updatedTodos = [...cachedTodos.value, newTodo];
+        cachedTodos.value = updatedTodos;
       }
 
       try {
@@ -176,7 +180,9 @@ async function handleTodoSave(todoData: TodoListItem) {
         if (cachedTodos.value && Array.isArray(cachedTodos.value)) {
           const tempIndex = cachedTodos.value.findIndex((t: Todo) => t.id === newTodo.id);
           if (tempIndex !== -1) {
-            cachedTodos.value[tempIndex] = createdTodo;
+            const updatedTodos = [...cachedTodos.value];
+            updatedTodos[tempIndex] = createdTodo;
+            cachedTodos.value = updatedTodos;
           }
         }
       }
@@ -202,7 +208,8 @@ async function handleTodoDelete(todoId: string) {
     const previousTodos = cachedTodos.value ? [...cachedTodos.value] : [];
 
     if (cachedTodos.value && Array.isArray(cachedTodos.value)) {
-      cachedTodos.value.splice(0, cachedTodos.value.length, ...cachedTodos.value.filter((t: Todo) => t.id !== todoId));
+      const updatedTodos = cachedTodos.value.filter((t: Todo) => t.id !== todoId);
+      cachedTodos.value = updatedTodos;
     }
 
     try {
@@ -453,14 +460,16 @@ async function handleClearCompleted(columnId: string) {
   try {
     const { data: cachedTodos } = useNuxtData("todos");
     const previousTodos = cachedTodos.value ? [...cachedTodos.value] : [];
+    const completedTodos = cachedTodos.value?.filter((t: Todo) => t.todoColumnId === columnId && t.completed) || [];
+
+    if (cachedTodos.value && Array.isArray(cachedTodos.value)) {
+      const updatedTodos = cachedTodos.value.filter((t: Todo) => !(t.todoColumnId === columnId && t.completed));
+      cachedTodos.value = updatedTodos;
+    }
 
     try {
-      await clearCompleted(columnId);
+      await clearCompleted(columnId, completedTodos);
       consola.debug("Todo Lists: Completed todos cleared successfully");
-
-      if (cachedTodos.value && Array.isArray(cachedTodos.value)) {
-        cachedTodos.value.splice(0, cachedTodos.value.length, ...cachedTodos.value.filter((t: Todo) => !(t.todoColumnId === columnId && t.completed)));
-      }
     }
     catch (error) {
       if (cachedTodos.value && previousTodos.length > 0) {
@@ -487,7 +496,11 @@ async function handleToggleTodo(itemId: string, completed: boolean) {
     if (cachedTodos.value && Array.isArray(cachedTodos.value)) {
       const todoIndex = cachedTodos.value.findIndex((t: Todo) => t.id === itemId);
       if (todoIndex !== -1) {
-        cachedTodos.value[todoIndex].completed = completed;
+        const currentTodo = cachedTodos.value[todoIndex];
+        const updatedTodo = { ...currentTodo, completed };
+        const updatedTodos = [...cachedTodos.value];
+        updatedTodos[todoIndex] = updatedTodo;
+        cachedTodos.value = updatedTodos;
       }
     }
 
