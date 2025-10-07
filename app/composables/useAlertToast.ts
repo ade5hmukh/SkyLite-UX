@@ -1,6 +1,6 @@
 import { useToast as useNuxtToast } from "#imports";
 
-export type ToastType = "error" | "warning" | "success" | "info";
+import type { ToastType } from "~/types/ui";
 
 export function useAlertToast() {
   const nuxtToast = useNuxtToast();

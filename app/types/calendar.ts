@@ -1,3 +1,5 @@
+import type { ICalEvent } from "../../server/integrations/iCal/types";
+
 export type CalendarView = "month" | "week" | "day" | "agenda";
 
 export type CalendarEvent = {
@@ -8,8 +10,8 @@ export type CalendarEvent = {
   end: Date;
   allDay?: boolean;
   color?: string | string[];
-  label?: string;
   location?: string;
+  ical_event?: ICalEvent;
   integrationId?: string;
   users?: Array<{
     id: string;
@@ -17,4 +19,9 @@ export type CalendarEvent = {
     avatar?: string | null;
     color?: string | null;
   }>;
+};
+
+export type PlaceholderEvent = CalendarEvent & {
+  isPlaceholder: true;
+  position: number;
 };

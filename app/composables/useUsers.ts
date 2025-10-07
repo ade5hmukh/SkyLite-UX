@@ -1,40 +1,33 @@
 import { consola } from "consola";
 
-import type { CreateUserInput, User } from "~/types/database";
-
-type UserWithOrder = User & { todoOrder: number };
+import type { CreateUserInput, User, UserWithOrder } from "~/types/database";
 
 export function useUsers() {
-  const users = ref<UserWithOrder[]>([]);
-  const currentUser = ref<User | null>(null);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  const { data: serverUsers } = useNuxtData<UserWithOrder[]>("users");
+  const { data: users } = useNuxtData<UserWithOrder[]>("users");
+
+  const { data: currentUser } = useNuxtData<User | null>("current-user");
+
+  const currentUsers = computed(() => users.value || []);
 
   const fetchUsers = async () => {
     loading.value = true;
     error.value = null;
     try {
-      const data = await $fetch<UserWithOrder[]>("/api/users");
-      users.value = data || [];
-      return users.value;
+      await refreshNuxtData("users");
+      return currentUsers.value;
     }
     catch (err) {
       error.value = "Failed to fetch users";
-      consola.error("Error fetching users:", err);
-      return [];
+      consola.error("Use Users: Error fetching users:", err);
+      throw err;
     }
     finally {
       loading.value = false;
     }
   };
-
-  watch(serverUsers, (newUsers) => {
-    if (newUsers) {
-      users.value = newUsers;
-    }
-  });
 
   const createUser = async (userData: CreateUserInput) => {
     try {
@@ -42,12 +35,16 @@ export function useUsers() {
         method: "POST",
         body: userData,
       });
-      await fetchUsers();
+
+      await refreshNuxtData("users");
+
+      await refreshNuxtData("todo-columns");
+
       return newUser;
     }
     catch (err) {
       error.value = "Failed to create user";
-      consola.error("Error creating user:", err);
+      consola.error("Use Users: Error creating user:", err);
       throw err;
     }
   };
@@ -58,36 +55,58 @@ export function useUsers() {
         method: "PUT",
         body: updates,
       });
-      await fetchUsers();
+
+      await refreshNuxtData("users");
+      await refreshNuxtData("todo-columns");
+
       return updatedUser;
     }
     catch (err) {
       error.value = "Failed to update user";
-      consola.error("Error updating user:", err);
+      consola.error("Use Users: Error updating user:", err);
       throw err;
     }
   };
 
-  const selectUser = (user: User) => {
-    currentUser.value = user;
-    if (import.meta.client) {
-      localStorage.setItem("currentUser", JSON.stringify(user));
+  const selectUser = async (user: User) => {
+    try {
+      await useAsyncData("current-user", () => Promise.resolve(user), {
+        server: false,
+        lazy: false,
+      });
+    }
+    catch (err) {
+      error.value = "Failed to select user";
+      consola.error("Use Users: Error selecting user:", err);
+      throw err;
     }
   };
 
-  const loadCurrentUser = () => {
-    if (import.meta.client) {
-      const stored = localStorage.getItem("currentUser");
-      if (stored) {
-        currentUser.value = JSON.parse(stored);
-      }
+  const loadCurrentUser = async () => {
+    try {
+      await useAsyncData("current-user", () => Promise.resolve(null), {
+        server: false,
+        lazy: false,
+      });
+    }
+    catch (err) {
+      error.value = "Failed to load current user";
+      consola.error("Use Users: Error loading current user:", err);
+      throw err;
     }
   };
 
-  const clearCurrentUser = () => {
-    currentUser.value = null;
-    if (import.meta.client) {
-      localStorage.removeItem("currentUser");
+  const clearCurrentUser = async () => {
+    try {
+      await useAsyncData("current-user", () => Promise.resolve(null), {
+        server: false,
+        lazy: false,
+      });
+    }
+    catch (err) {
+      error.value = "Failed to clear current user";
+      consola.error("Use Users: Error clearing current user:", err);
+      throw err;
     }
   };
 
@@ -98,24 +117,24 @@ export function useUsers() {
       });
 
       if (currentUser.value?.id === userId) {
-        clearCurrentUser();
+        await clearCurrentUser();
       }
 
-      await fetchUsers();
+      await refreshNuxtData("users");
+      await refreshNuxtData("todo-columns");
+
       return true;
     }
     catch (err) {
       error.value = "Failed to delete user";
-      consola.error("Error deleting user:", err);
+      consola.error("Use Users: Error deleting user:", err);
       throw err;
     }
   };
 
   const reorderUser = async (userId: string, direction: "up" | "down") => {
-    const originalUsers = [...users.value];
-
     try {
-      const sortedUsers = [...users.value].sort((a, b) => (a.todoOrder || 0) - (b.todoOrder || 0));
+      const sortedUsers = [...currentUsers.value].sort((a, b) => (a.todoOrder || 0) - (b.todoOrder || 0));
       const currentIndex = sortedUsers.findIndex(user => user.id === userId);
 
       if (currentIndex === -1)
@@ -141,7 +160,7 @@ export function useUsers() {
       const currentOrder = currentUser.todoOrder || 0;
       const targetOrder = targetUser.todoOrder || 0;
 
-      users.value = users.value.map((user) => {
+      const updatedUsers = currentUsers.value.map((user) => {
         if (user.id === currentUser.id) {
           return { ...user, todoOrder: targetOrder };
         }
@@ -151,7 +170,7 @@ export function useUsers() {
         return user;
       });
 
-      const newOrder = users.value
+      const newOrder = updatedUsers
         .sort((a, b) => (a.todoOrder || 0) - (b.todoOrder || 0))
         .map(user => user.id);
 
@@ -160,18 +179,18 @@ export function useUsers() {
         body: { userIds: newOrder },
       });
 
-      await fetchUsers();
+      await refreshNuxtData("users");
+      await refreshNuxtData("todo-columns");
     }
     catch (err) {
-      users.value = originalUsers;
       error.value = "Failed to reorder user";
-      consola.error("Error reordering user:", err);
+      consola.error("Use Users: Error reordering user:", err);
       throw err;
     }
   };
 
   return {
-    users: readonly(users),
+    users: readonly(currentUsers),
     currentUser: readonly(currentUser),
     loading: readonly(loading),
     error: readonly(error),

@@ -94,7 +94,7 @@ export default defineEventHandler(async (event) => {
     return data;
   }
   catch (error: unknown) {
-    consola.error("Error proxying to Mealie:", error);
+    consola.error("Integrations Mealie: Error proxying to Mealie:", error);
     const statusCode = error && typeof error === "object" && "statusCode" in error ? Number(error.statusCode) : 500;
     const message = error && typeof error === "object" && "message" in error ? String(error.message) : "Failed to proxy request to Mealie";
     throw createError({

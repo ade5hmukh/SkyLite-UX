@@ -5,7 +5,6 @@ export default defineEventHandler(async (event) => {
     const body = await readBody(event);
     const { todoIds } = body;
 
-    // Update the order for each todo
     const updatePromises = todoIds.map((id: string, index: number) =>
       prisma.todo.update({
         where: { id },

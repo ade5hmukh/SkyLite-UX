@@ -10,36 +10,32 @@ export type ICalCalendarServer = {
 };
 
 export type ICalEvent = {
+  type: "VEVENT";
   uid: string;
   summary: string;
   description?: string;
-  start: Date;
-  end?: Date;
   location?: string;
+  dtstart: string;
+  dtend: string;
   attendees?: ICalAttendee[];
-  allDay?: boolean;
+  rrule?: {
+    freq: string;
+    interval?: number;
+    byday?: string[];
+    bymonth?: number[];
+    count?: number;
+    until?: string;
+  };
 };
 
 export type ICalAttendee = {
-  name?: string;
-  email: string;
-  role?: string;
-  status?: string;
+  cn: string;
+  mailto: string;
+  role: string;
 };
 
 export type ICalCalendar = {
   prodId?: string;
   version?: string;
   events: ICalEvent[];
-};
-
-export type ICalEventResponse = {
-  uid: string;
-  summary: string;
-  description?: string;
-  start: string | Date;
-  end: string | Date;
-  location?: string;
-  allDay?: boolean;
-  label?: string;
 };

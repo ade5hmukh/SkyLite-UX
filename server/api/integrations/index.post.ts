@@ -13,6 +13,10 @@ export default defineEventHandler(async (event) => {
 
     const integrationKey = `${type}:${service}`;
 
+    consola.debug(`Server: Looking for integration config: ${integrationKey}`);
+    consola.debug(`Server: Registry size: ${integrationRegistry.size}`);
+    consola.debug(`Server: Registry keys: ${Array.from(integrationRegistry.keys()).join(", ")}`);
+
     const integrationConfig = integrationRegistry.get(integrationKey);
 
     if (!integrationConfig) {
@@ -91,10 +95,22 @@ export default defineEventHandler(async (event) => {
       },
     });
 
-    return integration;
+    // Remove sensitive fields before sending to client
+    return {
+      id: integration.id,
+      name: integration.name,
+      type: integration.type,
+      service: integration.service,
+      icon: integration.icon,
+      enabled: integration.enabled,
+      settings: integration.settings,
+      createdAt: integration.createdAt,
+      updatedAt: integration.updatedAt,
+      // Explicitly exclude apiKey and baseUrl for security
+    };
   }
   catch (error: unknown) {
-    consola.error("Error creating integration:", error);
+    consola.error("Integrations index post: Error creating integration:", error);
     const statusCode = error && typeof error === "object" && "statusCode" in error ? Number(error.statusCode) : 500;
     const message = error && typeof error === "object" && "message" in error ? String(error.message) : "Failed to create integration";
     throw createError({

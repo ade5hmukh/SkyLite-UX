@@ -3,15 +3,36 @@ import type { JsonObject } from "type-fest";
 
 import { consola } from "consola";
 
-import type { DialogField } from "~/integrations/integrationConfig";
-import type { CreateShoppingListInput, CreateShoppingListItemInput, Integration, ShoppingList, ShoppingListItem } from "~/types/database";
+import type { CreateShoppingListInput, CreateShoppingListItemInput, Integration, RawIntegrationItem, ShoppingList, ShoppingListItem } from "~/types/database";
+import type { DialogField, ShoppingListWithIntegration } from "~/types/ui";
 
+import GlobalFloatingActionButton from "~/components/global/globalFloatingActionButton.vue";
 import GlobalList from "~/components/global/globalList.vue";
 import ShoppingListDialog from "~/components/shopping/shoppingListDialog.vue";
 import ShoppingListItemDialog from "~/components/shopping/shoppingListItemDialog.vue";
 import { useAlertToast } from "~/composables/useAlertToast";
+import { useStableDate } from "~/composables/useStableDate";
+import { useSyncManager } from "~/composables/useSyncManager";
 import { getFieldsForItem, getIntegrationFields } from "~/integrations/integrationConfig";
 import { integrationRegistry } from "~/types/integrations";
+
+const { parseStableDate, getStableDate } = useStableDate();
+const { getCachedIntegrationData } = useSyncManager();
+const nuxtApp = useNuxtApp();
+
+function updateIntegrationCache(integrationType: string, integrationId: string, data: unknown) {
+  const cacheKey = integrationType === "shopping" ? `shopping-lists-${integrationId}` : `${integrationType}-${integrationId}`;
+  nuxtApp.payload.data = {
+    ...nuxtApp.payload.data,
+    [cacheKey]: data,
+  };
+}
+
+function getDateWithFallback(dateString: string | Date | null): Date {
+  if (!dateString)
+    return getStableDate();
+  return dateString instanceof Date ? dateString : parseStableDate(dateString);
+}
 
 const {
   shoppingLists: nativeShoppingLists,
@@ -21,7 +42,6 @@ const {
   deleteShoppingList,
   addItemToList,
   updateShoppingListItem,
-  getShoppingLists: fetchNativeLists,
   reorderItem,
   reorderShoppingList,
   deleteCompletedItems,
@@ -31,15 +51,11 @@ const {
   shoppingLists: integrationLists,
   shoppingIntegrations,
   loading: integrationLoading,
-  addItemToList: addItemToIntegrationList,
-  updateShoppingListItem: updateIntegrationItem,
-  toggleItem: toggleIntegrationItem,
+  addItemToList: _addItemToIntegrationList,
+  updateShoppingListItem: _updateIntegrationItem,
+  toggleItem: _toggleIntegrationItem,
   clearCompletedItems: clearIntegrationCompletedItems,
-  syncShoppingLists,
-  initialFetchError,
 } = useShoppingIntegrations();
-
-const { fetchIntegrations, getIntegrationsByType } = useIntegrations();
 
 const listDialog = ref(false);
 const itemDialog = ref(false);
@@ -47,60 +63,7 @@ const selectedListId = ref<string>("");
 const editingList = ref<ShoppingList | null>(null);
 const editingItem = ref<ShoppingListItem | null>(null);
 
-const { showError, showWarning, showSuccess } = useAlertToast();
-
-const enabledIntegrationsByType = computed(() => {
-  return getIntegrationsByType("shopping");
-});
-
-type RawIntegrationList = {
-  readonly id: string;
-  readonly name: string;
-  readonly order: number;
-  readonly createdAt: Date;
-  readonly updatedAt: Date;
-  readonly items: readonly RawIntegrationItem[];
-  integrationId?: string;
-  integrationName?: string;
-  integrationIcon?: string | null;
-};
-
-function normalizeIntegrationList(list: RawIntegrationList): ShoppingList {
-  const integration = (shoppingIntegrations.value as readonly Integration[]).find(i => i.id === list.integrationId);
-
-  const hasClearCapability = integration && getIntegrationCapabilities(integration.id).includes("clear_items");
-
-  const filteredItems = Array.isArray(list.items)
-    ? list.items
-        .map(normalizeIntegrationItem)
-        .filter(item => hasClearCapability || !item.checked)
-    : [];
-
-  return {
-    id: String(list.id),
-    name: String(list.name ?? ""),
-    order: Number(list.order ?? 0),
-    createdAt: list.createdAt ? new Date(list.createdAt) : new Date(),
-    updatedAt: list.updatedAt ? new Date(list.updatedAt) : new Date(),
-    items: filteredItems,
-    source: "integration",
-    integrationId: list.integrationId ?? undefined,
-    integrationName: integration?.name || list.integrationName || "Integration",
-    integrationIcon: integration ? getIntegrationIconUrl(integration) : list.integrationIcon ?? null,
-  };
-}
-
-type RawIntegrationItem = {
-  id: string;
-  name: string;
-  checked: boolean;
-  order: number;
-  notes: string | null;
-  quantity: number;
-  unit: string | null;
-  food: string | null;
-  integrationData?: unknown;
-};
+const { showError, showWarning } = useAlertToast();
 
 function normalizeIntegrationItem(item: RawIntegrationItem): ShoppingListItem {
   return {
@@ -127,7 +90,31 @@ const nativeListsWithSource = computed(() => {
 });
 
 const integrationListsWithSource = computed(() => {
-  return (integrationLists.value ?? []).map(normalizeIntegrationList) as ShoppingList[];
+  const lists = integrationLists.value ?? [];
+  const result: ShoppingList[] = [];
+  for (const list of lists) {
+    const integration = (shoppingIntegrations.value as readonly Integration[]).find(i => i.id === list.integrationId);
+    const hasClearCapability = integration && getIntegrationCapabilities(integration.id).includes("clear_items");
+    const filteredItems = Array.isArray(list.items)
+      ? list.items
+          .map(normalizeIntegrationItem)
+          .filter(item => hasClearCapability || !item.checked)
+      : [];
+
+    result.push({
+      id: String(list.id),
+      name: String(list.name ?? ""),
+      order: Number(list.order ?? 0),
+      createdAt: getDateWithFallback(list.createdAt),
+      updatedAt: getDateWithFallback(list.updatedAt),
+      items: filteredItems,
+      source: "integration",
+      integrationId: list.integrationId ?? undefined,
+      integrationName: integration?.name || list.integrationName || "Integration",
+      integrationIcon: integration ? getIntegrationIconUrl(integration) : list.integrationIcon ?? null,
+    });
+  }
+  return result;
 });
 
 const allShoppingLists = computed(() => {
@@ -143,45 +130,16 @@ const transformedShoppingLists = computed(() => {
     id: list.id,
     name: list.name,
     order: list.order || 0,
-    createdAt: new Date(list.createdAt),
-    updatedAt: new Date(list.updatedAt),
+    createdAt: parseStableDate(list.createdAt),
+    updatedAt: parseStableDate(list.updatedAt),
     items: list.items,
     _count: list._count,
-    source: list.source,
+    source: list.source || "native",
     integrationId: list.integrationId,
     integrationName: list.integrationName,
     integrationIcon: list.integrationIcon,
-  })) as (ShoppingList & { source?: "native" | "integration"; integrationIcon?: string; integrationName?: string; integrationId?: string })[];
+  })) as ShoppingListWithIntegration[];
 });
-
-onMounted(async () => {
-  try {
-    await fetchIntegrations();
-    await fetchNativeLists();
-  }
-  catch (error) {
-    consola.error("Failed to initialize shopping lists:", error);
-  }
-});
-
-watch(initialFetchError, (error) => {
-  if (error) {
-    consola.error("Initial integration fetch failed:", error);
-    let errorMessage = "There was an error while trying to sync your shopping lists. Please check your connection and try again.";
-
-    if (error?.cause && typeof error.cause === "object" && "statusMessage" in error.cause) {
-      errorMessage = (error.cause as { statusMessage: string }).statusMessage;
-    }
-    else if (error?.cause && typeof error.cause === "object" && "detail" in error.cause) {
-      errorMessage = (error.cause as { detail: string }).detail;
-    }
-    else if (error?.message) {
-      errorMessage = error.message;
-    }
-
-    showError("Integration Error", errorMessage);
-  }
-}, { immediate: true });
 
 function openCreateList() {
   editingList.value = null;
@@ -211,23 +169,68 @@ function openEditItem(item: ShoppingListItem) {
 
 async function handleListSave(listData: CreateShoppingListInput) {
   try {
-    if (editingList.value?.source === "native" || !editingList.value?.source) {
-      if (editingList.value?.id) {
+    if (editingList.value?.id) {
+      const { data: cachedLists } = useNuxtData("native-shopping-lists");
+      const previousLists = cachedLists.value ? [...cachedLists.value] : [];
+
+      if (cachedLists.value && Array.isArray(cachedLists.value)) {
+        const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === editingList.value!.id);
+        if (listIndex !== -1) {
+          cachedLists.value[listIndex] = { ...cachedLists.value[listIndex], ...listData };
+        }
+      }
+
+      try {
         await updateShoppingList(editingList.value.id, listData);
       }
-      else {
-        await createShoppingList(listData);
+      catch (error) {
+        if (cachedLists.value && previousLists.length > 0) {
+          cachedLists.value.splice(0, cachedLists.value.length, ...previousLists);
+        }
+        throw error;
       }
     }
     else {
-      showWarning("Warning", "Creating/editing lists in integrations is not yet supported.");
+      const { data: cachedLists } = useNuxtData("native-shopping-lists");
+      const previousLists = cachedLists.value ? [...cachedLists.value] : [];
+      const newList = {
+        id: `temp-${Date.now()}`,
+        ...listData,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        order: (cachedLists.value?.length || 0) + 1,
+        items: [],
+        _count: { items: 0 },
+      };
+
+      if (cachedLists.value && Array.isArray(cachedLists.value)) {
+        cachedLists.value.push(newList);
+      }
+
+      try {
+        const createdList = await createShoppingList(listData);
+
+        if (cachedLists.value && Array.isArray(cachedLists.value)) {
+          const tempIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === newList.id);
+          if (tempIndex !== -1) {
+            cachedLists.value[tempIndex] = createdList;
+          }
+        }
+      }
+      catch (error) {
+        if (cachedLists.value && previousLists.length > 0) {
+          cachedLists.value.splice(0, cachedLists.value.length, ...previousLists);
+        }
+        throw error;
+      }
     }
+
     listDialog.value = false;
     editingList.value = null;
   }
   catch (error) {
-    consola.error("Failed to save shopping list:", error);
-    showError("Error", "Failed to save shopping list. Please try again.");
+    consola.error("Shopping List: Failed to save shopping list:", error);
+    showError("Failed to Save", "Failed to save shopping list. Please try again.");
   }
 }
 
@@ -236,52 +239,277 @@ async function handleListDelete() {
     return;
 
   try {
-    await deleteShoppingList(editingList.value.id);
-    listDialog.value = false;
-    editingList.value = null;
+    const { data: cachedLists } = useNuxtData("native-shopping-lists");
+    const previousLists = cachedLists.value ? [...cachedLists.value] : [];
+
+    if (cachedLists.value && Array.isArray(cachedLists.value)) {
+      cachedLists.value.splice(0, cachedLists.value.length, ...cachedLists.value.filter((l: ShoppingList) => l.id !== editingList.value!.id));
+    }
+
+    try {
+      await deleteShoppingList(editingList.value.id);
+      listDialog.value = false;
+      editingList.value = null;
+    }
+    catch (error) {
+      if (cachedLists.value && previousLists.length > 0) {
+        cachedLists.value.splice(0, cachedLists.value.length, ...previousLists);
+      }
+      throw error;
+    }
   }
   catch (error) {
-    consola.error("Failed to delete list:", error);
-    showError("Delete Failed", "Failed to delete shopping list. Please try again.");
+    consola.error("Shopping List: Failed to delete shopping list:", error);
+    showError("Failed to Delete", "Failed to delete shopping list. Please try again.");
   }
 }
 
 async function handleItemSave(itemData: CreateShoppingListItemInput) {
   try {
-    if (editingItem.value?.id) {
-      if (editingItem.value.source === "integration") {
-        if (!editingItem.value.integrationId) {
-          throw new Error("Integration ID is required for integration items");
-        }
-        await updateIntegrationItem(editingItem.value.integrationId, editingItem.value.id, itemData);
-      }
-      else {
-        await updateShoppingListItem(editingItem.value.id, itemData);
-      }
-    }
-    else if (selectedListId.value) {
-      const selectedList = allShoppingLists.value.find(list => list.id === selectedListId.value);
-      if (!selectedList) {
-        throw new Error("Selected list not found");
-      }
+    let targetList: ShoppingList | undefined;
+    let isIntegrationList = false;
 
-      if (selectedList.source === "integration") {
-        if (!selectedList.integrationId) {
-          throw new Error("Integration ID is required");
+    if (editingItem.value?.id) {
+      targetList = allShoppingLists.value.find(list =>
+        list.items?.some((item: ShoppingListItem) => item.id === editingItem.value!.id),
+      );
+      isIntegrationList = targetList?.source === "integration";
+    }
+    else {
+      targetList = allShoppingLists.value.find(list => list.id === selectedListId.value);
+      isIntegrationList = targetList?.source === "integration";
+    }
+
+    if (editingItem.value?.id) {
+      if (isIntegrationList && targetList?.integrationId) {
+        const integrationLists = getCachedIntegrationData("shopping", targetList.integrationId) as ShoppingList[];
+        const previousLists = integrationLists ? [...integrationLists] : [];
+
+        if (integrationLists && Array.isArray(integrationLists)) {
+          const listIndex = integrationLists.findIndex((l: ShoppingList) => l.id === targetList!.id);
+          if (listIndex !== -1) {
+            const list = integrationLists[listIndex];
+            if (list) {
+              const itemIndex = list.items?.findIndex((i: ShoppingListItem) => i.id === editingItem.value!.id);
+              if (itemIndex !== -1 && itemIndex >= 0 && list.items) {
+                const updatedItems = [...list.items];
+                const currentItem = updatedItems[itemIndex];
+                if (currentItem) {
+                  updatedItems[itemIndex] = {
+                    ...currentItem,
+                    name: itemData.name || currentItem.name,
+                    notes: itemData.notes !== undefined ? itemData.notes : currentItem.notes,
+                    quantity: itemData.quantity !== undefined ? itemData.quantity : currentItem.quantity,
+                    unit: itemData.unit !== undefined ? itemData.unit : currentItem.unit,
+                  };
+                }
+                const updatedList = { ...list, items: updatedItems };
+                const updatedLists = [...integrationLists];
+                updatedLists[listIndex] = updatedList;
+
+                updateIntegrationCache("shopping", targetList.integrationId, updatedLists);
+              }
+            }
+          }
         }
-        await addItemToIntegrationList(selectedList.integrationId, selectedListId.value, itemData);
+
+        try {
+          await _updateIntegrationItem(targetList.integrationId, editingItem.value.id, itemData);
+        }
+        catch (error) {
+          if (integrationLists && previousLists.length > 0) {
+            updateIntegrationCache("shopping", targetList.integrationId, previousLists);
+          }
+          throw error;
+        }
       }
       else {
-        await addItemToList(selectedListId.value, itemData);
+        const { data: cachedLists } = useNuxtData("native-shopping-lists");
+        const previousLists = cachedLists.value ? [...cachedLists.value] : [];
+
+        if (cachedLists.value && Array.isArray(cachedLists.value)) {
+          const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === targetList!.id);
+          if (listIndex !== -1) {
+            const list = cachedLists.value[listIndex];
+            if (list && list.items) {
+              const itemIndex = list.items.findIndex((i: ShoppingListItem) => i.id === editingItem.value!.id);
+              if (itemIndex !== -1 && itemIndex >= 0) {
+                const updatedItems = [...list.items];
+                const currentItem = updatedItems[itemIndex];
+                if (currentItem) {
+                  updatedItems[itemIndex] = {
+                    ...currentItem,
+                    name: itemData.name || currentItem.name,
+                    notes: itemData.notes !== undefined ? itemData.notes : currentItem.notes,
+                    quantity: itemData.quantity !== undefined ? itemData.quantity : currentItem.quantity,
+                    unit: itemData.unit !== undefined ? itemData.unit : currentItem.unit,
+                  };
+                }
+                const updatedList = { ...list, items: updatedItems };
+                const updatedLists = [...cachedLists.value];
+                updatedLists[listIndex] = updatedList;
+                cachedLists.value = updatedLists;
+              }
+            }
+          }
+        }
+
+        try {
+          await updateShoppingListItem(editingItem.value.id, itemData);
+        }
+        catch (error) {
+          if (cachedLists.value && previousLists.length > 0) {
+            cachedLists.value.splice(0, cachedLists.value.length, ...previousLists);
+          }
+          throw error;
+        }
       }
     }
+    else {
+      if (isIntegrationList && targetList?.integrationId) {
+        const integrationLists = getCachedIntegrationData("shopping", targetList.integrationId) as ShoppingList[];
+        const previousLists = integrationLists ? [...integrationLists] : [];
+        let tempItemId: string | null = null;
+
+        if (integrationLists && Array.isArray(integrationLists)) {
+          const listIndex = integrationLists.findIndex((l: ShoppingList) => l.id === targetList!.id);
+          if (listIndex !== -1) {
+            const list = integrationLists[listIndex];
+            if (list) {
+              const newItem: ShoppingListItem = {
+                id: `temp-${Date.now()}`,
+                name: itemData.name || "",
+                checked: false,
+                order: 0,
+                notes: itemData.notes || null,
+                quantity: itemData.quantity || 1,
+                unit: itemData.unit || null,
+                label: null,
+                food: null,
+                source: "integration" as const,
+                integrationId: targetList.integrationId,
+              };
+
+              tempItemId = newItem.id;
+
+              const currentItems = list.items || [];
+              const updatedItems = [...currentItems, newItem];
+              const updatedList = {
+                ...list,
+                items: updatedItems,
+                _count: list._count ? { ...list._count, items: (list._count.items || 0) + 1 } : undefined,
+              };
+              const updatedLists = [...integrationLists];
+              updatedLists[listIndex] = updatedList;
+
+              updateIntegrationCache("shopping", targetList.integrationId, updatedLists);
+            }
+          }
+        }
+
+        try {
+          const createdItem = await _addItemToIntegrationList(targetList.integrationId, selectedListId.value, itemData);
+
+          if (tempItemId) {
+            const freshIntegrationLists = getCachedIntegrationData("shopping", targetList.integrationId) as ShoppingList[];
+
+            if (freshIntegrationLists && Array.isArray(freshIntegrationLists)) {
+              const listIndex = freshIntegrationLists.findIndex((l: ShoppingList) => l.id === targetList!.id);
+              if (listIndex !== -1) {
+                const list = freshIntegrationLists[listIndex];
+                if (list && list.items) {
+                  const tempItemIndex = list.items.findIndex((item: ShoppingListItem) => item.id === tempItemId);
+                  if (tempItemIndex !== -1) {
+                    const updatedItems = [...list.items];
+                    updatedItems[tempItemIndex] = createdItem;
+                    const updatedList = { ...list, items: updatedItems };
+                    const updatedLists = [...freshIntegrationLists];
+                    updatedLists[listIndex] = updatedList;
+                    updateIntegrationCache("shopping", targetList.integrationId, updatedLists);
+                  }
+                }
+              }
+            }
+          }
+        }
+        catch (error) {
+          if (integrationLists && previousLists.length > 0) {
+            updateIntegrationCache("shopping", targetList.integrationId, previousLists);
+          }
+          throw error;
+        }
+      }
+      else {
+        const { data: cachedLists } = useNuxtData("native-shopping-lists");
+        const previousLists = cachedLists.value ? [...cachedLists.value] : [];
+        const newItem: ShoppingListItem = {
+          id: `temp-${Date.now()}`,
+          name: itemData.name || "",
+          checked: false,
+          order: 0,
+          notes: itemData.notes || null,
+          quantity: itemData.quantity || 1,
+          unit: itemData.unit || null,
+          label: null,
+          food: null,
+          source: "native" as const,
+        };
+
+        if (cachedLists.value && Array.isArray(cachedLists.value)) {
+          const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === targetList!.id);
+          if (listIndex !== -1) {
+            const list = cachedLists.value[listIndex];
+            if (list) {
+              const currentItems = list.items || [];
+              const updatedItems = [...currentItems, newItem];
+              const updatedList = {
+                ...list,
+                items: updatedItems,
+                _count: list._count ? { ...list._count, items: (list._count.items || 0) + 1 } : undefined,
+              };
+              const updatedLists = [...cachedLists.value];
+              updatedLists[listIndex] = updatedList;
+              cachedLists.value = updatedLists;
+            }
+          }
+        }
+
+        try {
+          const createdItem = await addItemToList(targetList!.id, itemData);
+
+          if (cachedLists.value && Array.isArray(cachedLists.value)) {
+            const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === targetList!.id);
+            if (listIndex !== -1) {
+              const list = cachedLists.value[listIndex];
+              if (list && list.items) {
+                const tempIndex = list.items.findIndex((i: ShoppingListItem) => i.id === newItem.id);
+                if (tempIndex !== -1 && tempIndex >= 0) {
+                  const updatedItems = [...list.items];
+                  updatedItems[tempIndex] = createdItem;
+                  const updatedList = { ...list, items: updatedItems };
+                  const updatedLists = [...cachedLists.value];
+                  updatedLists[listIndex] = updatedList;
+                  cachedLists.value = updatedLists;
+                }
+              }
+            }
+          }
+        }
+        catch (error) {
+          if (cachedLists.value && previousLists.length > 0) {
+            cachedLists.value.splice(0, cachedLists.value.length, ...previousLists);
+          }
+          throw error;
+        }
+      }
+    }
+
     itemDialog.value = false;
-    selectedListId.value = "";
     editingItem.value = null;
   }
   catch (error) {
-    consola.error("Failed to save item:", error);
-    showError("Error", "Failed to save item. Please try again.");
+    consola.error("Shopping List: Failed to save shopping list item:", error);
+    showError("Failed to Save", "Failed to save item. Please try again.");
   }
 }
 
@@ -302,45 +530,127 @@ async function handleItemDelete(itemId: string) {
     editingItem.value = null;
   }
   catch (error) {
-    consola.error("Failed to delete item:", error);
+    consola.error("Shopping List: Failed to delete item:", error);
     showError("Error", "Failed to delete item. Please try again.");
   }
 }
 
 async function handleToggleItem(itemId: string, checked: boolean) {
   try {
-    const list = findItemList(itemId);
-    if (!list) {
-      throw new Error("Item not found in any list");
-    }
+    const targetList = allShoppingLists.value.find(list =>
+      list.items?.some((item: ShoppingListItem) => item.id === itemId),
+    );
+    const isIntegrationList = targetList?.source === "integration";
 
-    if (list.source === "integration") {
-      if (!list.integrationId) {
-        throw new Error("Integration ID is required");
+    if (isIntegrationList && targetList?.integrationId) {
+      const integrationLists = getCachedIntegrationData("shopping", targetList.integrationId) as ShoppingList[];
+      const previousLists = integrationLists ? [...integrationLists] : [];
+
+      if (integrationLists && Array.isArray(integrationLists)) {
+        for (const list of integrationLists) {
+          const item = list.items?.find((i: ShoppingListItem) => i.id === itemId);
+          if (item) {
+            const itemIndex = list.items?.findIndex((i: ShoppingListItem) => i.id === itemId);
+            if (itemIndex !== -1 && itemIndex >= 0 && list.items) {
+              const updatedItems = [...list.items];
+              const currentItem = updatedItems[itemIndex];
+              if (currentItem) {
+                updatedItems[itemIndex] = { ...currentItem, checked };
+              }
+
+              const listIndex = integrationLists.findIndex((l: ShoppingList) => l.id === list.id);
+              if (listIndex !== -1) {
+                const updatedList = { ...list, items: updatedItems };
+                const updatedLists = [...integrationLists];
+                updatedLists[listIndex] = updatedList;
+
+                updateIntegrationCache("shopping", targetList.integrationId, updatedLists);
+              }
+            }
+            break;
+          }
+        }
       }
-      await toggleIntegrationItem(list.integrationId, itemId, checked);
+
+      try {
+        await _toggleIntegrationItem(targetList.integrationId, itemId, checked);
+      }
+      catch (error) {
+        if (integrationLists && previousLists.length > 0) {
+          updateIntegrationCache("shopping", targetList.integrationId, previousLists);
+        }
+        throw error;
+      }
     }
     else {
-      await updateShoppingListItem(itemId, { checked });
+      const { data: cachedLists } = useNuxtData("native-shopping-lists");
+      const previousLists = cachedLists.value ? [...cachedLists.value] : [];
+
+      if (cachedLists.value && Array.isArray(cachedLists.value)) {
+        for (let listIndex = 0; listIndex < cachedLists.value.length; listIndex++) {
+          const list = cachedLists.value[listIndex];
+          const itemIndex = list.items?.findIndex((i: ShoppingListItem) => i.id === itemId);
+          if (itemIndex !== -1 && itemIndex >= 0 && list.items) {
+            const updatedItems = [...list.items];
+            const currentItem = updatedItems[itemIndex];
+            if (currentItem) {
+              updatedItems[itemIndex] = { ...currentItem, checked };
+            }
+            const updatedList = { ...list, items: updatedItems };
+            const updatedLists = [...cachedLists.value];
+            updatedLists[listIndex] = updatedList;
+            cachedLists.value = updatedLists;
+            break;
+          }
+        }
+      }
+
+      try {
+        await updateShoppingListItem(itemId, { checked });
+      }
+      catch (error) {
+        if (cachedLists.value && previousLists.length > 0) {
+          cachedLists.value.splice(0, cachedLists.value.length, ...previousLists);
+        }
+        throw error;
+      }
     }
   }
   catch (error) {
-    consola.error("Failed to toggle item:", error);
-    showError("Error", "Failed to toggle item. Please try again.");
+    consola.error("Shopping List: Failed to toggle item:", error);
+    showError("Failed to Toggle", "Failed to toggle item. Please try again.");
   }
 }
 
 async function handleDeleteList(listId: string) {
   try {
     if (editingList.value?.source === "native" || !editingList.value?.source) {
-      await deleteShoppingList(listId);
+      const { data: cachedLists } = useNuxtData("native-shopping-lists");
+      const previousLists = cachedLists.value ? [...cachedLists.value] : [];
+
+      if (cachedLists.value && Array.isArray(cachedLists.value)) {
+        const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === listId);
+        if (listIndex !== -1) {
+          cachedLists.value.splice(listIndex, 1);
+        }
+      }
+
+      try {
+        await deleteShoppingList(listId);
+      }
+      catch (error) {
+        if (cachedLists.value && previousLists.length > 0) {
+          cachedLists.value.splice(0, cachedLists.value.length, ...previousLists);
+        }
+        throw error;
+      }
     }
     else {
       showWarning("Warning", "Deleting lists in integrations is not yet supported.");
     }
   }
   catch (error) {
-    consola.error("Failed to delete list:", error);
+    consola.error("Shopping List: Failed to delete list:", error);
     showError("Error", "Failed to delete list. Please try again.");
   }
 }
@@ -363,11 +673,42 @@ async function handleReorderItem(itemId: string, direction: "up" | "down") {
       showWarning("Reorder Not Supported", "Reordering items in integration lists is not currently supported.");
     }
     else {
-      await reorderItem(itemId, direction);
+      const { data: cachedLists } = useNuxtData("native-shopping-lists");
+      const previousLists = cachedLists.value ? [...cachedLists.value] : [];
+
+      if (cachedLists.value && Array.isArray(cachedLists.value)) {
+        const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === list.id);
+        if (listIndex !== -1) {
+          const list = cachedLists.value[listIndex];
+          const items = list.items || [];
+          const itemIndex = items.findIndex((i: ShoppingListItem) => i.id === itemId);
+
+          if (itemIndex !== -1) {
+            const newItems = [...items];
+            if (direction === "up" && itemIndex > 0) {
+              [newItems[itemIndex], newItems[itemIndex - 1]] = [newItems[itemIndex - 1], newItems[itemIndex]];
+            }
+            else if (direction === "down" && itemIndex < newItems.length - 1) {
+              [newItems[itemIndex], newItems[itemIndex + 1]] = [newItems[itemIndex + 1], newItems[itemIndex]];
+            }
+            list.items = newItems;
+          }
+        }
+      }
+
+      try {
+        await reorderItem(itemId, direction);
+      }
+      catch (error) {
+        if (cachedLists.value && previousLists.length > 0) {
+          cachedLists.value.splice(0, cachedLists.value.length, ...previousLists);
+        }
+        throw error;
+      }
     }
   }
   catch (error) {
-    consola.error("Failed to reorder item:", error);
+    consola.error("Shopping List: Failed to reorder item:", error);
     showError("Reorder Failed", "Failed to reorder item. Please try again.");
   }
   finally {
@@ -393,11 +734,42 @@ async function handleReorderList(listId: string, direction: "up" | "down") {
       showWarning("Reorder Not Supported", "Reordering integration lists is not currently supported.");
     }
     else {
-      await reorderShoppingList(listId, direction);
+      const { data: cachedLists } = useNuxtData("native-shopping-lists");
+      const previousLists = cachedLists.value ? [...cachedLists.value] : [];
+
+      if (cachedLists.value && Array.isArray(cachedLists.value)) {
+        const lists = [...cachedLists.value].sort((a, b) => (a.order || 0) - (b.order || 0));
+        const listIndex = lists.findIndex((l: ShoppingList) => l.id === listId);
+
+        if (listIndex !== -1) {
+          if (direction === "up" && listIndex > 0) {
+            [lists[listIndex], lists[listIndex - 1]] = [lists[listIndex - 1], lists[listIndex]];
+            lists[listIndex].order = listIndex;
+            lists[listIndex - 1].order = listIndex - 1;
+          }
+          else if (direction === "down" && listIndex < lists.length - 1) {
+            [lists[listIndex], lists[listIndex + 1]] = [lists[listIndex + 1], lists[listIndex]];
+            lists[listIndex].order = listIndex;
+            lists[listIndex + 1].order = listIndex + 1;
+          }
+
+          cachedLists.value.splice(0, cachedLists.value.length, ...lists);
+        }
+      }
+
+      try {
+        await reorderShoppingList(listId, direction);
+      }
+      catch (error) {
+        if (cachedLists.value && previousLists.length > 0) {
+          cachedLists.value.splice(0, cachedLists.value.length, ...previousLists);
+        }
+        throw error;
+      }
     }
   }
   catch (error) {
-    consola.error("Failed to reorder shopping list:", error);
+    consola.error("Shopping List: Failed to reorder shopping list:", error);
     showError("Reorder Failed", "Failed to reorder shopping list. Please try again.");
   }
   finally {
@@ -416,14 +788,96 @@ async function handleClearCompleted(listId: string) {
       if (!list.integrationId) {
         throw new Error("Integration ID is required");
       }
-      await clearIntegrationCompletedItems(list.integrationId, listId);
+
+      const integrationLists = getCachedIntegrationData("shopping", list.integrationId) as ShoppingList[];
+      const previousLists = integrationLists ? [...integrationLists] : [];
+      let completedItemIds: string[] = [];
+
+      if (integrationLists && Array.isArray(integrationLists)) {
+        const listIndex = integrationLists.findIndex((l: ShoppingList) => l.id === listId);
+        if (listIndex !== -1) {
+          const cachedList = integrationLists[listIndex];
+          if (cachedList && cachedList.items) {
+            completedItemIds = cachedList.items
+              .filter((item: ShoppingListItem) => item.checked)
+              .map((item: ShoppingListItem) => item.id);
+
+            const completedItems = cachedList.items.filter((item: ShoppingListItem) => item.checked);
+            const updatedItems = cachedList.items.filter((item: ShoppingListItem) => !item.checked);
+            const updatedList: ShoppingList = {
+              ...cachedList,
+              items: updatedItems,
+              _count: cachedList._count
+                ? {
+                    ...cachedList._count,
+                    items: Math.max(0, (cachedList._count.items || 0) - completedItems.length),
+                  }
+                : undefined,
+            };
+            const updatedLists = [...integrationLists];
+            updatedLists[listIndex] = updatedList;
+
+            updateIntegrationCache("shopping", list.integrationId, updatedLists);
+          }
+        }
+      }
+
+      try {
+        await clearIntegrationCompletedItems(list.integrationId, listId, completedItemIds);
+      }
+      catch (error) {
+        if (integrationLists && previousLists.length > 0) {
+          updateIntegrationCache("shopping", list.integrationId, previousLists);
+        }
+        throw error;
+      }
     }
     else {
-      await deleteCompletedItems(listId);
+      const { data: cachedLists } = useNuxtData("native-shopping-lists");
+      const previousLists = cachedLists.value ? [...cachedLists.value] : [];
+
+      let completedItemIds: string[] = [];
+      if (cachedLists.value && Array.isArray(cachedLists.value)) {
+        const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === listId);
+        if (listIndex !== -1) {
+          const cachedList = cachedLists.value[listIndex];
+          if (cachedList && cachedList.items) {
+            completedItemIds = cachedList.items
+              .filter((item: ShoppingListItem) => item.checked)
+              .map((item: ShoppingListItem) => item.id);
+
+            const completedItems = cachedList.items.filter((item: ShoppingListItem) => item.checked);
+            const updatedItems = cachedList.items.filter((item: ShoppingListItem) => !item.checked);
+            const updatedList: ShoppingList = {
+              ...cachedList,
+              items: updatedItems,
+              _count: cachedList._count
+                ? {
+                    ...cachedList._count,
+                    items: Math.max(0, (cachedList._count.items || 0) - completedItems.length),
+                  }
+                : undefined,
+            };
+            const updatedLists = [...cachedLists.value];
+            updatedLists[listIndex] = updatedList;
+            cachedLists.value = updatedLists;
+          }
+        }
+      }
+
+      try {
+        await deleteCompletedItems(listId, completedItemIds);
+      }
+      catch (error) {
+        if (cachedLists.value && previousLists.length > 0) {
+          cachedLists.value.splice(0, cachedLists.value.length, ...previousLists);
+        }
+        throw error;
+      }
     }
   }
   catch (error) {
-    consola.error("Failed to clear completed items:", error);
+    consola.error("Shopping List: Failed to clear completed items:", error);
     showError("Clear Failed", "Failed to clear completed items. Please try again.");
   }
 }
@@ -535,49 +989,12 @@ function getFilteredFieldsForItem(item: ShoppingListItem, integrationType: strin
 
   return getFieldsForItem(item, integrationType, baseFields) as DialogField[];
 }
-
-async function handleSyncIntegrationLists() {
-  try {
-    await syncShoppingLists();
-    showSuccess("Sync Complete", "Your shopping lists have been successfully synchronized with all integrations.");
-  }
-  catch (error: unknown) {
-    consola.error("Failed to sync integration lists:", error);
-
-    let errorMessage = "There was an error while trying to sync your shopping lists. Please check your connection and try again.";
-
-    if (error && typeof error === "object" && "cause" in error && error.cause && typeof error.cause === "object" && "statusMessage" in error.cause) {
-      errorMessage = (error.cause as { statusMessage: string }).statusMessage;
-    }
-    else if (error && typeof error === "object" && "cause" in error && error.cause && typeof error.cause === "object" && "detail" in error.cause) {
-      errorMessage = (error.cause as { detail: string }).detail;
-    }
-    else if (error && typeof error === "object" && "message" in error && typeof error.message === "string") {
-      errorMessage = error.message;
-    }
-
-    showError("Sync Failed", errorMessage);
-  }
-}
 </script>
 
 <template>
   <div class="flex h-[calc(100vh-2rem)] w-full flex-col rounded-lg">
-    <div class="py-5 sm:px-4 sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+    <div class="py-5 sm:px-4 sticky top-0 z-40 bg-default border-b border-default">
       <GlobalDateHeader />
-
-      <div v-if="enabledIntegrationsByType.length > 0" class="mt-4 flex justify-end">
-        <UButton
-          color="primary"
-          variant="outline"
-          size="sm"
-          :loading="integrationLoading"
-          @click="handleSyncIntegrationLists"
-        >
-          <UIcon name="i-lucide-refresh-cw" class="h-4 w-4 mr-1" />
-          Sync Integrations
-        </UButton>
-      </div>
     </div>
 
     <div class="flex-1 overflow-y-auto">
@@ -591,24 +1008,24 @@ async function handleSyncIntegrationLists() {
         :show-notes="true"
         show-reorder
         :show-edit="(list) => {
-          const shoppingList = list as ShoppingList;
+          const shoppingList = list as ShoppingListWithIntegration;
           return shoppingList.source === 'native';
         }"
         :show-add="(list) => {
-          const shoppingList = list as ShoppingList;
+          const shoppingList = list as ShoppingListWithIntegration;
           return shoppingList.source === 'native' || (shoppingList.integrationId ? hasCapability(shoppingList.integrationId!, 'add_items') : false);
         }"
         :show-edit-item="(list) => {
-          const shoppingList = list as ShoppingList;
+          const shoppingList = list as ShoppingListWithIntegration;
           return shoppingList.source === 'native' || (shoppingList.integrationId ? hasCapability(shoppingList.integrationId!, 'edit_items') : false);
         }"
         :show-completed="(list) => {
-          const shoppingList = list as ShoppingList;
+          const shoppingList = list as ShoppingListWithIntegration;
           return shoppingList.source === 'native' || (shoppingList.integrationId ? hasCapability(shoppingList.integrationId!, 'clear_items') : false);
         }"
         show-integration-icons
         @create="openCreateList"
-        @edit="editingList = $event as ShoppingList; listDialog = true"
+        @edit="editingList = $event as ShoppingListWithIntegration; listDialog = true"
         @delete="handleDeleteList"
         @add-item="openAddItem"
         @edit-item="(item) => openEditItem(item as ShoppingListItem)"
@@ -619,13 +1036,14 @@ async function handleSyncIntegrationLists() {
       />
     </div>
 
-    <UButton
-      class="fixed bottom-6 right-6 h-12 w-12 rounded-full shadow-lg"
+    <GlobalFloatingActionButton
+      icon="i-lucide-plus"
+      label="Create new shopping list"
       color="primary"
+      size="lg"
+      position="bottom-right"
       @click="openCreateList"
-    >
-      <UIcon name="i-lucide-plus" class="h-6 w-6" />
-    </UButton>
+    />
 
     <ShoppingListDialog
       :is-open="listDialog"

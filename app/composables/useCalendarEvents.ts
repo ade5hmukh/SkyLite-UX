@@ -3,35 +3,30 @@ import { consola } from "consola";
 import type { CalendarEvent } from "~/types/calendar";
 
 export function useCalendarEvents() {
-  const events = ref<CalendarEvent[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  const { data: serverEvents } = useNuxtData<CalendarEvent[]>("calendar-events");
+  const { data: events } = useNuxtData<CalendarEvent[]>("calendar-events");
+
+  const currentEvents = computed(() => events.value || []);
 
   const fetchEvents = async () => {
     loading.value = true;
     error.value = null;
     try {
-      const data = await $fetch<CalendarEvent[]>("/api/calendar-events");
-      events.value = data || [];
-      return events.value;
+      await refreshNuxtData("calendar-events");
+      consola.debug("Use Calendar Events: Calendar events refreshed successfully");
+      return currentEvents.value;
     }
     catch (err) {
       error.value = "Failed to fetch calendar events";
-      consola.error("Error fetching calendar events:", err);
-      return [];
+      consola.error("Use Calendar Events: Error fetching calendar events:", err);
+      throw err;
     }
     finally {
       loading.value = false;
     }
   };
-
-  watch(serverEvents, (newEvents) => {
-    if (newEvents) {
-      events.value = newEvents;
-    }
-  });
 
   const createEvent = async (eventData: Omit<CalendarEvent, "id">) => {
     try {
@@ -39,12 +34,14 @@ export function useCalendarEvents() {
         method: "POST",
         body: eventData,
       });
-      events.value.unshift(newEvent);
+
+      await refreshNuxtData("calendar-events");
+
       return newEvent;
     }
     catch (err) {
       error.value = "Failed to create calendar event";
-      consola.error("Error creating calendar event:", err);
+      consola.error("Use Calendar Events: Error creating calendar event:", err);
       throw err;
     }
   };
@@ -55,15 +52,14 @@ export function useCalendarEvents() {
         method: "PUT",
         body: updates,
       });
-      const index = events.value.findIndex(e => e.id === id);
-      if (index !== -1) {
-        events.value[index] = updatedEvent;
-      }
+
+      await refreshNuxtData("calendar-events");
+
       return updatedEvent;
     }
     catch (err) {
       error.value = "Failed to update calendar event";
-      consola.error("Error updating calendar event:", err);
+      consola.error("Use Calendar Events: Error updating calendar event:", err);
       throw err;
     }
   };
@@ -73,22 +69,20 @@ export function useCalendarEvents() {
       await $fetch(`/api/calendar-events/${id}`, {
         method: "DELETE",
       });
-      events.value = events.value.filter(e => e.id !== id);
+
+      await refreshNuxtData("calendar-events");
+
       return true;
     }
     catch (err) {
       error.value = "Failed to delete calendar event";
-      consola.error("Error deleting calendar event:", err);
+      consola.error("Use Calendar Events: Error deleting calendar event:", err);
       throw err;
     }
   };
 
-  onMounted(() => {
-    fetchEvents();
-  });
-
   return {
-    events: readonly(events),
+    events: readonly(currentEvents),
     loading: readonly(loading),
     error: readonly(error),
     fetchEvents,

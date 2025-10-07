@@ -1,9 +1,391 @@
-import { addDays, endOfWeek, format, isSameDay, startOfWeek } from "date-fns";
+import type { DateValue } from "@internationalized/date";
 
-import type { CalendarEvent } from "~/types/calendar";
+import { consola } from "consola";
+import { format } from "date-fns";
+import ical from "ical.js";
+
+import type { CalendarEvent, PlaceholderEvent } from "~/types/calendar";
+import type { Integration } from "~/types/database";
+
+import { useStableDate } from "~/composables/useStableDate";
+import { useSyncManager } from "~/composables/useSyncManager";
+import { getBrowserTimezone, isTimezoneRegistered } from "~/types/global";
 
 export function useCalendar() {
-  const spanningEventLanes = new Map<string, number>();
+  const { data: nativeEvents } = useNuxtData<CalendarEvent[]>("calendar-events");
+
+  const { integrations } = useIntegrations();
+
+  const { getSyncDataByType, getCachedIntegrationData } = useSyncManager();
+
+  const { getStableDate, parseStableDate } = useStableDate();
+
+  function getSafeTimezone(): string {
+    if (isTimezoneRegistered()) {
+      const registeredTimezone = getBrowserTimezone();
+      if (registeredTimezone) {
+        return registeredTimezone;
+      }
+    }
+
+    return "UTC";
+  }
+
+  function getUtcMidnightTime(date: Date): number {
+    return Date.UTC(
+      date.getUTCFullYear(),
+      date.getUTCMonth(),
+      date.getUTCDate(),
+      0,
+      0,
+      0,
+      0,
+    );
+  }
+
+  function isSameUtcDay(a: Date, b: Date): boolean {
+    return getUtcMidnightTime(a) === getUtcMidnightTime(b);
+  }
+
+  function createICalTime(date: Date, isUTC: boolean = false): ical.Time {
+    return ical.Time.fromJSDate(date, isUTC);
+  }
+
+  function isSameLocalDay(a: Date, b: Date, isAllDay: boolean = false): boolean {
+    if (isAllDay) {
+      return isSameUtcDay(a, b);
+    }
+
+    try {
+      const browserTimezone = getSafeTimezone();
+      const timezone = ical.TimezoneService.get(browserTimezone);
+
+      if (!timezone) {
+        return isSameUtcDay(a, b);
+      }
+
+      const timeA = createICalTime(a, true);
+      const timeB = createICalTime(b, true);
+
+      const localA = timeA.convertToZone(timezone);
+      const localB = timeB.convertToZone(timezone);
+
+      return localA.year === localB.year
+        && localA.month === localB.month
+        && localA.day === localB.day;
+    }
+    catch (error) {
+      consola.debug("Use Calendar: ical.js comparison failed, using UTC fallback:", error);
+      return isSameUtcDay(a, b);
+    }
+  }
+
+  function isLocalDayInRange(day: Date, start: Date, end: Date, isAllDay: boolean = false): boolean {
+    if (isAllDay) {
+      return day.getTime() >= start.getTime() && day.getTime() < end.getTime();
+    }
+
+    try {
+      const browserTimezone = getSafeTimezone();
+      const timezone = ical.TimezoneService.get(browserTimezone);
+
+      if (!timezone) {
+        return day.getTime() >= start.getTime() && day.getTime() < end.getTime();
+      }
+
+      const timeDay = createICalTime(day, true);
+      const timeStart = createICalTime(start, true);
+      const timeEnd = createICalTime(end, true);
+
+      const localDay = timeDay.convertToZone(timezone);
+      const localStart = timeStart.convertToZone(timezone);
+      const localEnd = timeEnd.convertToZone(timezone);
+
+      const dayMidnight = new Date(localDay.year, localDay.month - 1, localDay.day);
+      const startMidnight = new Date(localStart.year, localStart.month - 1, localStart.day);
+      const endMidnight = new Date(localEnd.year, localEnd.month - 1, localEnd.day);
+
+      return dayMidnight.getTime() >= startMidnight.getTime()
+        && dayMidnight.getTime() <= endMidnight.getTime();
+    }
+    catch (error) {
+      consola.debug("Use Calendar: ical.js comparison failed, using UTC fallback:", error);
+      return day.getTime() >= start.getTime() && day.getTime() <= end.getTime();
+    }
+  }
+
+  function createLocalDate(year: number, month: number, day: number): Date {
+    const utcTime = Date.UTC(year, month, day);
+    return new Date(utcTime);
+  }
+
+  function getLocalWeekDays(startDate: Date): Date[] {
+    const days: Date[] = [];
+    const start = getLocalTimeFromUTC(startDate);
+
+    for (let i = 0; i < 7; i++) {
+      const day = parseStableDate(new Date(start.getTime()));
+      day.setDate(start.getDate() + i);
+      days.push(day);
+    }
+
+    return days;
+  }
+
+  function getLocalMonthWeeks(date: Date): Date[][] {
+    const localDate = getLocalTimeFromUTC(date);
+    const firstDayOfMonth = new Date(localDate.getFullYear(), localDate.getMonth(), 1);
+    const lastDayOfMonth = new Date(localDate.getFullYear(), localDate.getMonth() + 1, 0);
+
+    const startDate = parseStableDate(new Date(firstDayOfMonth.getTime()));
+    const dayOfWeek = startDate.getDay();
+    startDate.setDate(startDate.getDate() - dayOfWeek);
+
+    const endDate = parseStableDate(new Date(lastDayOfMonth.getTime()));
+    const endDayOfWeek = endDate.getDay();
+    endDate.setDate(endDate.getDate() + (6 - endDayOfWeek));
+
+    const weeks: Date[][] = [];
+    const totalDays = Math.ceil((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+
+    for (let dayIndex = 0; dayIndex < totalDays; dayIndex += 7) {
+      const week: Date[] = [];
+      for (let i = 0; i < 7; i++) {
+        const dayDate = parseStableDate(new Date(startDate.getTime()));
+        dayDate.setDate(startDate.getDate() + dayIndex + i);
+        week.push(dayDate);
+      }
+      weeks.push(week);
+    }
+
+    return weeks;
+  }
+
+  function getLocalAgendaDays(date: Date): Date[] {
+    const days: Date[] = [];
+    const localDate = getLocalTimeFromUTC(date);
+
+    for (let i = -15; i < 0; i++) {
+      const day = parseStableDate(new Date(localDate.getTime()));
+      day.setDate(localDate.getDate() + i);
+      days.push(day);
+    }
+
+    for (let i = 0; i < 15; i++) {
+      const day = parseStableDate(new Date(localDate.getTime()));
+      day.setDate(localDate.getDate() + i);
+      days.push(day);
+    }
+
+    return days;
+  }
+
+  function getLocalTimeFromUTC(utcDate: Date): Date {
+    try {
+      const browserTimezone = getSafeTimezone();
+      const timezone = ical.TimezoneService.get(browserTimezone);
+
+      if (timezone) {
+        const utcTime = createICalTime(utcDate, true);
+
+        const localTime = utcTime.convertToZone(timezone);
+
+        const result = new Date(localTime.year, localTime.month - 1, localTime.day, localTime.hour, localTime.minute, localTime.second);
+
+        return result;
+      }
+
+      return new Date(utcDate.getTime());
+    }
+    catch (error) {
+      consola.warn("Use Calendar: ical.js timezone conversion failed, using fallback:", error);
+      return new Date(utcDate.getTime());
+    }
+  }
+
+  function getLocalTimeString(utcDate: Date, options?: Intl.DateTimeFormatOptions): string {
+    const localDate = getLocalTimeFromUTC(utcDate);
+    const defaultOptions: Intl.DateTimeFormatOptions = {
+      hour: "numeric",
+      minute: "2-digit",
+      hour12: true,
+    };
+    return localDate.toLocaleTimeString("en-US", { ...defaultOptions, ...options });
+  }
+
+  function getLocalDateString(utcDate: Date, options?: Intl.DateTimeFormatOptions): string {
+    const localDate = getLocalTimeFromUTC(utcDate);
+    const defaultOptions: Intl.DateTimeFormatOptions = {
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+    };
+    return localDate.toLocaleDateString("en-US", { ...defaultOptions, ...options });
+  }
+
+  function getEventDisplayTime(event: CalendarEvent): {
+    startTime: string;
+    endTime: string;
+    startDate: string;
+    endDate: string;
+    isSameDay: boolean;
+    isAllDay: boolean;
+  } {
+    const start = parseStableDate(event.start);
+    const end = parseStableDate(event.end);
+
+    const isSameDay = isSameUtcDay(start, end);
+    const isAllDay = event.allDay || false;
+
+    if (isAllDay) {
+      return {
+        startTime: "All day",
+        endTime: "All day",
+        startDate: getLocalDateString(start),
+        endDate: getLocalDateString(end),
+        isSameDay,
+        isAllDay,
+      };
+    }
+
+    return {
+      startTime: getLocalTimeString(start),
+      endTime: getLocalTimeString(end),
+      startDate: getLocalDateString(start),
+      endDate: getLocalDateString(end),
+      isSameDay,
+      isAllDay,
+    };
+  }
+
+  function getEventStartTimeForInput(event: CalendarEvent): string {
+    const start = parseStableDate(event.start);
+    const localStart = getLocalTimeFromUTC(start);
+    const hours = localStart.getHours().toString().padStart(2, "0");
+    const minutes = localStart.getMinutes().toString().padStart(2, "0");
+    return `${hours}:${minutes}`;
+  }
+
+  function getEventEndTimeForInput(event: CalendarEvent): string {
+    const end = parseStableDate(event.end);
+    const localEnd = getLocalTimeFromUTC(end);
+    const hours = localEnd.getHours().toString().padStart(2, "0");
+    const minutes = localEnd.getMinutes().toString().padStart(2, "0");
+
+    return `${hours}:${minutes}`;
+  }
+
+  function getEventEndDateForInput(event: CalendarEvent): string {
+    const start = parseStableDate(event.start);
+    const end = parseStableDate(event.end);
+
+    if (event.allDay) {
+      const endDate = new Date(end.getTime());
+      endDate.setDate(endDate.getDate() - 1);
+
+      const year = endDate.getFullYear();
+      const month = (endDate.getMonth() + 1).toString().padStart(2, "0");
+      const day = endDate.getDate().toString().padStart(2, "0");
+      return `${year}-${month}-${day}`;
+    }
+    else {
+      const startLocal = getLocalTimeFromUTC(start);
+      const endLocal = getLocalTimeFromUTC(end);
+
+      const startDay = new Date(startLocal.getTime());
+      startDay.setHours(0, 0, 0, 0);
+      const endDay = new Date(endLocal.getTime());
+      endDay.setHours(0, 0, 0, 0);
+
+      if (startDay.getTime() === endDay.getTime()) {
+        const year = startLocal.getFullYear();
+        const month = (startLocal.getMonth() + 1).toString().padStart(2, "0");
+        const day = startLocal.getDate().toString().padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      }
+      else {
+        const year = endLocal.getFullYear();
+        const month = (endLocal.getMonth() + 1).toString().padStart(2, "0");
+        const day = endLocal.getDate().toString().padStart(2, "0");
+        return `${year}-${month}-${day}`;
+      }
+    }
+  }
+
+  function createLocalDateTime(dateValue: DateValue, timeString: string, timezone: string): Date {
+    const [hours = 0, minutes = 0] = timeString.split(":").map(Number);
+    const localDate = dateValue.toDate(timezone);
+    localDate.setHours(hours, minutes, 0, 0);
+    return localDate;
+  }
+
+  function convertLocalToUTC(localDate: Date): Date {
+    const utcTime = Date.UTC(
+      localDate.getFullYear(),
+      localDate.getMonth(),
+      localDate.getDate(),
+      localDate.getHours(),
+      localDate.getMinutes(),
+      localDate.getSeconds(),
+      localDate.getMilliseconds(),
+    );
+    return new Date(utcTime);
+  }
+
+  const allEvents = computed(() => {
+    const events: CalendarEvent[] = [];
+
+    if (nativeEvents.value) {
+      events.push(...nativeEvents.value);
+    }
+
+    const calendarIntegrations = (integrations.value as readonly Integration[] || []).filter(integration =>
+      integration.type === "calendar" && integration.enabled,
+    );
+
+    calendarIntegrations.forEach((integration) => {
+      try {
+        const integrationEvents = getCachedIntegrationData("calendar", integration.id) as CalendarEvent[];
+
+        if (integrationEvents && Array.isArray(integrationEvents)) {
+          events.push(...integrationEvents);
+        }
+      }
+      catch (error) {
+        consola.warn(`Use Calendar: Failed to get calendar events for integration ${integration.id}:`, error);
+      }
+    });
+
+    const result = combineEvents(events);
+
+    return result;
+  });
+
+  const calendarSyncStatus = computed(() => {
+    return getSyncDataByType("calendar", []);
+  });
+
+  const refreshCalendarData = async () => {
+    try {
+      await refreshNuxtData("calendar-events");
+
+      consola.debug("Use Calendar: Calendar data refreshed successfully");
+    }
+    catch (error) {
+      consola.error("Use Calendar: Failed to refresh calendar data:", error);
+    }
+  };
+
+  const getIntegrationEvents = (integrationId: string): CalendarEvent[] => {
+    try {
+      const events = getCachedIntegrationData("calendar", integrationId) as CalendarEvent[];
+      return events && Array.isArray(events) ? events : [];
+    }
+    catch (error) {
+      consola.warn(`Use Calendar: Failed to get events for integration ${integrationId}:`, error);
+      return [];
+    }
+  };
 
   function getEventUserColors(
     event: CalendarEvent,
@@ -18,45 +400,60 @@ export function useCalendar() {
     if (useUserColors && event.users && event.users.length > 0) {
       const userColors = event.users
         .map(user => user.color)
-        .filter(color => color && color !== null) as string[];
+        .filter(color => color && color !== null)
+        .sort() as string[];
 
       if (userColors.length > 1) {
         return userColors;
       }
       else if (userColors.length === 1) {
-        return userColors[0] || defaultColor;
+        const result = userColors[0] || defaultColor;
+        return result;
       }
     }
 
     if (Array.isArray(event.color)) {
       return event.color;
     }
-    return (typeof event.color === "string" ? event.color : null) || eventColor || defaultColor;
+
+    const result = (typeof event.color === "string" ? event.color : null) || eventColor || defaultColor;
+    return result;
   }
 
   function combineEvents(events: CalendarEvent[]): CalendarEvent[] {
     const eventMap = new Map<string, CalendarEvent>();
 
     events.forEach((event) => {
-      const key = `${event.title}-${new Date(event.start).getTime()}-${new Date(event.end).getTime()}-${event.location || ""}-${event.description || ""}`;
+      const startTime = parseStableDate(event.start).getTime();
+      const endTime = parseStableDate(event.end).getTime();
+      const key = `${event.title}-${startTime}-${endTime}-${event.location || ""}-${event.description || ""}`;
 
       if (eventMap.has(key)) {
         const existingEvent = eventMap.get(key)!;
 
         const existingUserIds = new Set(existingEvent.users?.map(u => u.id) || []);
         const newUsers = event.users?.filter(u => !existingUserIds.has(u.id)) || [];
-        existingEvent.users = [...(existingEvent.users || []), ...newUsers];
+        const allUsers = [...(existingEvent.users || []), ...newUsers];
+        existingEvent.users = allUsers.sort((a, b) => a.id.localeCompare(b.id));
 
         existingEvent.color = getEventUserColors(existingEvent);
       }
       else {
-        const newEvent = { ...event };
-        newEvent.color = getEventUserColors(newEvent);
+        const newEvent = {
+          ...event,
+          color: getEventUserColors(event),
+        };
         eventMap.set(key, newEvent);
       }
     });
 
-    return Array.from(eventMap.values());
+    const result = Array.from(eventMap.values()).sort((a, b) => {
+      const aStart = parseStableDate(a.start).getTime();
+      const bStart = parseStableDate(b.start).getTime();
+      return aStart - bStart;
+    });
+
+    return result;
   }
 
   function lightenColor(hex: string, amount: number = 0.3): string {
@@ -135,18 +532,16 @@ export function useCalendar() {
 
         if (spanningInfo && spanningInfo.event && spanningInfo.currentDay
           && !(spanningInfo.isFirstDay === true && spanningInfo.isLastDay === true)) {
-          const eventStart = new Date(spanningInfo.event.start);
-          const eventEnd = new Date(spanningInfo.event.end);
+          const eventStart = parseStableDate(spanningInfo.event.start);
+          const eventEnd = parseStableDate(spanningInfo.event.end);
 
           const totalDays = Math.floor((eventEnd.getTime() - eventStart.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-
           const dayDiff = Math.floor((spanningInfo.currentDay.getTime() - eventStart.getTime()) / (1000 * 60 * 60 * 24));
 
           const daysPerColor = totalDays / color.length;
 
           const visibleColors: Array<{ color: string; start: number; end: number }> = [];
 
-          // Edge case: when days == colors
           if (totalDays === color.length) {
             const currentColor = color[dayDiff];
             const nextColor = color[dayDiff + 1];
@@ -176,7 +571,6 @@ export function useCalendar() {
             }
           }
           else {
-            // Original logic for overlapping colors
             color.forEach((c, colorIndex) => {
               const colorStartDay = colorIndex * daysPerColor;
               const colorEndDay = (colorIndex + 1) * daysPerColor;
@@ -194,7 +588,6 @@ export function useCalendar() {
             });
           }
 
-          // Reverse colors and flip percentages to compensate for -45deg visual reversal
           const reversedColors = visibleColors.reverse();
           colorStops = reversedColors.map(({ color: c, start, end }) => {
             const lightenedColor = /^#(?:[0-9A-F]{3}){1,2}$/i.test(c) ? lightenColor(c, 0.4) : c;
@@ -204,7 +597,6 @@ export function useCalendar() {
           }).join(", ");
         }
         else {
-          // Non-spanning events use original logic (no reversal needed for single-day events)
           const stripeWidth = 100 / color.length;
           colorStops = color.map((c, index) => {
             const start = index * stripeWidth;
@@ -217,9 +609,11 @@ export function useCalendar() {
         const textColor = getAverageTextColor(color);
         const shadowColor = textColor === "black" ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)";
 
-        return {
+        const result = {
           style: `background: linear-gradient(-45deg, ${colorStops}); color: ${textColor}; text-shadow: 0 1px 2px ${shadowColor};`,
         };
+
+        return result;
       }
       else if (color.length === 1) {
         const singleColor = color[0];
@@ -230,73 +624,20 @@ export function useCalendar() {
           return { style: `background-color: ${lightenedColor}; color: ${textColor}; text-shadow: 0 1px 2px ${shadowColor};` };
         }
       }
-      color = "sky";
     }
 
-    const eventColor = color || "sky";
-
-    switch (eventColor) {
-      case "sky":
-        return "bg-blue-200/50 hover:bg-blue-200/40 text-blue-900/90 dark:bg-blue-400/25 dark:hover:bg-blue-400/20 dark:text-blue-200 shadow-blue-700/8 backdrop-blur-[2px]";
-      case "violet":
-        return "bg-violet-200/50 hover:bg-violet-200/40 text-violet-900/90 dark:bg-violet-400/25 dark:hover:bg-violet-400/20 dark:text-violet-200 shadow-violet-700/8 backdrop-blur-[2px]";
-      case "rose":
-        return "bg-rose-200/50 hover:bg-rose-200/40 text-rose-900/90 dark:bg-rose-400/25 dark:hover:bg-rose-400/20 dark:text-rose-200 shadow-rose-700/8 backdrop-blur-[2px]";
-      case "emerald":
-        return "bg-emerald-200/50 hover:bg-emerald-200/40 text-emerald-900/90 dark:bg-emerald-400/25 dark:hover:bg-emerald-400/20 dark:text-emerald-200 shadow-emerald-700/8 backdrop-blur-[2px]";
-      case "orange":
-        return "bg-orange-200/50 hover:bg-orange-200/40 text-orange-900/90 dark:bg-orange-400/25 dark:hover:bg-orange-400/20 dark:text-orange-200 shadow-orange-700/8 backdrop-blur-[2px]";
-      default:
-        if (typeof eventColor === "string" && /^#(?:[0-9A-F]{3}){1,2}$/i.test(eventColor)) {
-          const lightenedColor = lightenColor(eventColor, 0.4);
-          const textColor = getTextColor(lightenedColor);
-          const shadowColor = textColor === "black" ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)";
-          return { style: `background-color: ${lightenedColor}; color: ${textColor}; text-shadow: 0 1px 2px ${shadowColor};` };
-        }
-        return "bg-blue-200/50 hover:bg-blue-200/40 text-blue-900/90 dark:bg-blue-400/25 dark:hover:bg-blue-400/20 dark:text-blue-200 shadow-blue-700/8 backdrop-blur-[2px]";
+    if (typeof color === "string" && /^#(?:[0-9A-F]{3}){1,2}$/i.test(color)) {
+      const lightenedColor = lightenColor(color, 0.4);
+      const textColor = getTextColor(lightenedColor);
+      const shadowColor = textColor === "black" ? "rgba(255,255,255,0.5)" : "rgba(0,0,0,0.5)";
+      return { style: `background-color: ${lightenedColor}; color: ${textColor}; text-shadow: 0 1px 2px ${shadowColor};` };
     }
+
+    return "bg-secondary/20 hover:bg-secondary/30 text-elevated shadow-elevated/8 backdrop-blur-[2px]";
   }
 
   function isToday(date: Date) {
-    return isSameDay(date, new Date());
-  }
-
-  function isFirstDay(day: Date, event: CalendarEvent) {
-    return isSameDay(day, new Date(event.start));
-  }
-
-  function isLastDay(day: Date, event: CalendarEvent) {
-    return isSameDay(day, new Date(event.end));
-  }
-
-  function isFirstVisibleDay(day: Date, event: CalendarEvent, visibleDays: Date[]): boolean {
-    // If it's the actual first day, always show title
-    if (isFirstDay(day, event)) {
-      return true;
-    }
-
-    // Get first visible day in the view
-    const firstVisibleDay = visibleDays[0];
-    if (!firstVisibleDay) {
-      return false;
-    }
-
-    const eventStart = new Date(event.start);
-
-    // If event started before the view and this is the first day we see it
-    if (eventStart < firstVisibleDay) {
-      // Find the first day this event appears in the current view
-      const eventDaysInView = visibleDays.filter((visibleDay) => {
-        const eventsForDay = getAllEventsForDay([event], visibleDay);
-        return eventsForDay.length > 0;
-      });
-
-      // Return true if this is the first day the event appears in current view
-      const firstEventDay = eventDaysInView[0];
-      return firstEventDay ? isSameDay(day, firstEventDay) : false;
-    }
-
-    return false;
+    return isSameUtcDay(date, getStableDate());
   }
 
   function handleEventClick(
@@ -327,15 +668,18 @@ export function useCalendar() {
       const dateElement = document.querySelector(`[data-date="${targetDate}"]`);
 
       if (dateElement) {
-        const headerHeight = 80;
-        const padding = 20;
-        const elementPosition = dateElement.getBoundingClientRect().top;
-        const offsetPosition = elementPosition + window.pageYOffset - headerHeight - padding;
+        const scrollableContainer = dateElement.closest(".overflow-y-auto");
 
-        window.scrollTo({
-          top: offsetPosition,
-          behavior: "smooth",
-        });
+        if (scrollableContainer) {
+          const containerRect = scrollableContainer.getBoundingClientRect();
+          const elementRect = dateElement.getBoundingClientRect();
+          const scrollTop = scrollableContainer.scrollTop + (elementRect.top - containerRect.top) - 20;
+
+          scrollableContainer.scrollTo({
+            top: scrollTop,
+            behavior: "smooth",
+          });
+        }
       }
     }
   }
@@ -351,7 +695,7 @@ export function useCalendar() {
   }
 
   function isSelectedDate(date: Date, selectedDate: Date) {
-    return isSameDay(date, selectedDate);
+    return isSameUtcDay(date, selectedDate);
   }
 
   function handleDateSelect(date: Date, emit: (event: "dateSelect", date: Date) => void) {
@@ -359,61 +703,53 @@ export function useCalendar() {
   }
 
   function getMiniCalendarWeeks(currentDate: Date): Date[][] {
-    const firstDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
-    const lastDayOfMonth = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
-    const startDate = startOfWeek(firstDayOfMonth, { weekStartsOn: 0 });
-    const endDate = endOfWeek(lastDayOfMonth, { weekStartsOn: 0 });
-    const weeks: Date[][] = [];
-    let date = startDate;
-
-    while (date <= endDate) {
-      const week: Date[] = [];
-      for (let i = 0; i < 7; i++) {
-        week.push(new Date(date));
-        date = addDays(date, 1);
-      }
-      weeks.push(week);
-    }
-
-    return weeks;
+    return getLocalMonthWeeks(currentDate);
   }
 
   function getAgendaEventsForDay(events: CalendarEvent[], day: Date): CalendarEvent[] {
     return events
       .filter((event) => {
-        const eventStart = new Date(event.start);
-        const eventEnd = new Date(event.end);
+        const eventStart = parseStableDate(event.start);
+        const eventEnd = parseStableDate(event.end);
+
         return (
-          isSameDay(day, eventStart)
-          || isSameDay(day, eventEnd)
-          || (day > eventStart && day < eventEnd)
+          isSameLocalDay(day, eventStart, event.allDay)
+          || isLocalDayInRange(day, eventStart, eventEnd, event.allDay)
         );
       })
-      .sort((a, b) => new Date(a.start).getTime() - new Date(b.start).getTime());
-  }
-
-  function isMultiDayEvent(event: CalendarEvent): boolean {
-    const eventStart = new Date(event.start);
-    const eventEnd = new Date(event.end);
-    return event.allDay || eventStart.getDate() !== eventEnd.getDate();
+      .sort((a, b) => {
+        const aStart = parseStableDate(a.start).getTime();
+        const bStart = parseStableDate(b.start).getTime();
+        return aStart - bStart;
+      });
   }
 
   function getAllEventsForDay(events: CalendarEvent[], day: Date): CalendarEvent[] {
-    return events.filter((event) => {
-      const eventStart = new Date(event.start);
-      const eventEnd = new Date(event.end);
+    const result = events.filter((event) => {
+      const eventStart = parseStableDate(event.start);
+      const eventEnd = parseStableDate(event.end);
 
-      return (
-        isSameDay(day, eventStart)
-        || isSameDay(day, eventEnd)
-        || (day > eventStart && day < eventEnd)
-      );
+      const isSameStart = isSameLocalDay(day, eventStart, event.allDay);
+      const isInRange = isLocalDayInRange(day, eventStart, eventEnd, event.allDay);
+
+      return isSameStart || isInRange;
     });
+
+    return result;
   }
 
-  type PlaceholderEvent = CalendarEvent & {
-    isPlaceholder?: boolean;
-  };
+  function getEventsForDateRange(start: Date, end: Date): CalendarEvent[] {
+    const events = allEvents.value;
+
+    const filteredEvents = events.filter((event) => {
+      const eventStart = parseStableDate(event.start);
+      const eventEnd = parseStableDate(event.end);
+
+      return eventStart <= end && eventEnd >= start;
+    });
+
+    return filteredEvents;
+  }
 
   function isPlaceholderEvent(event: CalendarEvent): boolean {
     return event.id.startsWith("__placeholder_") || (event as PlaceholderEvent).isPlaceholder === true;
@@ -421,161 +757,31 @@ export function useCalendar() {
 
   function createPlaceholderEvent(position: number): PlaceholderEvent {
     return {
-      id: `__placeholder_${position}_${Date.now()}`,
+      id: `__placeholder_${position}`,
       title: "",
-      start: new Date(),
-      end: new Date(),
+      start: new Date(0),
+      end: new Date(0),
       allDay: false,
       isPlaceholder: true,
+      position,
     };
   }
 
-  function assignSpanningEventLanes(allEvents: CalendarEvent[]): Map<string, number> {
-    const spanningEvents = allEvents.filter(isMultiDayEvent);
-
-    // Sort spanning events by start time, then by ID for consistency
-    const sortedSpanningEvents = spanningEvents.sort((a, b) => {
-      const timeComparison = new Date(a.start).getTime() - new Date(b.start).getTime();
-      if (timeComparison !== 0)
-        return timeComparison;
-      return a.id.localeCompare(b.id);
-    });
-
-    // Track occupied lanes by date ranges
-    const lanes: Array<{ eventId: string; start: Date; end: Date }> = [];
-    const eventLaneMap = new Map<string, number>();
-
-    sortedSpanningEvents.forEach((event) => {
-      const eventStart = new Date(event.start);
-      const eventEnd = new Date(event.end);
-
-      // Find the first available lane that doesn't conflict
-      let laneIndex = 0;
-      let placed = false;
-
-      while (!placed) {
-        if (laneIndex >= lanes.length) {
-          // Create a new lane
-          lanes.push({ eventId: event.id, start: eventStart, end: eventEnd });
-          eventLaneMap.set(event.id, laneIndex);
-          placed = true;
-        }
-        else {
-          // Check if this lane is free for our date range
-          const laneEvent = lanes[laneIndex];
-          if (!laneEvent) {
-            laneIndex++;
-            continue;
-          }
-          const laneStart = laneEvent.start;
-          const laneEnd = laneEvent.end;
-
-          // Events don't overlap if one ends before the other starts
-          const noOverlap = eventEnd <= laneStart || eventStart >= laneEnd;
-
-          if (noOverlap) {
-            // Lane is available, update it with our event
-            lanes[laneIndex] = { eventId: event.id, start: eventStart, end: eventEnd };
-            eventLaneMap.set(event.id, laneIndex);
-            placed = true;
-          }
-          else {
-            laneIndex++;
-          }
-        }
-      }
-    });
-
-    // Update global lane assignments
-    spanningEventLanes.clear();
-    eventLaneMap.forEach((lane, eventId) => {
-      spanningEventLanes.set(eventId, lane);
-    });
-
-    return eventLaneMap;
-  }
-
-  function sortEventsWithLanes(events: CalendarEvent[]): CalendarEvent[] {
-    const spanningEvents = events.filter(isMultiDayEvent);
-    const singleDayEvents = events.filter(event => !isMultiDayEvent(event));
-
-    // Sort single-day events by time
-    const sortedSingleDay = singleDayEvents.sort((a, b) => {
-      const timeComparison = new Date(a.start).getTime() - new Date(b.start).getTime();
-      if (timeComparison !== 0)
-        return timeComparison;
-      return a.id.localeCompare(b.id);
-    });
-
-    // Group spanning events by their assigned lanes
-    const spanningByLane = new Map<number, CalendarEvent>();
-    spanningEvents.forEach((event) => {
-      const lane = spanningEventLanes.get(event.id) ?? 999;
-      spanningByLane.set(lane, event);
-    });
-
-    const result: CalendarEvent[] = [];
-    let singleDayIndex = 0;
-
-    const maxLane = Math.max(...Array.from(spanningByLane.keys()), -1);
-
-    // Fill positions 0 through maxLane, ensuring spanning events are in correct positions
-    for (let position = 0; position <= maxLane; position++) {
-      const spanningEventInLane = spanningByLane.get(position);
-
-      if (spanningEventInLane) {
-        // Place the spanning event in its assigned lane
-        result.push(spanningEventInLane);
-      }
-      else if (singleDayIndex < sortedSingleDay.length) {
-        // Use a single-day event as padding to maintain spanning event positions
-        const singleDayEvent = sortedSingleDay[singleDayIndex];
-        if (singleDayEvent) {
-          result.push(singleDayEvent);
-        }
-        singleDayIndex++;
-      }
-      else {
-        // No single-day events available for padding, use an invisible placeholder
-        result.push(createPlaceholderEvent(position));
-      }
-    }
-
-    // Add any remaining single-day events
-    while (singleDayIndex < sortedSingleDay.length) {
-      const remainingEvent = sortedSingleDay[singleDayIndex];
-      if (remainingEvent) {
-        result.push(remainingEvent);
-      }
-      singleDayIndex++;
-    }
-
-    return result;
-  }
-
   function sortEvents(events: CalendarEvent[]): CalendarEvent[] {
-    if (spanningEventLanes.size > 0) {
-      return sortEventsWithLanes(events);
-    }
-
     return [...events].sort((a, b) => {
-      const aIsMultiDay = isMultiDayEvent(a);
-      const bIsMultiDay = isMultiDayEvent(b);
-
-      if (aIsMultiDay && !bIsMultiDay)
-        return -1;
-      if (!aIsMultiDay && bIsMultiDay)
-        return 1;
-
-      return new Date(a.start).getTime() - new Date(b.start).getTime();
+      return parseStableDate(a.start).getTime() - parseStableDate(b.start).getTime();
     });
   }
 
   return {
+    allEvents: readonly(allEvents),
+    calendarSyncStatus: readonly(calendarSyncStatus),
+    nativeEvents: readonly(nativeEvents),
+
+    refreshCalendarData,
+    getIntegrationEvents,
+
     isToday,
-    isFirstDay,
-    isLastDay,
-    isFirstVisibleDay,
     handleEventClick,
     scrollToDate,
     computedEventHeight,
@@ -583,12 +789,10 @@ export function useCalendar() {
     handleDateSelect,
     getMiniCalendarWeeks,
     getAgendaEventsForDay,
-    isMultiDayEvent,
     getAllEventsForDay,
+    getEventsForDateRange,
     createPlaceholderEvent,
     isPlaceholderEvent,
-    assignSpanningEventLanes,
-    sortEventsWithLanes,
     sortEvents,
     lightenColor,
     getTextColor,
@@ -597,5 +801,22 @@ export function useCalendar() {
     getEventColorClasses,
     combineEvents,
     getEventUserColors,
+
+    getLocalTimeFromUTC,
+    getLocalTimeString,
+    getLocalDateString,
+    getEventDisplayTime,
+    getEventStartTimeForInput,
+    getEventEndTimeForInput,
+    getEventEndDateForInput,
+    createLocalDateTime,
+    convertLocalToUTC,
+    isSameLocalDay,
+    isLocalDayInRange,
+
+    createLocalDate,
+    getLocalWeekDays,
+    getLocalMonthWeeks,
+    getLocalAgendaDays,
   };
 }

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { format, isSameMonth } from "date-fns";
+import { isSameMonth } from "date-fns";
 
 import type { CalendarEvent } from "~/types/calendar";
 
@@ -17,11 +17,24 @@ const emit = defineEmits<{
   (e: "dateSelect", date: Date): void;
 }>();
 
-const { isToday, isSelectedDate: _isSelectedDate, handleDateSelect: _handleDateSelect, getMiniCalendarWeeks, getAllEventsForDay, getAgendaEventsForDay } = useCalendar();
+const { isToday, isSelectedDate: _isSelectedDate, handleDateSelect: _handleDateSelect, getMiniCalendarWeeks, getAllEventsForDay, getAgendaEventsForDay, getEventsForDateRange } = useCalendar();
 
 const miniCalendarWeeks = computed(() => getMiniCalendarWeeks(props.currentDate));
 
+const monthEvents = computed(() => {
+  const currentDate = props.currentDate;
+  const start = new Date(currentDate.getFullYear(), currentDate.getMonth(), 1);
+  start.setDate(start.getDate() - 7);
+  const end = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 0);
+  end.setDate(end.getDate() + 7);
+  return getEventsForDateRange(start, end);
+});
+
 const todaysEvents = computed(() => getAgendaEventsForDay(props.events, props.currentDate));
+
+function getChipColor(day: Date): "error" | "info" | "success" | "primary" | "secondary" | "warning" | "neutral" | undefined {
+  return isSameMonth(day, props.currentDate) ? "primary" : "secondary";
+}
 
 function isSelectedDate(date: Date) {
   return _isSelectedDate(date, props.currentDate);
@@ -38,89 +51,99 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
 
 <template>
   <div class="flex h-full w-full">
-    <!-- Mini Calendar - 30% -->
-    <div class="w-[30%] flex-shrink-0 border-r border-gray-200 dark:border-gray-700">
+    <div class="w-[40%] flex-shrink-0 border-r border-default">
       <div class="p-4">
-        <!-- Calendar Header -->
         <div class="flex items-center justify-center mb-4">
-          <h3 class="text-lg font-semibold text-gray-900 dark:text-gray-100">
-            {{ format(currentDate, "MMMM yyyy") }}
-          </h3>
+          <h2 class="text-lg font-semibold text-highlighted">
+            <NuxtTime
+              :datetime="currentDate"
+              month="long"
+              year="numeric"
+            />
+          </h2>
         </div>
-
-        <!-- Days of Week Header -->
         <div class="grid grid-cols-7 gap-1 mb-2">
           <div
             v-for="day in ['S', 'M', 'T', 'W', 'T', 'F', 'S']"
             :key="day"
-            class="text-center text-xs font-medium text-gray-500 dark:text-gray-400 py-2"
+            class="text-center text-xs font-medium text-muted py-2"
           >
             {{ day }}
           </div>
         </div>
 
-        <!-- Calendar Grid -->
         <div class="grid grid-cols-7 gap-1">
-          <button
-            v-for="day in miniCalendarWeeks.flat()"
-            :key="day.toISOString()"
-            class="relative aspect-square flex items-center justify-center text-sm transition-colors rounded-md hover:bg-gray-100 dark:hover:bg-gray-800"
-            :class="{
-              'text-gray-400 dark:text-gray-600': !isSameMonth(day, currentDate),
-              'text-gray-900 dark:text-gray-100': isSameMonth(day, currentDate) && !isToday(day) && !isSelectedDate(day),
-              'bg-primary text-white font-semibold': isSelectedDate(day),
-              'bg-blue-100 dark:bg-blue-900 text-blue-600 dark:text-blue-400 font-medium': isToday(day) && !isSelectedDate(day),
-            }"
-            @click="handleDateSelect(day)"
-          >
-            {{ format(day, 'd') }}
-            <!-- Event indicator dots -->
-            <div
-              v-if="getAllEventsForDay(events, day).length > 0"
-              class="absolute bottom-1 left-1/2 transform -translate-x-1/2"
-            >
-              <div class="w-1 h-1 bg-current rounded-full opacity-60" />
+          <template v-for="day in miniCalendarWeeks.flat()" :key="day.toISOString()">
+            <div class="bg-muted rounded-lg shadow-sm border border-default aspect-square">
+              <UChip
+                v-if="getAllEventsForDay(monthEvents, day).length > 0"
+                inset
+                size="3xl"
+                :color="getChipColor(day)"
+                position="bottom-left"
+                class="w-full h-full flex items-center justify-center"
+              >
+                <button
+                  type="button"
+                  class="w-full h-full flex items-center justify-center text-sm transition-colors rounded-md hover:bg-accented"
+                  :class="{
+                    'text-dimmed': !isSameMonth(day, currentDate),
+                    'text-highlighted': isSameMonth(day, currentDate) && !isToday(day) && !isSelectedDate(day),
+                    'bg-primary text-white font-semibold': isSelectedDate(day),
+                    'bg-info/10 text-info font-medium': isToday(day) && !isSelectedDate(day),
+                  }"
+                  @click="handleDateSelect(day)"
+                >
+                  <NuxtTime :datetime="day" day="numeric" />
+                </button>
+              </UChip>
+
+              <button
+                v-else
+                type="button"
+                class="w-full h-full flex items-center justify-center text-sm transition-colors rounded-md hover:bg-accented"
+                :class="{
+                  'text-dimmed': !isSameMonth(day, currentDate),
+                  'text-highlighted': isSameMonth(day, currentDate) && !isToday(day) && !isSelectedDate(day),
+                  'bg-primary text-white font-semibold': isSelectedDate(day),
+                  'bg-info/10 text-info font-medium': isToday(day) && !isSelectedDate(day),
+                }"
+                @click="handleDateSelect(day)"
+              >
+                <NuxtTime :datetime="day" day="numeric" />
+              </button>
             </div>
-          </button>
+          </template>
         </div>
       </div>
     </div>
-
-    <!-- Today's Events - 70% -->
-    <div class="w-[70%] flex-1">
+    <div class="w-[60%] flex-1">
       <div class="h-full">
-        <!-- Today's Header -->
-        <div class="flex items-center p-4 border-b border-gray-200 dark:border-gray-700">
+        <div class="flex items-center p-4 border-b border-default">
           <div class="flex items-center gap-3">
             <div
               class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold"
               :class="{
                 'bg-primary text-white': isToday(currentDate),
-                'bg-gray-100 dark:bg-gray-800 text-gray-600 dark:text-gray-400': !isToday(currentDate),
+                'bg-muted text-muted': !isToday(currentDate),
               }"
             >
-              {{ format(currentDate, 'd') }}
+              <NuxtTime :datetime="currentDate" day="numeric" />
             </div>
             <div>
-              <h2 class="text-base font-semibold text-gray-900 dark:text-gray-100">
-                {{ format(currentDate, "EEEE") }}
-              </h2>
-              <p class="text-xs text-gray-500 dark:text-gray-400">
-                {{ format(currentDate, "MMMM d, yyyy") }}
-              </p>
+              <h3 class="text-base font-semibold text-highlighted">
+                <NuxtTime :datetime="currentDate" weekday="long" />
+              </h3>
             </div>
           </div>
         </div>
-
-        <!-- Events List -->
         <div class="p-4">
-          <div v-if="todaysEvents.length === 0" class="text-center py-8">
-            <UIcon name="i-lucide-calendar-off" class="w-8 h-8 text-gray-400 dark:text-gray-600 mx-auto mb-2" />
-            <h3 class="text-sm font-medium text-gray-900 dark:text-gray-100">
+          <div v-show="todaysEvents.length === 0" class="text-center py-8">
+            <UIcon name="i-lucide-calendar-off" class="w-8 h-8 text-muted mx-auto mb-2" />
+            <h4 class="text-sm font-medium text-highlighted">
               No events today
-            </h3>
+            </h4>
           </div>
-
           <CalendarEventItem
             v-for="event in todaysEvents"
             :key="event.id"

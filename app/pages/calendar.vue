@@ -1,64 +1,65 @@
 <script setup lang="ts">
-import { onMounted, watch } from "vue";
-
 import type { CalendarEvent } from "~/types/calendar";
 import type { Integration } from "~/types/database";
 
 import { useAlertToast } from "~/composables/useAlertToast";
 import { useCalendar } from "~/composables/useCalendar";
 import { useCalendarEvents } from "~/composables/useCalendarEvents";
-import { useCalendarIntegrations } from "~/composables/useCalendarIntegrations";
+import { useIntegrations } from "~/composables/useIntegrations";
 import { integrationRegistry } from "~/types/integrations";
 
-const { calendarEvents: integrationEvents, calendarIntegrations, loading: integrationLoading, error: integrationError, getCalendarEvents } = useCalendarIntegrations();
-const { events: localEvents, loading: localLoading, error: localError, createEvent, updateEvent, deleteEvent } = useCalendarEvents();
-const { getEventUserColors } = useCalendar();
+const { allEvents, getEventUserColors } = useCalendar();
 const { showError, showSuccess } = useAlertToast();
-
-const allEvents = computed(() => {
-  const local = localEvents.value || [];
-  const integration = integrationEvents.value || [];
-  return [...local, ...integration] as CalendarEvent[];
-});
-
-const loading = computed(() => {
-  return integrationLoading.value || localLoading.value;
-});
-
-const error = computed(() => {
-  return integrationError.value || localError.value;
-});
-
-onMounted(async () => {
-  await getCalendarEvents();
-});
-
-watch(error, (err) => {
-  if (err) {
-    showError("Calendar Error", err);
-  }
-});
 
 async function handleEventAdd(event: CalendarEvent) {
   try {
     if (!event.integrationId) {
-      const eventColor = getEventUserColors(event);
+      const { data: cachedEvents } = useNuxtData("calendar-events");
+      const previousEvents = cachedEvents.value ? [...cachedEvents.value] : [];
 
-      await createEvent({
-        title: event.title,
-        description: event.description,
-        start: event.start,
-        end: event.end,
-        allDay: event.allDay,
-        color: eventColor,
-        label: event.label,
-        location: event.location,
-        users: event.users,
-      });
-      showSuccess("Event Created", "Local event created successfully");
+      const newEvent = {
+        ...event,
+        id: `temp-${Date.now()}`,
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      };
+
+      if (cachedEvents.value && Array.isArray(cachedEvents.value)) {
+        cachedEvents.value.push(newEvent);
+      }
+
+      try {
+        const eventColor = getEventUserColors(event);
+        const { createEvent } = useCalendarEvents();
+        const createdEvent = await createEvent({
+          title: event.title,
+          description: event.description,
+          start: event.start,
+          end: event.end,
+          allDay: event.allDay,
+          color: eventColor,
+          location: event.location,
+          ical_event: event.ical_event,
+          users: event.users,
+        });
+
+        if (cachedEvents.value && Array.isArray(cachedEvents.value)) {
+          const tempIndex = cachedEvents.value.findIndex((e: CalendarEvent) => e.id === newEvent.id);
+          if (tempIndex !== -1) {
+            cachedEvents.value[tempIndex] = createdEvent;
+          }
+        }
+
+        showSuccess("Event Created", "Local event created successfully");
+      }
+      catch (error) {
+        if (cachedEvents.value && previousEvents.length > 0) {
+          cachedEvents.value.splice(0, cachedEvents.value.length, ...previousEvents);
+        }
+        throw error;
+      }
     }
     else {
-      // TODO: Implement add event to integration if supported
       showError("Not Supported", "Adding events to this integration is not yet supported");
     }
   }
@@ -70,23 +71,41 @@ async function handleEventAdd(event: CalendarEvent) {
 async function handleEventUpdate(event: CalendarEvent) {
   try {
     if (!event.integrationId) {
-      const eventColor = getEventUserColors(event);
+      const { data: cachedEvents } = useNuxtData("calendar-events");
+      const previousEvents = cachedEvents.value ? [...cachedEvents.value] : [];
 
-      await updateEvent(event.id, {
-        title: event.title,
-        description: event.description,
-        start: event.start,
-        end: event.end,
-        allDay: event.allDay,
-        color: eventColor,
-        label: event.label,
-        location: event.location,
-        users: event.users,
-      });
-      showSuccess("Event Updated", "Local event updated successfully");
+      if (cachedEvents.value && Array.isArray(cachedEvents.value)) {
+        const eventIndex = cachedEvents.value.findIndex((e: CalendarEvent) => e.id === event.id);
+        if (eventIndex !== -1) {
+          cachedEvents.value[eventIndex] = { ...cachedEvents.value[eventIndex], ...event };
+        }
+      }
+
+      try {
+        const eventColor = getEventUserColors(event);
+        const { updateEvent } = useCalendarEvents();
+        await updateEvent(event.id, {
+          title: event.title,
+          description: event.description,
+          start: event.start,
+          end: event.end,
+          allDay: event.allDay,
+          color: eventColor,
+          location: event.location,
+          ical_event: event.ical_event,
+          users: event.users,
+        });
+
+        showSuccess("Event Updated", "Local event updated successfully");
+      }
+      catch (error) {
+        if (cachedEvents.value && previousEvents.length > 0) {
+          cachedEvents.value.splice(0, cachedEvents.value.length, ...previousEvents);
+        }
+        throw error;
+      }
     }
     else {
-      // TODO: Implement update event in integration if supported
       showError("Not Supported", "Updating events in this integration is not yet supported");
     }
   }
@@ -105,11 +124,26 @@ async function handleEventDelete(eventId: string) {
     }
 
     if (!event.integrationId) {
-      await deleteEvent(eventId);
-      showSuccess("Event Deleted", "Local event deleted successfully");
+      const { data: cachedEvents } = useNuxtData("calendar-events");
+      const previousEvents = cachedEvents.value ? [...cachedEvents.value] : [];
+
+      if (cachedEvents.value && Array.isArray(cachedEvents.value)) {
+        cachedEvents.value.splice(0, cachedEvents.value.length, ...cachedEvents.value.filter((e: CalendarEvent) => e.id !== eventId));
+      }
+
+      try {
+        const { deleteEvent } = useCalendarEvents();
+        await deleteEvent(eventId);
+        showSuccess("Event Deleted", "Local event deleted successfully");
+      }
+      catch (error) {
+        if (cachedEvents.value && previousEvents.length > 0) {
+          cachedEvents.value.splice(0, cachedEvents.value.length, ...previousEvents);
+        }
+        throw error;
+      }
     }
     else {
-      // TODO: Implement delete event from integration if supported
       showError("Not Supported", "Deleting events from this integration is not yet supported");
     }
   }
@@ -122,7 +156,8 @@ function getEventIntegrationCapabilities(event: CalendarEvent): { capabilities: 
   if (!event.integrationId)
     return undefined;
 
-  const integration = (calendarIntegrations.value as Integration[]).find(i => i.id === event.integrationId);
+  const { integrations } = useIntegrations();
+  const integration = (integrations.value as readonly Integration[] || []).find(i => i.id === event.integrationId);
   if (!integration)
     return undefined;
 
@@ -134,13 +169,13 @@ function getEventIntegrationCapabilities(event: CalendarEvent): { capabilities: 
 }
 </script>
 
+<!-- TODO: allow user to choose initial view -->
 <template>
   <div>
     <CalendarMainView
-      :events="allEvents"
+      :events="allEvents as CalendarEvent[]"
       initial-view="week"
       class="h-[calc(100vh-2rem)]"
-      :loading="loading"
       :get-integration-capabilities="getEventIntegrationCapabilities"
       @event-add="handleEventAdd"
       @event-update="handleEventUpdate"

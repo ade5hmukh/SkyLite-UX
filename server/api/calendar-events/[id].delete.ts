@@ -11,8 +11,15 @@ export default defineEventHandler(async (event) => {
       });
     }
 
+    const isExpandedEvent = id.includes("-");
+    let actualId = id;
+
+    if (isExpandedEvent) {
+      actualId = id.split("-")[0] || id;
+    }
+
     const existingEvent = await prisma.calendarEvent.findUnique({
-      where: { id },
+      where: { id: actualId },
     });
 
     if (!existingEvent) {
@@ -23,10 +30,15 @@ export default defineEventHandler(async (event) => {
     }
 
     await prisma.calendarEvent.delete({
-      where: { id },
+      where: { id: actualId },
     });
 
-    return { success: true };
+    return {
+      success: true,
+      message: isExpandedEvent
+        ? "Entire recurring series deleted"
+        : "Event deleted successfully",
+    };
   }
   catch (error) {
     throw createError({

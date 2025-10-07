@@ -1,38 +1,31 @@
 import { consola } from "consola";
 
-import type { CreateShoppingListInput, CreateShoppingListItemInput, ShoppingListItem, ShoppingListWithItemsAndCount, UpdateShoppingListItemInput } from "~/types/database";
-
-// Extended type to include order property for shopping lists
-type ShoppingListWithOrder = ShoppingListWithItemsAndCount & { order: number };
+import type { CreateShoppingListInput, CreateShoppingListItemInput, ShoppingListItem, ShoppingListWithOrder, UpdateShoppingListItemInput } from "~/types/database";
 
 export function useShoppingLists() {
-  const shoppingLists = ref<ShoppingListWithOrder[]>([]);
   const loading = ref(false);
   const error = ref<string | null>(null);
 
-  const { data: serverShoppingLists } = useNuxtData<ShoppingListWithOrder[]>("native-shopping-lists");
+  const { data: shoppingLists } = useNuxtData<ShoppingListWithOrder[]>("native-shopping-lists");
+
+  const currentShoppingLists = computed(() => shoppingLists.value || []);
 
   const getShoppingLists = async () => {
     loading.value = true;
     error.value = null;
     try {
-      const data = await $fetch<ShoppingListWithOrder[]>("/api/shopping-lists");
-      shoppingLists.value = data || [];
+      await refreshNuxtData("native-shopping-lists");
+      consola.debug("Use Shopping Lists: Shopping lists refreshed successfully");
     }
     catch (err) {
       error.value = "Failed to fetch shopping lists";
-      consola.error("Error fetching shopping lists:", err);
+      consola.error("Use Shopping Lists: Error fetching shopping lists:", err);
+      throw err;
     }
     finally {
       loading.value = false;
     }
   };
-
-  watch(serverShoppingLists, (newLists) => {
-    if (newLists) {
-      shoppingLists.value = newLists;
-    }
-  });
 
   const createShoppingList = async (listData: CreateShoppingListInput) => {
     try {
@@ -40,12 +33,14 @@ export function useShoppingLists() {
         method: "POST",
         body: listData,
       });
-      shoppingLists.value.unshift(newList);
+
+      await refreshNuxtData("native-shopping-lists");
+
       return newList;
     }
     catch (err) {
       error.value = "Failed to create shopping list";
-      consola.error("Error creating shopping list:", err);
+      consola.error("Use Shopping Lists: Error creating shopping list:", err);
       throw err;
     }
   };
@@ -57,16 +52,13 @@ export function useShoppingLists() {
         body: updates,
       });
 
-      const listIndex = shoppingLists.value.findIndex(list => list.id === listId);
-      if (listIndex !== -1) {
-        shoppingLists.value[listIndex] = { ...shoppingLists.value[listIndex], ...updatedList };
-      }
+      await refreshNuxtData("native-shopping-lists");
 
       return updatedList;
     }
     catch (err) {
       error.value = "Failed to update shopping list";
-      consola.error("Error updating shopping list:", err);
+      consola.error("Use Shopping Lists: Error updating shopping list:", err);
       throw err;
     }
   };
@@ -78,18 +70,13 @@ export function useShoppingLists() {
         body: updates,
       });
 
-      shoppingLists.value.forEach((list) => {
-        const itemIndex = list.items.findIndex(item => item.id === itemId);
-        if (itemIndex !== -1) {
-          list.items[itemIndex] = { ...updatedItem, shoppingListId: list.id };
-        }
-      });
+      await refreshNuxtData("native-shopping-lists");
 
       return updatedItem;
     }
     catch (err) {
       error.value = "Failed to update shopping list item";
-      consola.error("Error updating shopping list item:", err);
+      consola.error("Use Shopping Lists: Error updating shopping list item:", err);
       throw err;
     }
   };
@@ -101,16 +88,13 @@ export function useShoppingLists() {
         body: itemData,
       });
 
-      const list = shoppingLists.value.find(l => l.id === listId);
-      if (list) {
-        list.items.push({ ...newItem, shoppingListId: listId });
-      }
+      await refreshNuxtData("native-shopping-lists");
 
       return newItem;
     }
     catch (err) {
       error.value = "Failed to add item to shopping list";
-      consola.error("Error adding item to shopping list:", err);
+      consola.error("Use Shopping Lists: Error adding item to shopping list:", err);
       throw err;
     }
   };
@@ -123,11 +107,12 @@ export function useShoppingLists() {
       if (!response.ok) {
         throw new Error("Failed to delete shopping list");
       }
-      shoppingLists.value = shoppingLists.value.filter(l => l.id !== listId);
+
+      await refreshNuxtData("native-shopping-lists");
     }
     catch (err) {
       error.value = "Failed to delete shopping list";
-      consola.error("Error deleting shopping list:", err);
+      consola.error("Use Shopping Lists: Error deleting shopping list:", err);
       throw err;
     }
   };
@@ -137,10 +122,8 @@ export function useShoppingLists() {
   };
 
   const reorderShoppingList = async (listId: string, direction: "up" | "down") => {
-    const originalShoppingLists = [...shoppingLists.value];
-
     try {
-      const sortedLists = [...shoppingLists.value].sort((a, b) => (a.order || 0) - (b.order || 0));
+      const sortedLists = [...currentShoppingLists.value].sort((a, b) => (a.order || 0) - (b.order || 0));
       const currentIndex = sortedLists.findIndex(list => list.id === listId);
 
       if (currentIndex === -1)
@@ -166,7 +149,7 @@ export function useShoppingLists() {
       const currentOrder = currentList.order || 0;
       const targetOrder = targetList.order || 0;
 
-      shoppingLists.value = shoppingLists.value.map((list) => {
+      const updatedLists = currentShoppingLists.value.map((list) => {
         if (list.id === currentList.id) {
           return { ...list, order: targetOrder };
         }
@@ -176,7 +159,7 @@ export function useShoppingLists() {
         return list;
       });
 
-      const newOrder = shoppingLists.value
+      const newOrder = updatedLists
         .sort((a, b) => (a.order || 0) - (b.order || 0))
         .map(list => list.id);
 
@@ -184,27 +167,26 @@ export function useShoppingLists() {
         method: "PUT",
         body: { listIds: newOrder },
       });
+
+      await refreshNuxtData("native-shopping-lists");
     }
     catch (err) {
-      shoppingLists.value = originalShoppingLists;
       error.value = "Failed to reorder shopping list";
-      consola.error("Error reordering shopping list:", err);
+      consola.error("Use Shopping Lists: Error reordering shopping list:", err);
       throw err;
     }
   };
 
   const reorderItem = async (itemId: string, direction: "up" | "down") => {
-    const originalShoppingLists = [...shoppingLists.value];
-
     try {
-      const listIndex = shoppingLists.value.findIndex(list =>
+      const listIndex = currentShoppingLists.value.findIndex(list =>
         list.items?.some(item => item.id === itemId),
       );
 
       if (listIndex === -1)
         return;
 
-      const list = shoppingLists.value[listIndex];
+      const list = currentShoppingLists.value[listIndex];
       if (!list?.items)
         return;
 
@@ -244,17 +226,6 @@ export function useShoppingLists() {
         return item;
       });
 
-      const updatedList = {
-        ...list,
-        items: updatedItems,
-      };
-
-      shoppingLists.value = [
-        ...shoppingLists.value.slice(0, listIndex),
-        updatedList,
-        ...shoppingLists.value.slice(listIndex + 1),
-      ];
-
       const newOrder = updatedItems
         .sort((a, b) => (a.order || 0) - (b.order || 0))
         .map(item => item.id);
@@ -263,26 +234,34 @@ export function useShoppingLists() {
         method: "PUT",
         body: { itemIds: newOrder },
       });
+
+      await refreshNuxtData("native-shopping-lists");
     }
     catch (err) {
-      shoppingLists.value = originalShoppingLists;
       error.value = "Failed to reorder item";
-      consola.error("Error reordering item:", err);
+      consola.error("Use Shopping Lists: Error reordering item:", err);
       throw err;
     }
   };
 
-  const deleteCompletedItems = async (listId: string) => {
+  const deleteCompletedItems = async (listId: string, completedItemIds?: string[]) => {
     try {
-      const list = shoppingLists.value.find(l => l.id === listId);
-      if (!list)
-        return;
+      let itemsToDelete: string[] = [];
 
-      const completedItemIds = list.items
-        .filter(item => item.checked)
-        .map(item => item.id);
+      if (completedItemIds && completedItemIds.length > 0) {
+        itemsToDelete = completedItemIds;
+      }
+      else {
+        const list = currentShoppingLists.value.find(l => l.id === listId);
+        if (!list)
+          return;
 
-      if (completedItemIds.length === 0)
+        itemsToDelete = list.items
+          .filter(item => item.checked)
+          .map(item => item.id);
+      }
+
+      if (itemsToDelete.length === 0)
         return;
 
       await $fetch(`/api/shopping-lists/${listId}/items/clear-completed`, {
@@ -290,25 +269,17 @@ export function useShoppingLists() {
         body: { action: "delete" },
       });
 
-      const updatedList = {
-        ...list,
-        items: list.items.filter(item => !item.checked),
-      };
-
-      const listIndex = shoppingLists.value.findIndex(l => l.id === listId);
-      if (listIndex !== -1) {
-        shoppingLists.value[listIndex] = updatedList;
-      }
+      await refreshNuxtData("native-shopping-lists");
     }
     catch (err) {
       error.value = "Failed to clear completed items";
-      consola.error("Error clearing completed items:", err);
+      consola.error("Use Shopping Lists: Error clearing completed items:", err);
       throw err;
     }
   };
 
   return {
-    shoppingLists: readonly(shoppingLists),
+    shoppingLists: readonly(currentShoppingLists),
     loading: readonly(loading),
     error: readonly(error),
     getShoppingLists,

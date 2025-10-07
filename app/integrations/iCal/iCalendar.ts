@@ -1,11 +1,11 @@
 import consola from "consola";
 
 import type { CalendarEvent } from "~/types/calendar";
-import type { CalendarIntegrationService, IntegrationStatus } from "~/types/integrations";
+import type { CalendarIntegrationService, IntegrationStatus, UserWithColor } from "~/types/integrations";
 
 import { integrationRegistry } from "~/types/integrations";
 
-import type { ICalEventResponse } from "../../../server/integrations/iCal/types";
+import type { ICalEvent } from "../../../server/integrations/iCal/types";
 
 import { ICalServerService } from "../../../server/integrations/iCal";
 
@@ -15,6 +15,7 @@ export class ICalService implements CalendarIntegrationService {
   private eventColor?: string;
   private user?: string[];
   private useUserColors: boolean;
+
   private status: IntegrationStatus = {
     isConnected: false,
     lastChecked: new Date(),
@@ -35,6 +36,8 @@ export class ICalService implements CalendarIntegrationService {
     this.user = user;
     this.useUserColors = useUserColors;
     this.serverService = new ICalServerService(integrationId, baseUrl);
+
+    this.status.lastChecked = new Date();
   }
 
   async initialize(): Promise<void> {
@@ -43,7 +46,11 @@ export class ICalService implements CalendarIntegrationService {
 
   async validate(): Promise<boolean> {
     try {
-      await $fetch<{ events: ICalEventResponse[] }>("/api/integrations/iCal", { query: { baseUrl: this.baseUrl } });
+      const query: Record<string, string> = { integrationId: this.integrationId };
+      if (this.integrationId === "temp" || this.integrationId.startsWith("temp-")) {
+        query.baseUrl = this.baseUrl;
+      }
+      await $fetch<{ events: ICalEvent[] }>("/api/integrations/iCal", { query });
 
       this.status = {
         isConnected: true,
@@ -68,7 +75,11 @@ export class ICalService implements CalendarIntegrationService {
 
   async testConnection(): Promise<boolean> {
     try {
-      await $fetch<{ events: ICalEventResponse[] }>("/api/integrations/iCal", { query: { baseUrl: this.baseUrl } });
+      const query: Record<string, string> = { integrationId: this.integrationId };
+      if (this.integrationId === "temp" || this.integrationId.startsWith("temp-")) {
+        query.baseUrl = this.baseUrl;
+      }
+      await $fetch<{ events: ICalEvent[] }>("/api/integrations/iCal", { query });
 
       this.status = {
         isConnected: true,
@@ -78,7 +89,7 @@ export class ICalService implements CalendarIntegrationService {
       return true;
     }
     catch (error) {
-      consola.error("iCal connection test error:", error);
+      consola.error("iCalendar: iCal connection test error:", error);
       this.status = {
         isConnected: false,
         lastChecked: new Date(),
@@ -94,21 +105,53 @@ export class ICalService implements CalendarIntegrationService {
   }
 
   async getEvents(): Promise<CalendarEvent[]> {
-    const result = await $fetch<{ events: ICalEventResponse[] }>("/api/integrations/iCal", { query: { baseUrl: this.baseUrl } });
+    const query: Record<string, string> = { integrationId: this.integrationId };
+    if (this.integrationId === "temp" || this.integrationId.startsWith("temp-")) {
+      query.baseUrl = this.baseUrl;
+    }
+    const result = await $fetch<{ events: ICalEvent[] }>("/api/integrations/iCal", { query });
+
+    let users: UserWithColor[] = [];
+    if (this.useUserColors && this.user && this.user.length > 0) {
+      try {
+        const allUsers = await $fetch<{ id: string; name: string; color: string | null }[]>("/api/users");
+        if (allUsers) {
+          users = allUsers.filter((user: UserWithColor) => this.user?.includes(user.id));
+        }
+      }
+      catch (error) {
+        consola.warn("iCalendar: Failed to fetch users for iCal integration:", error);
+      }
+    }
+
     return result.events.map((event) => {
-      const start = event.allDay
-        ? (() => {
-            const utcDate = new Date(event.start || new Date());
-            return new Date(utcDate.getUTCFullYear(), utcDate.getUTCMonth(), utcDate.getUTCDate());
-          })()
-        : (event.start ? new Date(event.start) : new Date());
-      const end = event.allDay
-        ? (() => {
-            const utcDate = new Date(event.end);
-            const endDate = new Date(utcDate.getUTCFullYear(), utcDate.getUTCMonth(), utcDate.getUTCDate());
-            return new Date(endDate.getTime() - 24 * 60 * 60 * 1000);
-          })()
-        : new Date(event.end);
+      const start = new Date(event.dtstart);
+      const end = new Date(event.dtend);
+
+      // Determine if this is an all-day event based on iCalendar RFC 5545 standard
+      // All-day events typically have:
+      // 1. DATE value type for DTSTART (no time component)
+      // 2. DATETIME with time 00:00:00 for both DTSTART and DTEND
+      const isDateOnly = !event.dtstart.includes("T") && !event.dtstart.includes("Z");
+      const isMidnightToMidnight = event.dtstart.includes("T00:00:00")
+        && event.dtend.includes("T00:00:00")
+        && new Date(event.dtend).getTime() - new Date(event.dtstart).getTime() === 24 * 60 * 60 * 1000;
+
+      const isAllDay = isDateOnly || isMidnightToMidnight;
+
+      let color: string | string[] | undefined = this.eventColor || "sky";
+      if (this.useUserColors && users.length > 0) {
+        const userColors = users.map((user: UserWithColor) => user.color).filter((color): color is string => color !== null);
+        if (userColors.length > 0) {
+          color = userColors.length === 1 ? userColors[0] : userColors;
+        }
+        else {
+          color = this.eventColor || "sky";
+        }
+      }
+      else {
+        color = this.eventColor || "sky";
+      }
 
       return {
         id: event.uid,
@@ -116,10 +159,12 @@ export class ICalService implements CalendarIntegrationService {
         description: event.description || "",
         start,
         end,
-        allDay: event.allDay || false,
-        color: this.eventColor || "sky",
-        label: event.label,
+        allDay: isAllDay,
+        color,
         location: event.location,
+        ical_event: event,
+        integrationId: this.integrationId,
+        users: this.useUserColors ? users : undefined,
       };
     });
   }

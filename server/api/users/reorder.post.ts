@@ -11,7 +11,6 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Update each user's todoOrder based on their position in the array
     const updates = userIds.map((userId, index) => {
       return prisma.user.update({
         where: { id: userId },

@@ -1,16 +1,10 @@
 <script setup lang="ts">
-import type { BaseListItem, ShoppingList, TodoList } from "../../types/database";
+import type { AnyListWithIntegration } from "~/types/ui";
 
-// Extended list type with integration properties
-type ListWithIntegration = (ShoppingList | TodoList) & {
-  source?: "native" | "integration";
-  integrationIcon?: string;
-  integrationName?: string;
-  integrationId?: string;
-};
+import type { BaseListItem } from "../../types/database";
 
 const props = defineProps<{
-  lists: readonly ListWithIntegration[];
+  lists: readonly AnyListWithIntegration[];
   loading?: boolean;
   emptyStateIcon?: string;
   emptyStateTitle?: string;
@@ -19,16 +13,16 @@ const props = defineProps<{
   showQuantity?: boolean;
   showNotes?: boolean;
   showReorder?: boolean;
-  showEdit?: boolean | ((list: ListWithIntegration) => boolean);
-  showAdd?: boolean | ((list: ListWithIntegration) => boolean);
-  showEditItem?: boolean | ((list: ListWithIntegration) => boolean);
-  showCompleted?: boolean | ((list: ListWithIntegration) => boolean);
+  showEdit?: boolean | ((list: AnyListWithIntegration) => boolean);
+  showAdd?: boolean | ((list: AnyListWithIntegration) => boolean);
+  showEditItem?: boolean | ((list: AnyListWithIntegration) => boolean);
+  showCompleted?: boolean | ((list: AnyListWithIntegration) => boolean);
   showIntegrationIcons?: boolean;
 }>();
 
 const _emit = defineEmits<{
   (e: "create"): void;
-  (e: "edit", list: ListWithIntegration): void;
+  (e: "edit", list: AnyListWithIntegration): void;
   (e: "addItem", listId: string): void;
   (e: "editItem", item: BaseListItem): void;
   (e: "toggleItem", itemId: string, checked: boolean): void;
@@ -48,7 +42,7 @@ const sortedLists = computed(() => {
     }));
 });
 
-function getProgressPercentage(list: ListWithIntegration) {
+function getProgressPercentage(list: AnyListWithIntegration) {
   if (!list.items || list.items.length === 0)
     return 0;
   const checkedItems = list.items.filter((item: BaseListItem) => item.checked).length;
@@ -71,14 +65,13 @@ const showItemEdit = computed(() => {
   if (typeof props.showEditItem === "function") {
     return (item: BaseListItem) => {
       const list = props.lists.find(l => l.items?.some(i => i.id === item.id));
-      return list ? (props.showEditItem as (list: ListWithIntegration) => boolean)(list) : false;
+      return list ? (props.showEditItem as (list: AnyListWithIntegration) => boolean)(list) : false;
     };
   }
   return props.showEditItem;
 });
 
-// Helper function to check if list has integration properties
-function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIntegration & { source: "integration" | "native" } {
+function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyListWithIntegration & { source: "integration" | "native" } {
   return "source" in list && (list.source === "integration" || list.source === "native");
 }
 </script>
@@ -90,18 +83,18 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
         <div v-if="loading" class="flex items-center justify-center h-full">
           <div class="text-center">
             <UIcon name="i-lucide-loader-2" class="h-8 w-8 animate-spin text-primary-500" />
-            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            <p class="mt-2 text-sm text-muted">
               Loading lists...
             </p>
           </div>
         </div>
         <div v-else-if="lists.length === 0" class="flex items-center justify-center h-full">
           <div class="text-center">
-            <UIcon :name="emptyStateIcon || 'i-lucide-list'" class="h-8 w-8 text-gray-400" />
-            <p class="mt-2 text-sm text-gray-500 dark:text-gray-400">
+            <UIcon :name="emptyStateIcon || 'i-lucide-list'" class="h-8 w-8 text-muted" />
+            <p class="mt-2 text-sm text-muted">
               {{ emptyStateTitle || 'No lists found' }}
             </p>
-            <p v-if="emptyStateDescription" class="mt-1 text-sm text-gray-500 dark:text-gray-400">
+            <p v-if="emptyStateDescription" class="mt-1 text-sm text-muted">
               {{ emptyStateDescription }}
             </p>
             <UButton
@@ -119,9 +112,9 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
               <div
                 v-for="(list, listIndex) in sortedLists"
                 :key="list.id"
-                class="flex-shrink-0 w-80 h-full flex flex-col bg-white dark:bg-gray-800 rounded-lg border border-gray-200 dark:border-gray-700 shadow-sm"
+                class="flex-shrink-0 w-80 h-full flex flex-col bg-default rounded-lg border border-default shadow-sm"
               >
-                <div class="p-4 border-b border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-800/50 rounded-t-lg">
+                <div class="p-4 border-b border-default bg-default rounded-t-lg">
                   <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2 flex-1 min-w-0">
                       <div
@@ -148,7 +141,7 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
                           @error="(event) => { const target = event.target as HTMLImageElement; if (target) target.style.display = 'none'; }"
                         >
                       </div>
-                      <h2 class="text-lg font-semibold text-gray-900 dark:text-white truncate">
+                      <h2 class="text-lg font-semibold text-highlighted truncate">
                         {{ list.name }}
                       </h2>
                     </div>
@@ -164,6 +157,7 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
                             size="xs"
                             variant="ghost"
                             color="neutral"
+                            aria-label="Move list left"
                             @click="_emit('reorderList', list.id, 'up')"
                           />
                           <UButton
@@ -171,6 +165,7 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
                             size="xs"
                             variant="ghost"
                             color="neutral"
+                            aria-label="Move list right"
                             @click="_emit('reorderList', list.id, 'down')"
                           />
                         </template>
@@ -181,6 +176,7 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
                             size="xs"
                             variant="ghost"
                             color="neutral"
+                            aria-label="Move list left"
                             @click="_emit('reorderList', list.id, 'up')"
                           />
                           <div style="height: 16px;" />
@@ -192,6 +188,7 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
                             size="xs"
                             variant="ghost"
                             color="neutral"
+                            aria-label="Move list right"
                             @click="_emit('reorderList', list.id, 'down')"
                           />
                           <div style="height: 16px;" />
@@ -203,7 +200,7 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
                         size="xs"
                         variant="ghost"
                         color="neutral"
-                        :title="`Edit ${list.name}`"
+                        :aria-label="`Edit ${list.name}`"
                         @click="_emit('edit', list)"
                       />
                     </div>
@@ -211,14 +208,14 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
 
                   <div v-if="showProgress && list.items && list.items.length > 0" class="space-y-2">
                     <div class="flex justify-between text-sm">
-                      <span class="text-gray-600 dark:text-gray-400">
+                      <span class="text-muted">
                         {{ list.items.filter((item: BaseListItem) => item.checked).length }} of {{ list.items.length }} items
                       </span>
-                      <span class="text-gray-600 dark:text-gray-400 font-medium">
+                      <span class="text-muted font-medium">
                         {{ getProgressPercentage(list) }}%
                       </span>
                     </div>
-                    <div class="w-full bg-gray-200 dark:bg-gray-700 rounded-full h-2">
+                    <div class="w-full bg-muted rounded-full h-2">
                       <div
                         class="h-2 rounded-full transition-all duration-300"
                         :class="getProgressColor(getProgressPercentage(list))"
@@ -226,7 +223,7 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
                       />
                     </div>
                   </div>
-                  <div v-else-if="!list.items || list.items.length === 0 && showProgress" class="text-sm text-gray-500 dark:text-gray-400 py-4.5" />
+                  <div v-else-if="!list.items || list.items.length === 0 && showProgress" class="text-sm text-muted py-4.5" />
                 </div>
 
                 <div class="flex-1 p-4 overflow-y-auto">
@@ -242,7 +239,7 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
                     </UButton>
                   </div>
 
-                  <div v-if="!list.items || list.items.length === 0" class="flex flex-col items-center justify-center py-12 text-gray-500 dark:text-gray-400">
+                  <div v-if="!list.items || list.items.length === 0" class="flex flex-col items-center justify-center py-12 text-muted">
                     <UIcon name="i-lucide-list" class="h-12 w-12 mb-3 opacity-30" />
                     <p class="text-sm font-medium mb-1">
                       No items yet
@@ -261,7 +258,7 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
                         :total-items="list.activeItems.length"
                         :show-quantity="showQuantity"
                         :show-notes="showNotes"
-                        :show-reorder="(list as ListWithIntegration).source === 'integration' ? false : showReorder"
+                        :show-reorder="(list as AnyListWithIntegration).source === 'integration' ? false : showReorder"
                         :show-edit="showItemEdit"
                         @edit="_emit('editItem', $event)"
                         @toggle="(payload) => _emit('toggleItem', payload.itemId, payload.checked)"
@@ -271,7 +268,7 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
 
                     <div v-if="(typeof showCompleted === 'function' ? showCompleted(list) : showCompleted) && list.completedItems.length > 0" class="space-y-2">
                       <div class="flex items-center justify-between px-1">
-                        <h3 class="text-sm font-medium text-gray-500 dark:text-gray-400">
+                        <h3 class="text-sm font-medium text-muted">
                           Completed ({{ list.completedItems.length }})
                         </h3>
                         <UButton
@@ -292,7 +289,7 @@ function hasIntegrationProperties(list: ListWithIntegration): list is ListWithIn
                         :total-items="list.completedItems.length"
                         :show-quantity="showQuantity"
                         :show-notes="showNotes"
-                        :show-reorder="(list as ListWithIntegration).source === 'integration' ? false : showReorder"
+                        :show-reorder="(list as AnyListWithIntegration).source === 'integration' ? false : showReorder"
                         :show-edit="showItemEdit"
                         @edit="_emit('editItem', $event)"
                         @toggle="(payload) => _emit('toggleItem', payload.itemId, payload.checked)"

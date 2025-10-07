@@ -5,14 +5,20 @@ import { consola } from "consola";
 import type { ShoppingList, ShoppingListItem, UpdateShoppingListItemInput } from "~/types/database";
 import type { IntegrationService, IntegrationStatus } from "~/types/integrations";
 
+import { useStableDate } from "~/composables/useStableDate";
 import { integrationRegistry } from "~/types/integrations";
+
+import type { MealieShoppingList } from "../../../server/integrations/mealie/types";
 
 import { MealieService as ServerMealieService } from "../../../server/integrations/mealie";
 
 export class MealieService implements IntegrationService {
+  private integrationId: string;
   private apiKey: string;
   private baseUrl: string;
-  private integrationId: string;
+
+  private parseStableDate: (dateInput: string | Date | undefined, fallback?: Date) => Date;
+
   private status: IntegrationStatus = {
     isConnected: false,
     lastChecked: new Date(),
@@ -25,6 +31,30 @@ export class MealieService implements IntegrationService {
     this.apiKey = apiKey;
     this.baseUrl = baseUrl;
     this.serverService = new ServerMealieService(integrationId);
+
+    if (import.meta.client) {
+      const { parseStableDate, getStableDate } = useStableDate();
+      this.parseStableDate = parseStableDate;
+      this.status.lastChecked = getStableDate();
+    }
+    else {
+      this.parseStableDate = (dateInput: string | Date | undefined, fallback?: Date) => {
+        if (!dateInput)
+          return fallback || new Date();
+        return new Date(dateInput);
+      };
+      this.status.lastChecked = new Date();
+    }
+  }
+
+  private getCurrentDate(): Date {
+    if (import.meta.client) {
+      const { getStableDate } = useStableDate();
+      return getStableDate();
+    }
+    else {
+      return new Date();
+    }
   }
 
   async initialize(): Promise<void> {
@@ -37,7 +67,7 @@ export class MealieService implements IntegrationService {
 
       this.status = {
         isConnected: true,
-        lastChecked: new Date(),
+        lastChecked: this.getCurrentDate(),
       };
 
       return true;
@@ -45,7 +75,7 @@ export class MealieService implements IntegrationService {
     catch (error) {
       this.status = {
         isConnected: false,
-        lastChecked: new Date(),
+        lastChecked: this.getCurrentDate(),
         error: error instanceof Error ? error.message : "Unknown error",
       };
       return false;
@@ -68,10 +98,10 @@ export class MealieService implements IntegrationService {
 
       if (!response.ok) {
         const errorText = await response.text();
-        consola.error("Mealie API error:", response.status, response.statusText, errorText);
+        consola.error("Mealie Shopping Lists: API error:", response.status, response.statusText, errorText);
         this.status = {
           isConnected: false,
-          lastChecked: new Date(),
+          lastChecked: this.getCurrentDate(),
           error: `API error: ${response.status} ${response.statusText}`,
         };
         return false;
@@ -81,13 +111,13 @@ export class MealieService implements IntegrationService {
 
       this.status = {
         isConnected: true,
-        lastChecked: new Date(),
+        lastChecked: this.getCurrentDate(),
       };
 
       return true;
     }
     catch (error) {
-      consola.error("Mealie connection test error:", error);
+      consola.error("Mealie Shopping Lists: Connection test error:", error);
       this.status = {
         isConnected: false,
         lastChecked: new Date(),
@@ -104,10 +134,12 @@ export class MealieService implements IntegrationService {
 
   async getShoppingLists(): Promise<ShoppingList[]> {
     try {
-      const response = await this.serverService.getShoppingLists();
+      const response = await $fetch<{ items: MealieShoppingList[] }>("/api/integrations/mealie/api/households/shopping/lists", {
+        query: { integrationId: this.integrationId },
+      });
 
       if (!response || !response.items || !Array.isArray(response.items)) {
-        consola.warn("Mealie service returned invalid response:", response);
+        consola.warn("Mealie Shopping Lists: Service returned invalid response:", response);
         return [];
       }
 
@@ -115,14 +147,16 @@ export class MealieService implements IntegrationService {
 
       for (const mealieList of response.items) {
         try {
-          const fullList = await this.serverService.getShoppingList(mealieList.id);
+          const fullList = await $fetch<MealieShoppingList>(`/api/integrations/mealie/api/households/shopping/lists/${mealieList.id}`, {
+            query: { integrationId: this.integrationId },
+          });
 
           shoppingLists.push({
             id: fullList.id,
             name: fullList.name,
             order: 0,
-            createdAt: new Date(fullList.createdAt),
-            updatedAt: new Date(fullList.updatedAt),
+            createdAt: this.parseStableDate(fullList.createdAt),
+            updatedAt: this.parseStableDate(fullList.updatedAt),
             items: fullList.listItems?.map(mealieItem => ({
               id: mealieItem.id,
               name: mealieItem.food?.name || mealieItem.note || mealieItem.display || "Unknown",
@@ -141,14 +175,14 @@ export class MealieService implements IntegrationService {
           });
         }
         catch (listError) {
-          consola.error(`Error fetching list ${mealieList.id}:`, listError);
+          consola.error(`Mealie Shopping Lists: Error fetching list ${mealieList.id}:`, listError);
         }
       }
 
       return shoppingLists;
     }
     catch (error) {
-      consola.error("Error fetching Mealie shopping lists:", error);
+      consola.error("Mealie Shopping Lists: Error fetching shopping lists:", error);
       throw error;
     }
   }
@@ -160,8 +194,8 @@ export class MealieService implements IntegrationService {
       id: mealieList.id,
       name: mealieList.name,
       order: 0,
-      createdAt: new Date(mealieList.createdAt),
-      updatedAt: new Date(mealieList.updatedAt),
+      createdAt: this.parseStableDate(mealieList.createdAt),
+      updatedAt: this.parseStableDate(mealieList.updatedAt),
       items: mealieList.listItems.map(mealieItem => ({
         id: mealieItem.id,
         name: mealieItem.food?.name || mealieItem.note || mealieItem.display || "Unknown",
@@ -287,7 +321,7 @@ export class MealieService implements IntegrationService {
       };
     }
     catch (error) {
-      consola.error(`Error updating item ${itemId}:`, error);
+      consola.error(`Mealie Shopping Lists: Error updating item ${itemId}:`, error);
       throw new Error(`Failed to update item: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   }
@@ -335,7 +369,7 @@ export class MealieService implements IntegrationService {
       };
     }
     catch (error) {
-      consola.error(`Error toggling item ${itemId}:`, error);
+      consola.error(`Mealie Shopping Lists: Error toggling item ${itemId}:`, error);
       throw new Error(`Failed to toggle item: ${error instanceof Error ? error.message : "Unknown error"}`);
     }
   }

@@ -9,6 +9,10 @@ services:
       # Forwards the local Docker socket to the container.
       - /var/run/docker.sock:/var/run/docker-host.sock
       - ../..:/workspaces:cached
+    environment:
+      # consola log level. See https://github.com/unjs/consola/blob/main/src/constants.ts
+      - NUXT_PUBLIC_LOG_LEVEL=verbose
+      - NUXT_PUBLIC_TZ=America/Chicago
     # Overrides default command so things don't shut down after the process ends.
     entrypoint: /usr/local/share/docker-init.sh
     command: sleep infinity

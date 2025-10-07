@@ -95,10 +95,10 @@ function handleDelete() {
     @click="emit('close')"
   >
     <div
-      class="w-[425px] max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg"
+      class="w-[425px] max-h-[90vh] overflow-y-auto bg-default rounded-lg border border-default shadow-lg"
       @click.stop
     >
-      <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center justify-between p-4 border-b border-default">
         <h3 class="text-base font-semibold leading-6">
           {{ user?.id ? 'Edit User' : 'Create User' }}
         </h3>
@@ -107,17 +107,18 @@ function handleDelete() {
           variant="ghost"
           icon="i-lucide-x"
           class="-my-1"
+          aria-label="Close dialog"
           @click="emit('close')"
         />
       </div>
 
       <div class="p-4 space-y-6">
-        <div v-if="error" class="bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 rounded-md px-3 py-2 text-sm">
+        <div v-if="error" class="bg-error/10 text-error rounded-md px-3 py-2 text-sm">
           {{ error }}
         </div>
 
         <div class="space-y-2">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Name *</label>
+          <label class="block text-sm font-medium text-highlighted">Name *</label>
           <UInput
             v-model="name"
             placeholder="Enter user name"
@@ -127,7 +128,7 @@ function handleDelete() {
         </div>
 
         <div class="space-y-2">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Email (optional)</label>
+          <label class="block text-sm font-medium text-highlighted">Email (optional)</label>
           <UInput
             v-model="email"
             placeholder="Enter email address"
@@ -138,7 +139,7 @@ function handleDelete() {
         </div>
 
         <div class="space-y-2">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Profile Color</label>
+          <label class="block text-sm font-medium text-highlighted">Profile Color</label>
           <UPopover>
             <UButton
               label="Choose color"
@@ -156,11 +157,11 @@ function handleDelete() {
         </div>
 
         <div class="space-y-2">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Avatar</label>
+          <label class="block text-sm font-medium text-highlighted">Avatar</label>
           <div class="flex items-center gap-4">
             <img
               :src="avatar || getDefaultAvatarUrl()"
-              class="w-12 h-12 rounded-full border border-gray-300 dark:border-gray-700"
+              class="w-12 h-12 rounded-full border border-default"
             >
             <UInput
               v-model="avatar"
@@ -173,12 +174,13 @@ function handleDelete() {
         </div>
       </div>
 
-      <div class="flex justify-between p-4 border-t border-gray-200 dark:border-gray-700">
+      <div class="flex justify-between p-4 border-t border-default">
         <UButton
           v-if="user?.id"
           color="error"
           variant="ghost"
           icon="i-lucide-trash"
+          aria-label="Delete user"
           @click="handleDelete"
         >
           Delete

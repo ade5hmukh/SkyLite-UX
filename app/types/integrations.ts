@@ -1,7 +1,8 @@
 import consola from "consola";
 
-import type { DialogField, ICalSettings, IntegrationSettingsField } from "~/integrations/integrationConfig";
 import type { CalendarEvent } from "~/types/calendar";
+import type { CreateShoppingListItemInput, CreateTodoInput, ShoppingListItem, ShoppingListWithItemsAndCount, Todo, TodoWithUser, UpdateShoppingListItemInput, UpdateTodoInput } from "~/types/database";
+import type { DialogField, IntegrationSettingsField } from "~/types/ui";
 
 import { getServiceFactories, integrationConfigs } from "~/integrations/integrationConfig";
 
@@ -24,7 +25,20 @@ export type IntegrationStatus = {
 
 export type CalendarIntegrationService = IntegrationService & {
   getEvents: () => Promise<CalendarEvent[]>;
-  // Future: addEvent, updateEvent, deleteEvent
+};
+
+export type ShoppingIntegrationService = IntegrationService & {
+  getShoppingLists: () => Promise<ShoppingListWithItemsAndCount[]>;
+};
+
+export type TodoIntegrationService = IntegrationService & {
+  getTodos: () => Promise<TodoWithUser[]>;
+};
+
+export type UserWithColor = {
+  id: string;
+  name: string;
+  color: string | null;
 };
 
 export type IntegrationConfig = {
@@ -35,6 +49,13 @@ export type IntegrationConfig = {
   icon: string;
   files: string[];
   dialogFields: DialogField[];
+  syncInterval: number;
+};
+
+export type ICalSettings = {
+  eventColor?: string;
+  user?: string[];
+  useUserColors?: boolean;
 };
 
 export const integrationRegistry = new Map<string, IntegrationConfig>();
@@ -74,3 +95,30 @@ export async function createIntegrationService(integration: Integration): Promis
     return null;
   }
 }
+
+export type ServerShoppingIntegrationService = {
+  getShoppingLists: () => Promise<ShoppingListWithItemsAndCount[]>;
+  addItemToList?: (listId: string, item: CreateShoppingListItemInput) => Promise<ShoppingListItem>;
+  updateShoppingListItem?: (itemId: string, updates: UpdateShoppingListItemInput) => Promise<ShoppingListItem>;
+  toggleItem?: (itemId: string, checked: boolean) => Promise<void>;
+  deleteShoppingListItems?: (ids: string[]) => Promise<void>;
+};
+
+export type ServerTodoIntegrationService = {
+  getTodos: () => Promise<TodoWithUser[]>;
+  addTodo?: (todo: CreateTodoInput) => Promise<Todo>;
+  updateTodo?: (todoId: string, updates: UpdateTodoInput) => Promise<Todo>;
+  deleteTodo?: (todoId: string) => Promise<void>;
+};
+
+export type ServerCalendarIntegrationService = {
+  getEvents: () => Promise<CalendarEvent[]>;
+  addEvent?: (event: Omit<CalendarEvent, "id">) => Promise<CalendarEvent>;
+  updateEvent?: (eventId: string, updates: Partial<CalendarEvent>) => Promise<CalendarEvent>;
+  deleteEvent?: (eventId: string) => Promise<void>;
+};
+
+export type ServerTypedIntegrationService
+  = | ServerShoppingIntegrationService
+    | ServerTodoIntegrationService
+    | ServerCalendarIntegrationService;

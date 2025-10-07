@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import type { CalendarDate, DateValue } from "@internationalized/date";
 
-import { DateFormatter, getLocalTimeZone, parseDate } from "@internationalized/date";
+import { getLocalTimeZone, parseDate } from "@internationalized/date";
 
 import type { Priority, TodoColumnBasic, TodoListItem } from "~/types/database";
 
+import { useStableDate } from "~/composables/useStableDate";
+
 const props = defineProps<{
+  todo: TodoListItem | null;
   isOpen: boolean;
   todoColumns: TodoColumnBasic[];
-  todo?: TodoListItem;
 }>();
 
 const emit = defineEmits<{
@@ -17,16 +19,14 @@ const emit = defineEmits<{
   (e: "delete", todoId: string): void;
 }>();
 
+const { parseStableDate } = useStableDate();
+
 const todoTitle = ref("");
 const todoDescription = ref("");
 const todoPriority = ref<Priority>("MEDIUM");
 const todoDueDate = ref<DateValue | null>(null);
 const todoColumnId = ref<string | undefined>(undefined);
 const todoError = ref<string | null>(null);
-
-const df = new DateFormatter("en-US", {
-  dateStyle: "medium",
-});
 
 const priorityOptions = [
   { label: "Low", value: "LOW" },
@@ -44,7 +44,7 @@ watch(() => [props.isOpen, props.todo], ([isOpen, todo]) => {
         todoDescription.value = todo.description || "";
         todoPriority.value = todo.priority || "MEDIUM";
         if (todo.dueDate) {
-          const date = new Date(todo.dueDate);
+          const date = todo.dueDate instanceof Date ? todo.dueDate : parseStableDate(todo.dueDate);
           todoDueDate.value = parseDate(date.toISOString().split("T")[0]!);
         }
       }
@@ -112,10 +112,10 @@ function handleDelete() {
     @click="emit('close')"
   >
     <div
-      class="w-[425px] max-h-[90vh] overflow-y-auto bg-white dark:bg-gray-900 rounded-lg border border-gray-200 dark:border-gray-700 shadow-lg"
+      class="w-[425px] max-h-[90vh] overflow-y-auto bg-default rounded-lg border border-default shadow-lg"
       @click.stop
     >
-      <div class="flex items-center justify-between p-4 border-b border-gray-200 dark:border-gray-700">
+      <div class="flex items-center justify-between p-4 border-b border-default">
         <h3 class="text-base font-semibold leading-6">
           {{ todo?.id ? 'Edit Todo' : 'Add Todo' }}
         </h3>
@@ -129,12 +129,12 @@ function handleDelete() {
       </div>
 
       <div class="p-4 space-y-6">
-        <div v-if="todoError" class="bg-red-50 dark:bg-red-950 text-red-600 dark:text-red-400 rounded-md px-3 py-2 text-sm">
+        <div v-if="todoError" class="bg-error/10 text-error rounded-md px-3 py-2 text-sm">
           {{ todoError }}
         </div>
 
         <div class="space-y-2">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Title</label>
+          <label class="block text-sm font-medium text-highlighted">Title</label>
           <UInput
             v-model="todoTitle"
             placeholder="Todo title"
@@ -144,7 +144,7 @@ function handleDelete() {
         </div>
 
         <div class="space-y-2">
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Description</label>
+          <label class="block text-sm font-medium text-highlighted">Description</label>
           <UTextarea
             v-model="todoDescription"
             placeholder="Todo description (optional)"
@@ -156,7 +156,7 @@ function handleDelete() {
 
         <div class="flex gap-4">
           <div class="w-1/2 space-y-2">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Priority</label>
+            <label class="block text-sm font-medium text-highlighted">Priority</label>
             <USelect
               v-model="todoPriority"
               :items="priorityOptions"
@@ -168,7 +168,7 @@ function handleDelete() {
           </div>
 
           <div class="w-1/2 space-y-2">
-            <label class="block text-sm font-medium text-gray-700 dark:text-gray-200">Due Date</label>
+            <label class="block text-sm font-medium text-highlighted">Due Date</label>
             <UPopover>
               <UButton
                 color="neutral"
@@ -176,7 +176,14 @@ function handleDelete() {
                 icon="i-lucide-calendar"
                 class="w-full justify-between"
               >
-                {{ todoDueDate ? df.format(todoDueDate.toDate(getLocalTimeZone())) : 'No due date' }}
+                <NuxtTime
+                  v-if="todoDueDate"
+                  :datetime="todoDueDate.toDate(getLocalTimeZone())"
+                  year="numeric"
+                  month="short"
+                  day="numeric"
+                />
+                <span v-else>No due date</span>
               </UButton>
 
               <template #content>
@@ -205,7 +212,7 @@ function handleDelete() {
         </div>
       </div>
 
-      <div class="flex justify-between p-4 border-t border-gray-200 dark:border-gray-700">
+      <div class="flex justify-between p-4 border-t border-default">
         <UButton
           v-if="todo?.id"
           color="error"

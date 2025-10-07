@@ -29,7 +29,7 @@ export class TandoorService {
 
     if (!response.ok) {
       const errorText = await response.text();
-      consola.error("Response error:", errorText);
+      consola.error("Tandoor Client: Response error:", errorText);
       throw new Error(`Tandoor API error: ${response.status} ${response.statusText}`);
     }
 

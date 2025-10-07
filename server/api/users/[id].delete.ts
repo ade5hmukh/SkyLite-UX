@@ -11,7 +11,6 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Check if user exists
     const existingUser = await prisma.user.findUnique({
       where: { id: userId },
       include: {
@@ -30,24 +29,19 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Delete user and associated todo column in a transaction
     await prisma.$transaction(async (tx) => {
-      // If the user has a todo column with todos, delete them
       if (existingUser.todoColumn && existingUser.todoColumn.todos.length > 0) {
-        // Delete all todos in the user's column
         await tx.todo.deleteMany({
           where: { todoColumnId: existingUser.todoColumn.id },
         });
       }
 
-      // Delete the user's todo column (if exists)
       if (existingUser.todoColumn) {
         await tx.todoColumn.delete({
           where: { id: existingUser.todoColumn.id },
         });
       }
 
-      // Delete the user
       await tx.user.delete({
         where: { id: userId },
       });

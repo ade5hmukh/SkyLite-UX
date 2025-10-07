@@ -9,7 +9,7 @@ export type MealieShoppingList = {
   householdId: string;
   listItems: MealieShoppingListItem[];
   labelSettings: MealieLabelSetting[];
-  recipeReferences: unknown[];
+  recipeReferences: MealieRecipeReference[];
 };
 
 export type MealieShoppingListItem = {
@@ -32,7 +32,7 @@ export type MealieShoppingListItem = {
   groupId: string;
   householdId: string;
   label: MealieLabel | null;
-  recipeReferences: unknown[];
+  recipeReferences: MealieRecipeReference[];
   createdAt: string;
   updatedAt: string;
 };
@@ -60,8 +60,36 @@ export type MealieFood = {
   extras: Record<string, unknown>;
   labelId: string | null;
   aliases: string[];
-  householdsWithIngredientFood: unknown[];
+  householdsWithIngredientFood: MealieHousehold[];
   label: MealieLabel | null;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type MealieRecipeReference = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
+  image: string | null;
+  recipeYield: number;
+  totalTime: string | null;
+  prepTime: string | null;
+  cookTime: string | null;
+  performTime: string | null;
+  rating: number | null;
+  orgURL: string | null;
+  dateAdded: string;
+  dateUpdated: string;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type MealieHousehold = {
+  id: string;
+  name: string;
+  slug: string;
+  description: string | null;
   createdAt: string;
   updatedAt: string;
 };

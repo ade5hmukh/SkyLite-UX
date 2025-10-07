@@ -2,13 +2,20 @@
 import { consola } from "consola";
 
 import type { CreateIntegrationInput, CreateUserInput, Integration, User } from "~/types/database";
+import type { ConnectionTestResult } from "~/types/ui";
 
 import SettingsIntegrationDialog from "~/components/settings/settingsIntegrationDialog.vue";
 import SettingsUserDialog from "~/components/settings/settingsUserDialog.vue";
-import { integrationRegistry } from "~/types/integrations";
+import { integrationServices } from "~/plugins/02.appInit";
+import { getSlogan } from "~/types/global";
+import { createIntegrationService, integrationRegistry } from "~/types/integrations";
 
-const { users, loading, error, fetchUsers, createUser, deleteUser, updateUser } = useUsers();
-const { integrations, loading: integrationsLoading, fetchIntegrations, createIntegration, updateIntegration, deleteIntegration } = useIntegrations();
+const { users, loading, error, createUser, deleteUser, updateUser } = useUsers();
+
+// Logo loading state
+const logoLoaded = ref(true);
+const { integrations, loading: integrationsLoading, servicesInitializing, createIntegration, updateIntegration, deleteIntegration } = useIntegrations();
+const { checkIntegrationCache, purgeIntegrationCache, triggerImmediateSync } = useSyncManager();
 
 const colorMode = useColorMode();
 const isDark = computed({
@@ -31,11 +38,6 @@ const selectedUser = ref<User | null>(null);
 const isUserDialogOpen = ref(false);
 const selectedIntegration = ref<Integration | null>(null);
 const isIntegrationDialogOpen = ref(false);
-type ConnectionTestResult = {
-  success: boolean;
-  message?: string;
-  error?: string;
-} | null;
 
 const connectionTestResult = ref<ConnectionTestResult>(null);
 
@@ -54,24 +56,72 @@ onMounted(() => {
 });
 
 const filteredIntegrations = computed(() => {
-  return integrations.value.filter(integration => integration.type === activeIntegrationTab.value);
+  return (integrations.value as Integration[]).filter(integration => integration.type === activeIntegrationTab.value);
 });
 
-function handleUserSave(userData: CreateUserInput) {
-  if (selectedUser.value?.id) {
-    updateUser(selectedUser.value.id, userData);
+async function handleUserSave(userData: CreateUserInput) {
+  try {
+    if (selectedUser.value?.id) {
+      const { data: cachedUsers } = useNuxtData("users");
+      const previousUsers = cachedUsers.value ? [...cachedUsers.value] : [];
+
+      if (cachedUsers.value && Array.isArray(cachedUsers.value)) {
+        const userIndex = cachedUsers.value.findIndex((u: User) => u.id === selectedUser.value!.id);
+        if (userIndex !== -1) {
+          cachedUsers.value[userIndex] = { ...cachedUsers.value[userIndex], ...userData };
+        }
+      }
+
+      try {
+        await updateUser(selectedUser.value.id, userData);
+        consola.debug("Settings: User updated successfully");
+      }
+      catch (error) {
+        if (cachedUsers.value && previousUsers.length > 0) {
+          cachedUsers.value.splice(0, cachedUsers.value.length, ...previousUsers);
+        }
+        throw error;
+      }
+    }
+    else {
+      await createUser(userData);
+      consola.debug("Settings: User created successfully");
+    }
+
+    isUserDialogOpen.value = false;
+    selectedUser.value = null;
   }
-  else {
-    createUser(userData);
+  catch (error) {
+    consola.error("Settings: Failed to save user:", error);
   }
-  isUserDialogOpen.value = false;
-  selectedUser.value = null;
 }
 
-function handleUserDelete(userId: string) {
-  deleteUser(userId);
-  isUserDialogOpen.value = false;
-  selectedUser.value = null;
+async function handleUserDelete(userId: string) {
+  try {
+    const { data: cachedUsers } = useNuxtData("users");
+    const previousUsers = cachedUsers.value ? [...cachedUsers.value] : [];
+
+    if (cachedUsers.value && Array.isArray(cachedUsers.value)) {
+      cachedUsers.value.splice(0, cachedUsers.value.length, ...cachedUsers.value.filter((u: User) => u.id !== userId));
+    }
+
+    try {
+      await deleteUser(userId);
+      consola.debug("Settings: User deleted successfully");
+    }
+    catch (error) {
+      if (cachedUsers.value && previousUsers.length > 0) {
+        cachedUsers.value.splice(0, cachedUsers.value.length, ...previousUsers);
+      }
+      throw error;
+    }
+
+    isUserDialogOpen.value = false;
+    selectedUser.value = null;
+  }
+  catch (error) {
+    consola.error("Settings: Failed to delete user:", error);
+  }
 }
 
 function openUserDialog(user: User | null = null) {
@@ -81,39 +131,106 @@ function openUserDialog(user: User | null = null) {
 
 async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
   try {
-    connectionTestResult.value = null;
+    connectionTestResult.value = {
+      success: false,
+      message: "Testing connection...",
+      isLoading: true,
+    };
 
     if (selectedIntegration.value?.id) {
-      const updatedIntegration = await updateIntegration(selectedIntegration.value.id, {
-        ...integrationData,
-        createdAt: selectedIntegration.value.createdAt,
-        updatedAt: new Date(),
-      });
+      const { data: cachedIntegrations } = useNuxtData("integrations");
+      const previousIntegrations = cachedIntegrations.value ? [...cachedIntegrations.value] : [];
 
-      const index = integrations.value.findIndex(i => i.id === selectedIntegration.value?.id);
-      if (index !== -1) {
-        integrations.value[index] = updatedIntegration;
+      if (cachedIntegrations.value && Array.isArray(cachedIntegrations.value)) {
+        const integrationIndex = cachedIntegrations.value.findIndex((i: Integration) => i.id === selectedIntegration.value!.id);
+        if (integrationIndex !== -1) {
+          cachedIntegrations.value[integrationIndex] = {
+            ...cachedIntegrations.value[integrationIndex],
+            ...integrationData,
+            updatedAt: new Date(),
+          };
+        }
       }
 
-      connectionTestResult.value = {
-        success: true,
-        message: "Integration updated successfully!",
-      };
+      try {
+        connectionTestResult.value = {
+          success: false,
+          message: "Updating integration...",
+          isLoading: true,
+        };
+
+        await updateIntegration(selectedIntegration.value.id, {
+          ...integrationData,
+          createdAt: selectedIntegration.value.createdAt,
+          updatedAt: new Date(),
+        });
+
+        connectionTestResult.value = {
+          success: true,
+          message: "Integration updated successfully!",
+          isLoading: false,
+        };
+      }
+      catch (error) {
+        if (cachedIntegrations.value && previousIntegrations.length > 0) {
+          cachedIntegrations.value.splice(0, cachedIntegrations.value.length, ...previousIntegrations);
+        }
+        throw error;
+      }
     }
     else {
-      const newIntegration = await createIntegration({
+      const { data: cachedIntegrations } = useNuxtData("integrations");
+      const previousIntegrations = cachedIntegrations.value ? [...cachedIntegrations.value] : [];
+      const newIntegration = {
+        id: `temp-${Date.now()}`,
         ...integrationData,
         createdAt: new Date(),
         updatedAt: new Date(),
-      });
-
-      integrations.value.push(newIntegration);
-
-      connectionTestResult.value = {
-        success: true,
-        message: "Integration created successfully!",
+        enabled: false,
       };
+
+      if (cachedIntegrations.value && Array.isArray(cachedIntegrations.value)) {
+        cachedIntegrations.value.push(newIntegration);
+      }
+
+      try {
+        connectionTestResult.value = {
+          success: false,
+          message: "Creating integration...",
+          isLoading: true,
+        };
+
+        const createdIntegration = await createIntegration({
+          ...integrationData,
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+
+        if (cachedIntegrations.value && Array.isArray(cachedIntegrations.value)) {
+          const tempIndex = cachedIntegrations.value.findIndex((i: Integration) => i.id === newIntegration.id);
+          if (tempIndex !== -1) {
+            cachedIntegrations.value[tempIndex] = createdIntegration;
+          }
+        }
+
+        connectionTestResult.value = {
+          success: true,
+          message: "Integration created successfully!",
+          isLoading: false,
+        };
+      }
+      catch (error) {
+        if (cachedIntegrations.value && previousIntegrations.length > 0) {
+          cachedIntegrations.value.splice(0, cachedIntegrations.value.length, ...previousIntegrations);
+        }
+        throw error;
+      }
     }
+
+    await refreshNuxtData("integrations");
+
+    const { refreshIntegrations } = useIntegrations();
+    await refreshIntegrations();
 
     setTimeout(() => {
       isIntegrationDialogOpen.value = false;
@@ -122,23 +239,45 @@ async function handleIntegrationSave(integrationData: CreateIntegrationInput) {
     }, 1500);
   }
   catch (error) {
-    consola.error("Failed to save integration:", error);
+    consola.error("Settings: Failed to save integration:", error);
     connectionTestResult.value = {
       success: false,
       error: error instanceof Error ? error.message : "Failed to save integration",
+      isLoading: false,
     };
   }
 }
 
 async function handleIntegrationDelete(integrationId: string) {
   try {
-    await deleteIntegration(integrationId);
-    await fetchIntegrations();
+    const { data: cachedIntegrations } = useNuxtData("integrations");
+    const previousIntegrations = cachedIntegrations.value ? [...cachedIntegrations.value] : [];
+
+    if (cachedIntegrations.value && Array.isArray(cachedIntegrations.value)) {
+      cachedIntegrations.value.splice(0, cachedIntegrations.value.length, ...cachedIntegrations.value.filter((i: Integration) => i.id !== integrationId));
+    }
+
+    try {
+      await deleteIntegration(integrationId);
+      consola.debug("Settings: Integration deleted successfully");
+    }
+    catch (error) {
+      if (cachedIntegrations.value && previousIntegrations.length > 0) {
+        cachedIntegrations.value.splice(0, cachedIntegrations.value.length, ...previousIntegrations);
+      }
+      throw error;
+    }
+
+    await refreshNuxtData("integrations");
+
+    const { refreshIntegrations } = useIntegrations();
+    await refreshIntegrations();
+
     isIntegrationDialogOpen.value = false;
     selectedIntegration.value = null;
   }
   catch (error) {
-    consola.error("Failed to delete integration:", error);
+    consola.error("Settings: Failed to delete integration:", error);
   }
 }
 
@@ -153,19 +292,105 @@ function openIntegrationDialog(integration: Integration | null = null) {
 
 async function handleToggleIntegration(integrationId: string, enabled: boolean) {
   try {
-    await updateIntegration(integrationId, { enabled });
+    const integration = (integrations.value as Integration[]).find((i: Integration) => i.id === integrationId);
+    if (!integration) {
+      throw new Error("Integration not found");
+    }
+
+    const { data: cachedIntegrations } = useNuxtData("integrations");
+    const previousIntegrations = cachedIntegrations.value ? [...cachedIntegrations.value] : [];
+
+    if (cachedIntegrations.value && Array.isArray(cachedIntegrations.value)) {
+      const integrationIndex = cachedIntegrations.value.findIndex((i: Integration) => i.id === integrationId);
+      if (integrationIndex !== -1) {
+        cachedIntegrations.value[integrationIndex] = {
+          ...cachedIntegrations.value[integrationIndex],
+          enabled,
+        };
+      }
+    }
+
+    if (enabled) {
+      try {
+        const service = await createIntegrationService(integration);
+        if (service) {
+          integrationServices.set(integrationId, service);
+          service.initialize().catch((error) => {
+            consola.warn(`Background service initialization failed for ${integration.name}:`, error);
+          });
+        }
+      }
+      catch (serviceError) {
+        consola.warn(`Failed to create integration service for ${integration.name}:`, serviceError);
+      }
+    }
+    else {
+      try {
+        integrationServices.delete(integrationId);
+      }
+      catch (serviceError) {
+        consola.warn(`Failed to remove integration service for ${integration.name}:`, serviceError);
+      }
+    }
+
+    try {
+      if (enabled) {
+        await updateIntegration(integrationId, { enabled });
+
+        const hasCache = checkIntegrationCache(integration.type, integrationId);
+
+        if (!hasCache) {
+          consola.debug(`Settings: No cache found for ${integration.type} integration ${integrationId}, triggering immediate sync`);
+
+          await triggerImmediateSync(integration.type, integrationId);
+        }
+      }
+      else {
+        await updateIntegration(integrationId, { enabled });
+
+        purgeIntegrationCache(integration.type, integrationId);
+        consola.debug(`Settings: Purged cache for disabled ${integration.type} integration ${integrationId}`);
+      }
+
+      consola.debug(`Settings: Integration ${enabled ? "enabled" : "disabled"} successfully`);
+    }
+    catch (error) {
+      consola.warn(`Settings: Rolling back optimistic update for integration ${integrationId} due to error:`, error);
+
+      if (cachedIntegrations.value && previousIntegrations.length > 0) {
+        cachedIntegrations.value.splice(0, cachedIntegrations.value.length, ...previousIntegrations);
+      }
+
+      if (enabled) {
+        try {
+          integrationServices.delete(integrationId);
+        }
+        catch (rollbackError) {
+          consola.warn(`Failed to rollback service creation for ${integration.name}:`, rollbackError);
+        }
+      }
+      else {
+        try {
+          const service = await createIntegrationService(integration);
+          if (service) {
+            integrationServices.set(integrationId, service);
+            service.initialize().catch((error) => {
+              consola.warn(`Background service initialization failed for ${integration.name}:`, error);
+            });
+          }
+        }
+        catch (rollbackError) {
+          consola.warn(`Failed to rollback service removal for ${integration.name}:`, rollbackError);
+        }
+      }
+
+      throw error;
+    }
   }
   catch (error) {
-    consola.error("Failed to toggle integration:", error);
+    consola.error("Settings: Failed to toggle integration:", error);
   }
 }
-
-onMounted(async () => {
-  await Promise.all([
-    fetchUsers(),
-    fetchIntegrations(),
-  ]);
-});
 
 function getIntegrationIcon(type: string) {
   switch (type) {
@@ -198,16 +423,16 @@ function getIntegrationIconUrl(integration: Integration) {
 
 <template>
   <div class="flex w-full flex-col rounded-lg">
-    <div class="py-5 sm:px-4 sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
+    <div class="py-5 sm:px-4 sticky top-0 z-40 bg-default border-b border-default">
       <GlobalDateHeader />
     </div>
 
-    <div class="flex-1 bg-gray-50 dark:bg-gray-900 p-6">
+    <div class="flex-1 bg-default p-6">
       <div class="max-w-4xl mx-auto">
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+        <div class="bg-default rounded-lg shadow-sm border border-default p-6 mb-6">
           <div class="flex items-center justify-between mb-6">
             <div>
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              <h2 class="text-lg font-semibold text-highlighted">
                 Users
               </h2>
             </div>
@@ -221,23 +446,23 @@ function getIntegrationIconUrl(integration: Integration) {
 
           <div v-if="loading" class="text-center py-8">
             <UIcon name="i-lucide-loader-2" class="animate-spin h-8 w-8 mx-auto" />
-            <p class="text-gray-500 dark:text-gray-400 mt-2">
+            <p class="text-default mt-2">
               Loading users...
             </p>
           </div>
 
-          <div v-else-if="error" class="text-center py-8 text-red-600 dark:text-red-400">
+          <div v-else-if="error" class="text-center py-8 text-error">
             {{ error }}
           </div>
 
           <div v-else-if="users.length === 0" class="text-center py-8">
-            <div class="flex items-center justify-center gap-2 text-gray-500 dark:text-gray-400">
+            <div class="flex items-center justify-center gap-2 text-default">
               <UIcon name="i-lucide-frown" class="h-10 w-10" />
               <div class="text-center">
                 <p class="text-lg">
                   No users found
                 </p>
-                <p class="text-gray-400 dark:text-gray-500">
+                <p class="text-dimmed">
                   Create your first user to get started
                 </p>
               </div>
@@ -249,21 +474,21 @@ function getIntegrationIconUrl(integration: Integration) {
               <div
                 v-for="user in users"
                 :key="user.id"
-                class="flex items-center gap-3 p-4 rounded-lg border border-gray-200 dark:border-gray-700 bg-gray-50 dark:bg-gray-700"
+                class="flex items-center gap-3 p-4 rounded-lg border border-default bg-muted"
               >
                 <img
                   :src="user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=${(user.color || '#06b6d4').replace('#', '')}&color=374151&size=96`"
-                  class="w-10 h-10 rounded-full object-cover border border-gray-300 dark:border-gray-700"
+                  class="w-10 h-10 rounded-full object-cover border border-muted"
                   :alt="user.name"
                 >
                 <div class="flex-1 min-w-0">
-                  <p class="font-medium text-gray-900 dark:text-white truncate">
+                  <p class="font-medium text-highlighted truncate">
                     {{ user.name }}
                   </p>
-                  <p v-if="user.email" class="text-sm text-gray-500 dark:text-gray-400 truncate">
+                  <p v-if="user.email" class="text-sm text-muted truncate">
                     {{ user.email }}
                   </p>
-                  <p v-else class="text-sm text-gray-500 dark:text-gray-400">
+                  <p v-else class="text-sm text-muted">
                     No email
                   </p>
                 </div>
@@ -272,7 +497,7 @@ function getIntegrationIconUrl(integration: Integration) {
                     variant="ghost"
                     size="sm"
                     icon="i-lucide-edit"
-                    :title="`Edit ${user.name}`"
+                    :aria-label="`Edit ${user.name}`"
                     @click="openUserDialog(user)"
                   />
                 </div>
@@ -281,10 +506,10 @@ function getIntegrationIconUrl(integration: Integration) {
           </div>
         </div>
 
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6 mb-6">
+        <div class="bg-default rounded-lg shadow-sm border border-default p-6 mb-6">
           <div class="flex items-center justify-between mb-6">
             <div>
-              <h2 class="text-lg font-semibold text-gray-900 dark:text-white">
+              <h2 class="text-lg font-semibold text-highlighted">
                 Integrations
               </h2>
             </div>
@@ -296,16 +521,17 @@ function getIntegrationIconUrl(integration: Integration) {
             </UButton>
           </div>
 
-          <div class="border-b border-gray-200 dark:border-gray-700 mb-6">
+          <div class="border-b border-default mb-6">
             <nav class="-mb-px flex space-x-8">
               <button
                 v-for="type in availableIntegrationTypes"
                 :key="type"
+                type="button"
                 class="whitespace-nowrap py-2 px-1 border-b-2 font-medium text-sm"
                 :class="[
                   activeIntegrationTab === type
-                    ? 'border-primary-500 text-primary-600 dark:text-primary-400'
-                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300 dark:text-gray-400 dark:hover:text-gray-300',
+                    ? 'border-primary text-primary'
+                    : 'border-transparent text-muted hover:text-toned hover:border-muted',
                 ]"
                 @click="activeIntegrationTab = type"
               >
@@ -316,19 +542,26 @@ function getIntegrationIconUrl(integration: Integration) {
 
           <div v-if="integrationsLoading" class="text-center py-8">
             <UIcon name="i-lucide-loader-2" class="animate-spin h-8 w-8 mx-auto" />
-            <p class="text-gray-500 dark:text-gray-400 mt-2">
+            <p class="text-default mt-2">
               Loading integrations...
             </p>
           </div>
 
+          <div v-else-if="servicesInitializing" class="text-center py-8">
+            <UIcon name="i-lucide-loader-2" class="animate-spin h-8 w-8 mx-auto" />
+            <p class="text-default mt-2">
+              Initializing integration services...
+            </p>
+          </div>
+
           <div v-else-if="filteredIntegrations.length === 0" class="text-center py-8">
-            <div class="flex items-center justify-center gap-2 text-gray-500 dark:text-gray-400">
+            <div class="flex items-center justify-center gap-2 text-default">
               <UIcon name="i-lucide-frown" class="h-10 w-10" />
               <div class="text-center">
                 <p class="text-lg">
                   No {{ getIntegrationTypeLabel(activeIntegrationTab) }} integrations configured
                 </p>
-                <p class="text-gray-400 dark:text-gray-500">
+                <p class="text-dimmed">
                   Connect external services to enhance your experience
                 </p>
               </div>
@@ -343,17 +576,17 @@ function getIntegrationIconUrl(integration: Integration) {
                 class="flex items-center justify-between p-4 rounded-lg border"
                 :class="[
                   integration.enabled
-                    ? 'border-primary-200 dark:border-primary-800 bg-primary-50/50 dark:bg-primary-900/20'
-                    : 'border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800',
+                    ? 'border-primary bg-primary/10'
+                    : 'border-default bg-default',
                 ]"
               >
                 <div class="flex items-center gap-3">
                   <div
-                    class="w-10 h-10 rounded-full flex items-center justify-center text-white"
+                    class="w-10 h-10 rounded-full flex items-center justify-center text-inverted"
                     :class="[
                       integration.enabled
-                        ? 'bg-gray-700'
-                        : 'bg-gray-400',
+                        ? 'bg-accented'
+                        : 'bg-muted',
                     ]"
                   >
                     <img
@@ -370,31 +603,29 @@ function getIntegrationIconUrl(integration: Integration) {
                     />
                   </div>
                   <div class="flex-1 min-w-0">
-                    <p class="font-medium text-gray-900 dark:text-white">
+                    <p class="font-medium text-highlighted">
                       {{ integration.name }}
                     </p>
-                    <p class="text-sm text-gray-500 dark:text-gray-400 capitalize">
+                    <p class="text-sm text-muted capitalize">
                       {{ integration.service }}
-                    </p>
-                    <p class="text-xs text-gray-400 dark:text-gray-500 truncate">
-                      {{ integration.baseUrl }}
                     </p>
                   </div>
                 </div>
                 <div class="flex items-center gap-2">
                   <USwitch
-                    v-model="integration.enabled"
+                    :model-value="integration.enabled"
                     color="primary"
                     unchecked-icon="i-lucide-x"
                     checked-icon="i-lucide-check"
                     size="xl"
+                    :aria-label="`Toggle ${integration.name} integration`"
                     @update:model-value="handleToggleIntegration(integration.id, $event)"
                   />
                   <UButton
                     variant="ghost"
                     size="sm"
                     icon="i-lucide-edit"
-                    :title="`Edit ${integration.name}`"
+                    :aria-label="`Edit ${integration.name}`"
                     @click="openIntegrationDialog(integration)"
                   />
                 </div>
@@ -403,18 +634,18 @@ function getIntegrationIconUrl(integration: Integration) {
           </div>
         </div>
 
-        <div class="bg-white dark:bg-gray-800 rounded-lg shadow-sm border border-gray-200 dark:border-gray-700 p-6">
-          <h2 class="text-lg font-semibold text-gray-900 dark:text-white mb-4">
+        <div class="bg-default rounded-lg shadow-sm border border-default p-6 mb-6">
+          <h2 class="text-lg font-semibold text-highlighted mb-4">
             Application Settings
           </h2>
           <div class="space-y-4">
             <div class="flex items-center justify-between">
               <div>
-                <p class="font-medium text-gray-900 dark:text-white">
+                <p class="font-medium text-highlighted">
                   Dark Mode
                 </p>
-                <p class="text-sm text-gray-600 dark:text-gray-400">
-                  Toggle between light and dark themes
+                <p class="text-sm text-muted">
+                  Toggle between light and dark themes (Coming Soon™)
                 </p>
               </div>
               <USwitch
@@ -423,14 +654,15 @@ function getIntegrationIconUrl(integration: Integration) {
                 checked-icon="i-lucide-moon"
                 unchecked-icon="i-lucide-sun"
                 size="xl"
+                aria-label="Toggle dark mode"
               />
             </div>
             <div class="flex items-center justify-between">
               <div>
-                <p class="font-medium text-gray-900 dark:text-white">
+                <p class="font-medium text-highlighted">
                   Notifications
                 </p>
-                <p class="text-sm text-gray-600 dark:text-gray-400">
+                <p class="text-sm text-muted">
                   Enable push notifications (Coming Soon™)
                 </p>
               </div>
@@ -439,8 +671,50 @@ function getIntegrationIconUrl(integration: Integration) {
                 checked-icon="i-lucide-alarm-clock-check"
                 unchecked-icon="i-lucide-alarm-clock-off"
                 size="xl"
+                aria-label="Toggle notifications"
               />
             </div>
+          </div>
+        </div>
+
+        <div class="bg-default rounded-lg shadow-sm border border-default p-6">
+          <h2 class="text-lg font-semibold text-highlighted mb-4">
+            About
+          </h2>
+          <div class="flex items-center gap-4 mb-6 p-4 bg-muted/30 rounded-lg border border-muted">
+            <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <img
+                v-if="logoLoaded"
+                src="/skylite.svg"
+                alt="SkyLite UX Logo"
+                class="w-8 h-8"
+                style="object-fit: contain"
+                @error="logoLoaded = false"
+              >
+              <UIcon
+                v-else
+                name="i-lucide-sun"
+                class="w-6 h-6 text-primary"
+              />
+            </div>
+            <div class="flex-1">
+              <div class="flex items-center justify-between mb-1">
+                <h3 class="text-lg font-semibold text-highlighted">
+                  SkyLite UX
+                </h3>
+                <span class="text-xs font-mono text-primary bg-primary/10 border border-primary/20 px-2 py-1 rounded-md">
+                  v{{ $config.public.skyliteVersion }}
+                </span>
+              </div>
+              <p class="text-sm text-muted">
+                {{ getSlogan() }}
+              </p>
+            </div>
+          </div>
+          <div class="mt-6 pt-4 border-t border-muted">
+            <p class="text-xs text-muted text-center">
+              Built with ❤️ by the community using Nuxt {{ $config.public.nuxtVersion.replace("^", "") }} & Nuxt UI {{ $config.public.nuxtUiVersion.replace("^", "") }}
+            </p>
           </div>
         </div>
       </div>
@@ -458,9 +732,9 @@ function getIntegrationIconUrl(integration: Integration) {
       :integration="selectedIntegration"
       :is-open="isIntegrationDialogOpen"
       :active-type="activeIntegrationTab"
-      :existing-integrations="integrations"
+      :existing-integrations="integrations as Integration[]"
       :connection-test-result="connectionTestResult"
-      @close="isIntegrationDialogOpen = false"
+      @close="() => { isIntegrationDialogOpen = false; selectedIntegration = null; }"
       @save="handleIntegrationSave"
       @delete="handleIntegrationDelete"
     />
