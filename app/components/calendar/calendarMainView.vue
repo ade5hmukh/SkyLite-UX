@@ -1,17 +1,19 @@
 <script setup lang="ts">
-import type { DropdownMenuItem } from "@nuxt/ui";
+import { addDays, addMonths, addWeeks, isSameMonth, subMonths, subWeeks } from "date-fns";
 
-import { addDays, addMonths, addWeeks, endOfWeek, format, isSameMonth, startOfWeek, subMonths, subWeeks } from "date-fns";
+import type { CalendarEvent, CalendarView } from "~/types/calendar";
 
-import type { CalendarEvent, CalendarView } from "~/utils/calendarTypes";
+import GlobalDateHeader from "~/components/global/globalDateHeader.vue";
+import GlobalFloatingActionButton from "~/components/global/globalFloatingActionButton.vue";
+import { useCalendar } from "~/composables/useCalendar";
+import { useStableDate } from "~/composables/useStableDate";
 
 const props = defineProps<{
   events?: CalendarEvent[];
-  onEventAdd?: (event: CalendarEvent) => void;
-  onEventUpdate?: (event: CalendarEvent) => void;
-  onEventDelete?: (eventId: string) => void;
   className?: string;
   initialView?: CalendarView;
+  class?: string;
+  getIntegrationCapabilities?: (event: CalendarEvent) => { capabilities: string[]; serviceName?: string } | undefined;
 }>();
 
 const _emit = defineEmits<{
@@ -20,38 +22,13 @@ const _emit = defineEmits<{
   (e: "eventDelete", eventId: string): void;
 }>();
 
-// Calendar state
-const currentDate = ref(new Date());
+const { getStableDate } = useStableDate();
+const { getEventsForDateRange, scrollToDate } = useCalendar();
+const currentDate = useState<Date>("calendar-current-date", () => getStableDate());
 const view = ref<CalendarView>(props.initialView || "week");
 const isEventDialogOpen = ref(false);
 const selectedEvent = ref<CalendarEvent | null>(null);
 
-const items: DropdownMenuItem[][] = [
-  [
-    {
-      label: "Month",
-      icon: "i-lucide-calendar-days",
-      onSelect: () => view.value = "month",
-    },
-    {
-      label: "Week",
-      icon: "i-lucide-calendar-range",
-      onSelect: () => view.value = "week",
-    },
-    {
-      label: "Day",
-      icon: "i-lucide-calendar-1",
-      onSelect: () => view.value = "day",
-    },
-    {
-      label: "Agenda",
-      icon: "i-lucide-list",
-      onSelect: () => view.value = "agenda",
-    },
-  ],
-];
-
-// Keyboard shortcuts for view switching
 onMounted(() => {
   const handleKeyDown = (e: KeyboardEvent) => {
     if (
@@ -79,13 +56,12 @@ onMounted(() => {
     }
   };
 
-  window.addEventListener("keydown", handleKeyDown);
+  window.addEventListener("keydown", handleKeyDown, { passive: false });
   onUnmounted(() => {
     window.removeEventListener("keydown", handleKeyDown);
   });
 });
 
-// Navigation handlers
 function handlePrevious() {
   if (view.value === "month") {
     currentDate.value = subMonths(currentDate.value, 1);
@@ -117,253 +93,178 @@ function handleNext() {
 }
 
 function handleToday() {
-  currentDate.value = new Date();
+  currentDate.value = getStableDate();
+
+  nextTick(() => {
+    scrollToDate(getStableDate(), view.value);
+  });
 }
 
-// Event handlers
 function handleEventSelect(event: CalendarEvent) {
-  selectedEvent.value = { ...event };
+  selectedEvent.value = event;
   isEventDialogOpen.value = true;
 }
 
-function handleEventCreate(startTime: Date) {
-  // Snap to 15-minute intervals
-  const minutes = startTime.getMinutes();
-  const remainder = minutes % 15;
-  if (remainder !== 0) {
-    if (remainder < 7.5) {
-      startTime.setMinutes(minutes - remainder);
-    }
-    else {
-      startTime.setMinutes(minutes + (15 - remainder));
-    }
-    startTime.setSeconds(0);
-    startTime.setMilliseconds(0);
-  }
-
-  const newEvent: CalendarEvent = {
-    id: "",  // Empty ID for new events
+function handleEventCreate(date: Date) {
+  selectedEvent.value = {
+    id: "",
     title: "",
-    start: startTime,
-    end: new Date(startTime.getTime() + 60 * 60 * 1000), // Add 1 hour
+    description: "",
+    start: date,
+    end: addDays(date, 1),
     allDay: false,
+    color: "sky",
   };
-  selectedEvent.value = newEvent;
   isEventDialogOpen.value = true;
 }
 
 function handleEventSave(event: CalendarEvent) {
-  // For new events, we should always emit eventAdd
-  if (!event.id) {
-    _emit('eventAdd', event);
-  } else {
-    // For existing events, check if it exists in the current events
-    const existingEvent = props.events?.find(e => e.id === event.id);
-    if (existingEvent) {
-      _emit('eventUpdate', event);
-    } else {
-      _emit('eventAdd', event);
-    }
+  if (event.id) {
+    _emit("eventUpdate", event);
+  }
+  else {
+    _emit("eventAdd", event);
   }
   isEventDialogOpen.value = false;
+  selectedEvent.value = null;
 }
 
 function handleEventDelete(eventId: string) {
-  _emit('eventDelete', eventId);
+  _emit("eventDelete", eventId);
   isEventDialogOpen.value = false;
+  selectedEvent.value = null;
 }
 
-// View title computation
-const viewTitle = computed(() => {
-  if (view.value === "month") {
-    return format(currentDate.value, "MMMM yyyy");
-  }
-  else if (view.value === "week") {
-    const start = startOfWeek(currentDate.value, { weekStartsOn: 0 });
-    const end = endOfWeek(currentDate.value, { weekStartsOn: 0 });
-    if (isSameMonth(start, end)) {
-      return format(start, "MMMM yyyy");
-    }
-    else {
-      return `${format(start, "MMM")} - ${format(end, "MMM yyyy")}`;
-    }
-  }
-  else if (view.value === "day") {
-    return format(currentDate.value, "MMMM d, yyyy");
-  }
-  else if (view.value === "agenda") {
-    const start = currentDate.value;
-    const end = addDays(currentDate.value, 30 - 1);
-    if (isSameMonth(start, end)) {
-      return format(start, "MMMM yyyy");
-    }
-    else {
-      return `${format(start, "MMM")} - ${format(end, "MMM yyyy")}`;
-    }
-  }
-  return format(currentDate.value, "MMMM yyyy");
+function handleCreateEvent() {
+  handleEventCreate(getStableDate());
+}
+
+const isCurrentMonth = computed(() => {
+  return isSameMonth(currentDate.value, getStableDate());
 });
 
-// Helper functions for generating dates
-function getWeeksForMonth(date: Date) {
-  const firstDayOfMonth = new Date(date.getFullYear(), date.getMonth(), 1);
-  const lastDayOfMonth = new Date(date.getFullYear(), date.getMonth() + 1, 0);
-  const startDate = startOfWeek(firstDayOfMonth, { weekStartsOn: 0 });
-  const endDate = endOfWeek(lastDayOfMonth, { weekStartsOn: 0 });
-  const weeks: Date[][] = [];
-  let currentDate = startDate;
+const filteredEvents = computed(() => {
+  if (!props.events)
+    return [];
 
-  while (currentDate <= endDate) {
-    const week: Date[] = [];
-    for (let i = 0; i < 7; i++) {
-      week.push(new Date(currentDate));
-      currentDate = addDays(currentDate, 1);
+  const now = currentDate.value;
+  let start: Date;
+  let end: Date;
+  let events: CalendarEvent[];
+
+  switch (view.value) {
+    case "month": {
+      start = new Date(now.getFullYear(), now.getMonth(), 1);
+      start.setDate(start.getDate() - 7);
+      end = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      end.setDate(end.getDate() + 7);
+      events = getEventsForDateRange(start, end);
+      break;
     }
-    weeks.push(week);
+    case "week": {
+      const sunday = new Date(now.getTime());
+      const dayOfWeek = sunday.getDay();
+      sunday.setDate(sunday.getDate() - dayOfWeek);
+      const saturday = new Date(sunday.getTime() + 6 * 24 * 60 * 60 * 1000);
+      start = sunday;
+      end = saturday;
+      events = getEventsForDateRange(start, end);
+      break;
+    }
+    case "day": {
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+      events = getEventsForDateRange(start, end);
+      break;
+    }
+    case "agenda": {
+      start = addDays(now, -15);
+      end = addDays(now, 15);
+      events = getEventsForDateRange(start, end);
+      break;
+    }
+    default:
+      events = props.events;
+      start = new Date();
+      end = new Date();
   }
 
-  return weeks;
-}
+  return events;
+});
 
-function getDaysForWeek(date: Date) {
-  const start = startOfWeek(date, { weekStartsOn: 0 });
-  const days: Date[] = [];
-  for (let i = 0; i < 7; i++) {
-    days.push(addDays(start, i));
-  }
-  return days;
+function getWeeksForMonth(date: Date) {
+  const { getLocalMonthWeeks } = useCalendar();
+  return getLocalMonthWeeks(date);
 }
 
 function getDaysForAgenda(date: Date) {
-  const days: Date[] = [];
-  // Add 15 days before the current date
-  for (let i = -15; i < 0; i++) {
-    days.push(addDays(date, i));
-  }
-  // Add the current date and 14 days after
-  for (let i = 0; i < 15; i++) {
-    days.push(addDays(date, i));
-  }
-  return days;
+  const { getLocalAgendaDays } = useCalendar();
+  return getLocalAgendaDays(date);
 }
 </script>
 
 <template>
-  <div
-    class="flex h-full w-full flex-col rounded-lg"
-    :class="[className]"
-    :style="{
-      '--event-height': '24px',
-      '--event-gap': '2px',
-      '--week-cells-height': '60px',
-    }"
-  >
-    <!-- Calendar header -->
-    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2 py-5 sm:px-4 sticky top-0 z-40 bg-white dark:bg-gray-900 border-b border-gray-200 dark:border-gray-800">
-      <div class="flex sm:flex-col max-sm:items-center justify-between gap-1.5">
-        <div class="flex items-center gap-1.5">
-          <h1 class="font-semibold text-xl">
-            {{ viewTitle }}
-          </h1>
-        </div>
-      </div>
-      <div class="flex items-center justify-between gap-2">
-        <div class="flex items-center justify-between gap-2">
-          <div class="flex items-center sm:gap-2 max-sm:order-1">
-            <UButton
-              icon="i-lucide-chevron-left"
-              color="neutral"
-              variant="ghost"
-              size="xl"
-              aria-label="Previous"
-              @click="handlePrevious"
-            />
-            <UButton
-              icon="i-lucide-chevron-right"
-              color="neutral"
-              variant="ghost"
-              size="xl"
-              aria-label="Next"
-              @click="handleNext"
-            />
-          </div>
-          <UButton
-            color="primary"
-            size="xl"
-            @click="handleToday"
-          >
-            Today
-          </UButton>
-        </div>
-        <div class="flex items-center justify-between gap-2">
-          <UDropdownMenu :items="items">
-            <UButton
-              color="neutral"
-              variant="outline"
-              size="xl"
-              trailing-icon="i-lucide-chevron-down"
-            >
-              <span class="capitalize">{{ view }}</span>
-            </UButton>
-          </UDropdownMenu>
-        </div>
-      </div>
+  <div class="flex h-[calc(100vh-2rem)] w-full flex-col rounded-lg">
+    <div class="py-5 sm:px-4 sticky top-0 z-40 bg-default border-b border-default">
+      <GlobalDateHeader
+        :show-navigation="true"
+        :show-view-selector="true"
+        :current-date="currentDate"
+        :view="view"
+        @previous="handlePrevious"
+        @next="handleNext"
+        @today="handleToday"
+        @view-change="(newView) => view = newView"
+        @date-change="(newDate) => currentDate = newDate"
+      />
     </div>
-
-    <!-- Calendar views -->
     <div class="flex flex-1 flex-col min-h-0">
       <GlobalMonthView
         v-if="view === 'month'"
         :weeks="getWeeksForMonth(currentDate)"
-        :events="events || []"
-        :is-current-month="isSameMonth(currentDate, new Date())"
+        :events="filteredEvents"
+        :is-current-month="isCurrentMonth"
         cell-id="month-cell"
         @event-click="handleEventSelect"
         @event-create="handleEventCreate"
       />
       <GlobalWeekView
         v-if="view === 'week'"
-        :days="getDaysForWeek(currentDate)"
-        :events="events || []"
-        :week-start="startOfWeek(currentDate, { weekStartsOn: 0 })"
-        :show-all-day-section="true"
+        :start-date="currentDate"
+        :events="filteredEvents"
         @event-click="handleEventSelect"
         @event-create="handleEventCreate"
       />
       <GlobalDayView
         v-if="view === 'day'"
         :current-date="currentDate"
-        :events="events || []"
+        :events="filteredEvents"
         :show-all-day-section="true"
         @event-click="handleEventSelect"
         @event-create="handleEventCreate"
+        @date-select="(date) => currentDate = date"
       />
       <GlobalAgendaView
         v-if="view === 'agenda'"
         :days="getDaysForAgenda(currentDate)"
-        :events="events || []"
+        :events="filteredEvents"
         @event-click="handleEventSelect"
       />
     </div>
   </div>
-
-  <!-- Floating Action Button -->
-  <UButton
-    class="fixed bottom-8 right-8 rounded-full shadow-lg z-50 p-4"
-    color="primary"
-    size="xl"
+  <GlobalFloatingActionButton
     icon="i-lucide-plus"
-    aria-label="Add Event"
-    :ui="{
-      leadingIcon: 'bg-gray-100 dark:bg-gray-800 w-10 h-10',
-    }"
-    @click="handleEventCreate(new Date())"
+    label="Add new event"
+    color="primary"
+    size="lg"
+    position="bottom-right"
+    @click="handleCreateEvent"
   />
-
-  <!-- Event Dialog -->
   <CalendarEventDialog
     :event="selectedEvent"
     :is-open="isEventDialogOpen"
+    :integration-capabilities="selectedEvent && props.getIntegrationCapabilities ? props.getIntegrationCapabilities(selectedEvent)?.capabilities : undefined"
+    :integration-service-name="selectedEvent && props.getIntegrationCapabilities ? props.getIntegrationCapabilities(selectedEvent)?.serviceName : undefined"
     @close="isEventDialogOpen = false"
     @save="handleEventSave"
     @delete="handleEventDelete"

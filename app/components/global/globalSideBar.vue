@@ -1,14 +1,5 @@
 <script setup lang="ts">
 const route = useRoute();
-const colorMode = useColorMode();
-const isDark = computed({
-  get() {
-    return colorMode.value === "dark";
-  },
-  set() {
-    colorMode.value = colorMode.value === "dark" ? "light" : "dark";
-  },
-});
 function isActivePath(path: string) {
   return route.path === path;
 };
@@ -22,20 +13,23 @@ function isActivePath(path: string) {
       variant="ghost"
       icon="i-lucide-calendar-days"
       size="xl"
+      aria-label="Calendar"
     />
     <UButton
-      :class="isActivePath('/todolists') ? 'text-primary' : 'text-default'"
-      to="/todolists"
+      :class="isActivePath('/toDoLists') ? 'text-primary' : 'text-default'"
+      to="/toDoLists"
       variant="ghost"
       icon="i-lucide-list-todo"
       size="xl"
+      aria-label="Todo Lists"
     />
     <UButton
-      :class="isActivePath('/shoppinglists') ? 'text-primary' : 'text-default'"
-      to="/shoppinglists"
+      :class="isActivePath('/shoppingLists') ? 'text-primary' : 'text-default'"
+      to="/shoppingLists"
       variant="ghost"
       icon="i-lucide-shopping-cart"
       size="xl"
+      aria-label="Shopping Lists"
     />
     <UButton
       :class="isActivePath('/mealplanner') ? 'text-primary' : 'text-default'"
@@ -43,6 +37,7 @@ function isActivePath(path: string) {
       variant="ghost"
       icon="i-lucide-utensils"
       size="xl"
+      aria-label="Meal Planner"
     />
     <UButton
       :class="isActivePath('/settings') ? 'text-primary' : 'text-default'"
@@ -50,15 +45,7 @@ function isActivePath(path: string) {
       variant="ghost"
       icon="i-lucide-settings"
       size="xl"
+      aria-label="Settings"
     />
-    <div class="flex items-center justify-center gap-2">
-      <USwitch
-        v-model="isDark"
-        color="primary"
-        checked-icon="i-lucide-moon"
-        unchecked-icon="i-lucide-sun"
-        size="xl"
-      />
-    </div>
   </div>
 </template>

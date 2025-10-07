@@ -1,0 +1,5 @@
+---
+description: This is a nuxt4 project
+globs:
+alwaysApply: true
+---

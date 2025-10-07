@@ -1,96 +1,61 @@
 <script setup lang="ts">
-import { format, isSameDay } from "date-fns";
-import { nextTick, onMounted, watch } from "vue";
+import { format } from "date-fns";
+import { computed } from "vue";
 
-import type { CalendarEvent } from "~/utils/calendarTypes";
+import type { CalendarEvent } from "~/types/calendar";
 
-import { getAllEventsForDay, sortEvents } from "~/utils/calendarUtils";
+import { useCalendar } from "~/composables/useCalendar";
+import { useStableDate } from "~/composables/useStableDate";
 
 const props = defineProps<{
   weeks: Date[][];
   events: CalendarEvent[];
   isCurrentMonth: boolean;
   cellId: string;
-  isReferenceCell?: boolean;
-  visibleCount?: number;
   remainingCount?: number;
   hasMore?: boolean;
-  defaultStartHour?: number;
   eventHeight?: number;
 }>();
 
 const emit = defineEmits<{
   (e: "eventCreate", date: Date): void;
   (e: "eventClick", event: CalendarEvent, mouseEvent: MouseEvent): void;
-  (e: "eventUpdate", event: CalendarEvent): void;
 }>();
 
-const contentRef = useState<HTMLElement | null>("calendarContentRef", () => null);
+const { isToday, handleEventClick: _handleEventClick, scrollToDate, getAllEventsForDay, isPlaceholderEvent, sortEvents, computedEventHeight: getEventHeight } = useCalendar();
 
-const cellRef = computed(() => props.isReferenceCell ? contentRef : undefined);
+const { getStableDate } = useStableDate();
 
-const allEvents = computed(() => {
-  return props.events;
-});
+const computedEventHeight = computed(() => getEventHeight("month", props.eventHeight));
 
-function scrollToCurrentDay() {
-  const today = new Date();
-  const todayElement = document.querySelector(`[data-date="${format(today, "yyyy-MM-dd")}"]`);
-  if (todayElement) {
-    const headerHeight = 80; // Approximate height of the header
-    const padding = 20; // Additional padding
-    const elementPosition = todayElement.getBoundingClientRect().top;
-    const offsetPosition = elementPosition + window.pageYOffset - headerHeight - padding;
+const eventGap = 4;
 
-    window.scrollTo({
-      top: offsetPosition,
-      behavior: "smooth",
-    });
-  }
-}
-
-// Scroll to current day when component is mounted
 onMounted(() => {
-  scrollToCurrentDay();
+  scrollToDate(getStableDate(), "month");
 });
 
-// Watch for changes in weeks and scroll to current day
 watch(() => props.weeks, () => {
   nextTick(() => {
-    scrollToCurrentDay();
+    scrollToDate(getStableDate(), "month");
   });
 });
 
-function isToday(date: Date) {
-  return isSameDay(date, new Date());
-}
-
-function isFirstDay(day: Date, event: CalendarEvent) {
-  return isSameDay(day, new Date(event.start));
-}
-
-function isLastDay(day: Date, event: CalendarEvent) {
-  return isSameDay(day, new Date(event.end));
-}
-
 function handleEventClick(event: CalendarEvent, e: MouseEvent) {
-  emit("eventClick", event, e);
+  _handleEventClick(event, e, emit);
 }
 </script>
 
 <template>
   <div class="h-full w-full">
-    <!-- Days of week header -->
-    <div class="sticky top-[80px] z-30 grid grid-cols-7 border-b border-gray-200 dark:border-gray-700 bg-gray-100/80 dark:bg-gray-800/80 backdrop-blur-md">
+    <div class="sticky top-[80px] z-30 grid grid-cols-7 border-b border-default bg-muted/80 backdrop-blur-md">
       <div
         v-for="day in ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']"
         :key="day"
-        class="py-2 text-center text-sm font-medium text-gray-600 dark:text-gray-400"
+        class="py-2 text-center text-sm font-medium text-muted"
       >
         {{ day }}
       </div>
     </div>
-    <!-- Calendar grid -->
     <div class="grid h-full w-full grid-cols-7">
       <div
         v-for="(week, weekIndex) in weeks"
@@ -101,84 +66,91 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
           v-for="day in week"
           :key="day.toString()"
           :data-date="format(day, 'yyyy-MM-dd')"
-          class="group flex h-full flex-col border border-gray-200 dark:border-gray-700 last:border-r-0"
+          class="group flex h-full flex-col border border-default last:border-r-0"
           :class="{
-            'bg-gray-100/25 dark:bg-gray-800/25 text-gray-600 dark:text-gray-400': !isCurrentMonth,
+            'bg-muted/25 text-muted': !isCurrentMonth,
+            'bg-info/10': isToday(day),
           }"
         >
-          <div
-            class="mt-1 inline-flex h-6 w-6 items-center justify-center rounded-full text-sm"
-            :class="{
-              'bg-primary text-white': isToday(day),
-              'text-gray-600 dark:text-gray-400': !isToday(day),
-            }"
-          >
-            {{ format(day, 'd') }}
+          <div class="flex justify-end items-center p-0.5">
+            <div
+              class="inline-flex h-6 w-6 items-center justify-center rounded-full text-sm"
+              :class="{
+                'bg-primary text-white': isToday(day),
+                'text-muted': !isToday(day),
+              }"
+            >
+              <NuxtTime :datetime="day" day="numeric" />
+            </div>
           </div>
+          <div class="border-b border-default mb-1" />
           <div
-            :ref="cellRef"
-            class="h-[calc((var(--event-height)+var(--event-gap))*5)] overflow-y-auto px-2 py-1 space-y-1 relative z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none]"
+            class="overflow-y-auto px-2 py-1 space-y-1 relative z-10 [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] flex flex-col"
+            :style="{ height: `${(computedEventHeight + eventGap) * 3}px` }"
           >
-            <template v-for="event in sortEvents(getAllEventsForDay(events, day))" :key="`${event.id}-${day.toISOString().slice(0, 10)}`">
+            <div
+              v-for="event in sortEvents(getAllEventsForDay(events, day))"
+              v-show="!isPlaceholderEvent(event)"
+              :key="`${event.id}-${day.toISOString().slice(0, 10)}`"
+              class="rounded"
+            >
               <CalendarEventItem
                 :event="event"
                 view="month"
-                :is-first-day="isFirstDay(day, event)"
-                :is-last-day="isLastDay(day, event)"
-                :class="{
-                  'rounded-l rounded-r-none -mr-2 !w-[calc(100%+0.5rem)]': isFirstDay(day, event) && !isLastDay(day, event),
-                  'rounded-r rounded-l-none -ml-2 !w-[calc(100%+0.5rem)]': !isFirstDay(day, event) && isLastDay(day, event),
-                  'rounded-none -ml-2 -mr-2 !w-[calc(100%+1rem)]': !isFirstDay(day, event) && !isLastDay(day, event),
-                  'rounded': isFirstDay(day, event) && isLastDay(day, event),
-                }"
+                :current-day="day"
+                class="rounded"
                 @click="(e) => handleEventClick(event, e)"
-              >
-                <div v-if="isFirstDay(day, event)" class="invisible">
-                  <span v-if="!event.allDay">
-                    {{ format(new Date(event.start), 'h:mm') }}
-                  </span>
-                  {{ event.title }}
-                </div>
-              </CalendarEventItem>
-            </template>
+              />
+            </div>
 
-            <Popover v-if="hasMore" modal>
-              <PopoverTrigger as-child>
-                <button
-                  class="mt-[var(--event-gap)] h-[var(--event-height)] w-full justify-start px-1 text-[10px] sm:px-2 sm:text-xs text-gray-600 dark:text-gray-400 hover:bg-gray-100 dark:hover:bg-gray-800 rounded-md transition-colors"
-                  @click.stop
-                >
-                  <span>
-                    + {{ remainingCount }}
-                    <span class="max-sm:sr-only">more</span>
-                  </span>
-                </button>
-              </PopoverTrigger>
-              <PopoverContent
-                align="center"
-                class="w-52 p-3 bg-white dark:bg-gray-900 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700"
-                :style="{
-                  '--event-height': `${eventHeight}px`,
-                }"
+            <div v-show="getAllEventsForDay(events, day).length === 0" class="flex flex-col items-center justify-center gap-1 text-muted flex-1">
+              <UIcon name="i-lucide-calendar-off" class="w-6 h-6" />
+              <span class="text-md text-muted">
+                {{ isToday(day) ? 'No events today' : 'No events' }}
+              </span>
+            </div>
+            <UPopover v-if="hasMore">
+              <UButton
+                variant="ghost"
+                class="w-full justify-start px-1 text-[10px] sm:px-2 sm:text-xs text-muted hover:bg-accented rounded-md transition-colors"
+                :style="{ marginTop: `${eventGap}px`, height: `${computedEventHeight}px` }"
+                @click.stop
               >
-                <div class="space-y-2">
-                  <div class="text-sm font-medium">
-                    {{ format(day, 'EEE d') }}
-                  </div>
-                  <div class="space-y-1">
-                    <CalendarEventItem
-                      v-for="event in sortEvents(allEvents)"
-                      :key="event.id"
-                      :event="event"
-                      view="month"
-                      :is-first-day="isFirstDay(day, event)"
-                      :is-last-day="isLastDay(day, event)"
-                      @click="(e) => handleEventClick(event, e)"
-                    />
+                <span>
+                  + {{ remainingCount }}
+                  <span class="max-sm:sr-only">more</span>
+                </span>
+              </UButton>
+              <template #panel>
+                <div
+                  class="w-52 p-3 bg-default rounded-lg shadow-lg border border-default"
+                >
+                  <div class="space-y-2">
+                    <div class="text-sm font-medium">
+                      <NuxtTime
+                        :datetime="day"
+                        weekday="short"
+                        day="numeric"
+                      />
+                    </div>
+                    <div class="space-y-1">
+                      <div
+                        v-for="event in sortEvents(getAllEventsForDay(events, day))"
+                        v-show="!isPlaceholderEvent(event)"
+                        :key="event.id"
+                      >
+                        <CalendarEventItem
+                          :event="event"
+                          view="month"
+                          :current-day="day"
+                          @click="(e) => handleEventClick(event, e)"
+                        />
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </PopoverContent>
-            </Popover>
+              </template>
+            </UPopover>
           </div>
         </div>
       </div>

@@ -3,12 +3,16 @@ export default defineAppConfig({
   ui: {
     colors: {
       primary: "cyan",
+      secondary: "blue",
       neutral: "slate",
     },
     button: {
       defaultVariants: {
-        // Set default button color to neutral
-        // color: 'neutral'
+      },
+    },
+    toaster: {
+      defaultVariants: {
+        position: "bottom-center",
       },
     },
   },
