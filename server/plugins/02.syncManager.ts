@@ -3,7 +3,8 @@ import type { H3Event } from "h3";
 import { consola } from "consola";
 import { defineNitroPlugin } from "nitropack/runtime/plugin";
 
-import type { Integration } from "../../app/types/database";
+import type { CalendarEvent } from "../../app/types/calendar";
+import type { Integration, ShoppingListWithItemsAndCount, TodoWithUser } from "../../app/types/database";
 import type {
   ServerCalendarIntegrationService,
   ServerShoppingIntegrationService,
@@ -125,7 +126,7 @@ async function performIntegrationSync(
   const syncStart = new Date();
   let success = false;
   let error: string | undefined;
-  let data: unknown = null;
+  let data: CalendarEvent[] | ShoppingListWithItemsAndCount[] | TodoWithUser[] | null = null;
 
   try {
     consola.debug(`Sync Manager: Syncing integration ${integration.name} (${integration.id})...`);
@@ -163,7 +164,7 @@ async function performIntegrationSync(
       integrationId: integration.id,
       integrationType: integration.type,
       service: integration.service,
-      data,
+      data: data || [],
       timestamp: syncStart,
       success,
       error,

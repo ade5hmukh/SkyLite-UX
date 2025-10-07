@@ -1,7 +1,7 @@
 import consola from "consola";
 
 import type { CalendarEvent } from "~/types/calendar";
-import type { ShoppingListWithItemsAndCount, TodoWithUser } from "~/types/database";
+import type { CreateShoppingListItemInput, CreateTodoInput, ShoppingListItem, ShoppingListWithItemsAndCount, Todo, TodoWithUser, UpdateShoppingListItemInput, UpdateTodoInput } from "~/types/database";
 import type { DialogField, IntegrationSettingsField } from "~/types/ui";
 
 import { getServiceFactories, integrationConfigs } from "~/integrations/integrationConfig";
@@ -98,23 +98,23 @@ export async function createIntegrationService(integration: Integration): Promis
 
 export type ServerShoppingIntegrationService = {
   getShoppingLists: () => Promise<ShoppingListWithItemsAndCount[]>;
-  addItemToList?: (listId: string, item: unknown) => Promise<unknown>;
-  updateShoppingListItem?: (itemId: string, updates: unknown) => Promise<unknown>;
+  addItemToList?: (listId: string, item: CreateShoppingListItemInput) => Promise<ShoppingListItem>;
+  updateShoppingListItem?: (itemId: string, updates: UpdateShoppingListItemInput) => Promise<ShoppingListItem>;
   toggleItem?: (itemId: string, checked: boolean) => Promise<void>;
   deleteShoppingListItems?: (ids: string[]) => Promise<void>;
 };
 
 export type ServerTodoIntegrationService = {
   getTodos: () => Promise<TodoWithUser[]>;
-  addTodo?: (todo: unknown) => Promise<unknown>;
-  updateTodo?: (todoId: string, updates: unknown) => Promise<unknown>;
+  addTodo?: (todo: CreateTodoInput) => Promise<Todo>;
+  updateTodo?: (todoId: string, updates: UpdateTodoInput) => Promise<Todo>;
   deleteTodo?: (todoId: string) => Promise<void>;
 };
 
 export type ServerCalendarIntegrationService = {
   getEvents: () => Promise<CalendarEvent[]>;
-  addEvent?: (event: unknown) => Promise<unknown>;
-  updateEvent?: (eventId: string, updates: unknown) => Promise<unknown>;
+  addEvent?: (event: Omit<CalendarEvent, "id">) => Promise<CalendarEvent>;
+  updateEvent?: (eventId: string, updates: Partial<CalendarEvent>) => Promise<CalendarEvent>;
   deleteEvent?: (eventId: string) => Promise<void>;
 };
 

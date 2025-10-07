@@ -3,7 +3,7 @@ import type { JsonObject } from "type-fest";
 
 import { consola } from "consola";
 
-import type { CreateShoppingListInput, CreateShoppingListItemInput, Integration, RawIntegrationItem, RawIntegrationList, ShoppingList, ShoppingListItem } from "~/types/database";
+import type { CreateShoppingListInput, CreateShoppingListItemInput, Integration, RawIntegrationItem, ShoppingList, ShoppingListItem } from "~/types/database";
 import type { DialogField, ShoppingListWithIntegration } from "~/types/ui";
 
 import GlobalFloatingActionButton from "~/components/global/globalFloatingActionButton.vue";
@@ -65,31 +65,6 @@ const editingItem = ref<ShoppingListItem | null>(null);
 
 const { showError, showWarning } = useAlertToast();
 
-function normalizeIntegrationList(list: RawIntegrationList): ShoppingList {
-  const integration = (shoppingIntegrations.value as readonly Integration[]).find(i => i.id === list.integrationId);
-
-  const hasClearCapability = integration && getIntegrationCapabilities(integration.id).includes("clear_items");
-
-  const filteredItems = Array.isArray(list.items)
-    ? list.items
-        .map(normalizeIntegrationItem)
-        .filter(item => hasClearCapability || !item.checked)
-    : [];
-
-  return {
-    id: String(list.id),
-    name: String(list.name ?? ""),
-    order: Number(list.order ?? 0),
-    createdAt: getDateWithFallback(list.createdAt),
-    updatedAt: getDateWithFallback(list.updatedAt),
-    items: filteredItems,
-    source: "integration",
-    integrationId: list.integrationId ?? undefined,
-    integrationName: integration?.name || list.integrationName || "Integration",
-    integrationIcon: integration ? getIntegrationIconUrl(integration) : list.integrationIcon ?? null,
-  };
-}
-
 function normalizeIntegrationItem(item: RawIntegrationItem): ShoppingListItem {
   return {
     id: String(item.id),
@@ -115,7 +90,31 @@ const nativeListsWithSource = computed(() => {
 });
 
 const integrationListsWithSource = computed(() => {
-  return (integrationLists.value ?? []).map(normalizeIntegrationList) as ShoppingList[];
+  const lists = integrationLists.value ?? [];
+  const result: ShoppingList[] = [];
+  for (const list of lists) {
+    const integration = (shoppingIntegrations.value as readonly Integration[]).find(i => i.id === list.integrationId);
+    const hasClearCapability = integration && getIntegrationCapabilities(integration.id).includes("clear_items");
+    const filteredItems = Array.isArray(list.items)
+      ? list.items
+          .map(normalizeIntegrationItem)
+          .filter(item => hasClearCapability || !item.checked)
+      : [];
+
+    result.push({
+      id: String(list.id),
+      name: String(list.name ?? ""),
+      order: Number(list.order ?? 0),
+      createdAt: getDateWithFallback(list.createdAt),
+      updatedAt: getDateWithFallback(list.updatedAt),
+      items: filteredItems,
+      source: "integration",
+      integrationId: list.integrationId ?? undefined,
+      integrationName: integration?.name || list.integrationName || "Integration",
+      integrationIcon: integration ? getIntegrationIconUrl(integration) : list.integrationIcon ?? null,
+    });
+  }
+  return result;
 });
 
 const allShoppingLists = computed(() => {
@@ -183,7 +182,6 @@ async function handleListSave(listData: CreateShoppingListInput) {
 
       try {
         await updateShoppingList(editingList.value.id, listData);
-        consola.debug("Shopping List: Shopping list updated successfully");
       }
       catch (error) {
         if (cachedLists.value && previousLists.length > 0) {
@@ -211,7 +209,6 @@ async function handleListSave(listData: CreateShoppingListInput) {
 
       try {
         const createdList = await createShoppingList(listData);
-        consola.debug("Shopping List: Shopping list created successfully");
 
         if (cachedLists.value && Array.isArray(cachedLists.value)) {
           const tempIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === newList.id);
@@ -251,7 +248,6 @@ async function handleListDelete() {
 
     try {
       await deleteShoppingList(editingList.value.id);
-      consola.debug("Shopping List: Shopping list deleted successfully");
       listDialog.value = false;
       editingList.value = null;
     }
@@ -319,7 +315,6 @@ async function handleItemSave(itemData: CreateShoppingListItemInput) {
 
         try {
           await _updateIntegrationItem(targetList.integrationId, editingItem.value.id, itemData);
-          consola.debug("Shopping List: Integration shopping list item updated successfully");
         }
         catch (error) {
           if (integrationLists && previousLists.length > 0) {
@@ -361,7 +356,6 @@ async function handleItemSave(itemData: CreateShoppingListItemInput) {
 
         try {
           await updateShoppingListItem(editingItem.value.id, itemData);
-          consola.debug("Shopping List: Native shopping list item updated successfully");
         }
         catch (error) {
           if (cachedLists.value && previousLists.length > 0) {
@@ -375,6 +369,7 @@ async function handleItemSave(itemData: CreateShoppingListItemInput) {
       if (isIntegrationList && targetList?.integrationId) {
         const integrationLists = getCachedIntegrationData("shopping", targetList.integrationId) as ShoppingList[];
         const previousLists = integrationLists ? [...integrationLists] : [];
+        let tempItemId: string | null = null;
 
         if (integrationLists && Array.isArray(integrationLists)) {
           const listIndex = integrationLists.findIndex((l: ShoppingList) => l.id === targetList!.id);
@@ -395,6 +390,8 @@ async function handleItemSave(itemData: CreateShoppingListItemInput) {
                 integrationId: targetList.integrationId,
               };
 
+              tempItemId = newItem.id;
+
               const currentItems = list.items || [];
               const updatedItems = [...currentItems, newItem];
               const updatedList = {
@@ -411,8 +408,29 @@ async function handleItemSave(itemData: CreateShoppingListItemInput) {
         }
 
         try {
-          await _addItemToIntegrationList(targetList.integrationId, selectedListId.value, itemData);
-          consola.debug("Shopping List: Integration shopping list item created successfully");
+          const createdItem = await _addItemToIntegrationList(targetList.integrationId, selectedListId.value, itemData);
+
+          if (tempItemId) {
+            const freshIntegrationLists = getCachedIntegrationData("shopping", targetList.integrationId) as ShoppingList[];
+
+            if (freshIntegrationLists && Array.isArray(freshIntegrationLists)) {
+              const listIndex = freshIntegrationLists.findIndex((l: ShoppingList) => l.id === targetList!.id);
+              if (listIndex !== -1) {
+                const list = freshIntegrationLists[listIndex];
+                if (list && list.items) {
+                  const tempItemIndex = list.items.findIndex((item: ShoppingListItem) => item.id === tempItemId);
+                  if (tempItemIndex !== -1) {
+                    const updatedItems = [...list.items];
+                    updatedItems[tempItemIndex] = createdItem;
+                    const updatedList = { ...list, items: updatedItems };
+                    const updatedLists = [...freshIntegrationLists];
+                    updatedLists[listIndex] = updatedList;
+                    updateIntegrationCache("shopping", targetList.integrationId, updatedLists);
+                  }
+                }
+              }
+            }
+          }
         }
         catch (error) {
           if (integrationLists && previousLists.length > 0) {
@@ -458,7 +476,6 @@ async function handleItemSave(itemData: CreateShoppingListItemInput) {
 
         try {
           const createdItem = await addItemToList(targetList!.id, itemData);
-          consola.debug("Shopping List: Native shopping list item created successfully");
 
           if (cachedLists.value && Array.isArray(cachedLists.value)) {
             const listIndex = cachedLists.value.findIndex((l: ShoppingList) => l.id === targetList!.id);
@@ -557,7 +574,6 @@ async function handleToggleItem(itemId: string, checked: boolean) {
 
       try {
         await _toggleIntegrationItem(targetList.integrationId, itemId, checked);
-        consola.debug("Shopping List: Integration item toggled successfully");
       }
       catch (error) {
         if (integrationLists && previousLists.length > 0) {
@@ -591,7 +607,6 @@ async function handleToggleItem(itemId: string, checked: boolean) {
 
       try {
         await updateShoppingListItem(itemId, { checked });
-        consola.debug("Shopping List: Native item toggled successfully");
       }
       catch (error) {
         if (cachedLists.value && previousLists.length > 0) {
@@ -622,7 +637,6 @@ async function handleDeleteList(listId: string) {
 
       try {
         await deleteShoppingList(listId);
-        consola.debug("Shopping List: Shopping list deleted successfully");
       }
       catch (error) {
         if (cachedLists.value && previousLists.length > 0) {
@@ -684,7 +698,6 @@ async function handleReorderItem(itemId: string, direction: "up" | "down") {
 
       try {
         await reorderItem(itemId, direction);
-        consola.debug("Shopping List: Item reordered successfully");
       }
       catch (error) {
         if (cachedLists.value && previousLists.length > 0) {
@@ -746,7 +759,6 @@ async function handleReorderList(listId: string, direction: "up" | "down") {
 
       try {
         await reorderShoppingList(listId, direction);
-        consola.debug("Shopping List: List reordered successfully");
       }
       catch (error) {
         if (cachedLists.value && previousLists.length > 0) {
@@ -812,7 +824,6 @@ async function handleClearCompleted(listId: string) {
 
       try {
         await clearIntegrationCompletedItems(list.integrationId, listId, completedItemIds);
-        consola.debug("Shopping List: Integration completed items cleared successfully");
       }
       catch (error) {
         if (integrationLists && previousLists.length > 0) {
@@ -856,7 +867,6 @@ async function handleClearCompleted(listId: string) {
 
       try {
         await deleteCompletedItems(listId, completedItemIds);
-        consola.debug("Shopping List: Native completed items cleared successfully");
       }
       catch (error) {
         if (cachedLists.value && previousLists.length > 0) {

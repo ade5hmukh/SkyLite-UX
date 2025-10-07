@@ -7,9 +7,13 @@ import type { ConnectionTestResult } from "~/types/ui";
 import SettingsIntegrationDialog from "~/components/settings/settingsIntegrationDialog.vue";
 import SettingsUserDialog from "~/components/settings/settingsUserDialog.vue";
 import { integrationServices } from "~/plugins/02.appInit";
+import { getSlogan } from "~/types/global";
 import { createIntegrationService, integrationRegistry } from "~/types/integrations";
 
 const { users, loading, error, createUser, deleteUser, updateUser } = useUsers();
+
+// Logo loading state
+const logoLoaded = ref(true);
 const { integrations, loading: integrationsLoading, servicesInitializing, createIntegration, updateIntegration, deleteIntegration } = useIntegrations();
 const { checkIntegrationCache, purgeIntegrationCache, triggerImmediateSync } = useSyncManager();
 
@@ -630,7 +634,7 @@ function getIntegrationIconUrl(integration: Integration) {
           </div>
         </div>
 
-        <div class="bg-default rounded-lg shadow-sm border border-default p-6">
+        <div class="bg-default rounded-lg shadow-sm border border-default p-6 mb-6">
           <h2 class="text-lg font-semibold text-highlighted mb-4">
             Application Settings
           </h2>
@@ -670,6 +674,47 @@ function getIntegrationIconUrl(integration: Integration) {
                 aria-label="Toggle notifications"
               />
             </div>
+          </div>
+        </div>
+
+        <div class="bg-default rounded-lg shadow-sm border border-default p-6">
+          <h2 class="text-lg font-semibold text-highlighted mb-4">
+            About
+          </h2>
+          <div class="flex items-center gap-4 mb-6 p-4 bg-muted/30 rounded-lg border border-muted">
+            <div class="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center">
+              <img
+                v-if="logoLoaded"
+                src="/skylite.svg"
+                alt="SkyLite UX Logo"
+                class="w-8 h-8"
+                style="object-fit: contain"
+                @error="logoLoaded = false"
+              >
+              <UIcon
+                v-else
+                name="i-lucide-sun"
+                class="w-6 h-6 text-primary"
+              />
+            </div>
+            <div class="flex-1">
+              <div class="flex items-center justify-between mb-1">
+                <h3 class="text-lg font-semibold text-highlighted">
+                  SkyLite UX
+                </h3>
+                <span class="text-xs font-mono text-primary bg-primary/10 border border-primary/20 px-2 py-1 rounded-md">
+                  v{{ $config.public.skyliteVersion }}
+                </span>
+              </div>
+              <p class="text-sm text-muted">
+                {{ getSlogan() }}
+              </p>
+            </div>
+          </div>
+          <div class="mt-6 pt-4 border-t border-muted">
+            <p class="text-xs text-muted text-center">
+              Built with ❤️ by the community using Nuxt {{ $config.public.nuxtVersion.replace("^", "") }} & Nuxt UI {{ $config.public.nuxtUiVersion.replace("^", "") }}
+            </p>
           </div>
         </div>
       </div>

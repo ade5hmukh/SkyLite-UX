@@ -1,5 +1,7 @@
 import { consola } from "consola";
 
+import type { CalendarEvent } from "~/types/calendar";
+import type { ShoppingListWithItemsAndCount, TodoWithUser } from "~/types/database";
 import type { EventSourceStatus, IntegrationSyncData, SyncConnectionStatus, SyncEvent } from "~/types/sync";
 
 export default defineNuxtPlugin(() => {
@@ -104,14 +106,14 @@ export default defineNuxtPlugin(() => {
         case "integration_sync":
           if (event.integrationId) {
             syncData.value[event.integrationId] = {
-              data: event.data,
+              data: event.data || [],
               lastSync: new Date(event.timestamp),
               success: event.success || false,
               error: event.error,
             };
 
             if (event.integrationType && event.success) {
-              updateIntegrationCache(event.integrationType, event.integrationId, event.data);
+              updateIntegrationCache(event.integrationType, event.integrationId, event.data || []);
             }
 
             consola.debug(`Sync Manager: Updated sync data for integration ${event.integrationId}:`, {
@@ -135,7 +137,7 @@ export default defineNuxtPlugin(() => {
     }
   });
 
-  function updateIntegrationCache(integrationType: string, integrationId: string, data: unknown) {
+  function updateIntegrationCache(integrationType: string, integrationId: string, data: CalendarEvent[] | ShoppingListWithItemsAndCount[] | TodoWithUser[]) {
     const nuxtApp = useNuxtApp();
 
     switch (integrationType) {

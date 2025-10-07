@@ -11,7 +11,7 @@ onNuxtReady(() => {
 
 <template>
   <UApp>
-    <GlobalAppLoading :is-loading="isLoading" :loading-message="loadingMessage" />
+    <GlobalAppLoading :is-loading="isLoading" :loading-message="loadingMessage || ''" />
 
     <div v-if="!dock" class="flex min-h-screen">
       <GlobalSideBar />

@@ -1,10 +1,14 @@
 import consola from "consola";
 import ical from "ical.js";
 
+import type { CalendarEvent } from "~/types/calendar";
+
 import prisma from "~/lib/prisma";
 
-function expandRecurringEvent(event: any, startDate: Date, endDate: Date): any[] {
-  const events: any[] = [];
+import type { ICalEvent } from "../../integrations/iCal/types";
+
+function expandRecurringEvent(event: CalendarEvent, startDate: Date, endDate: Date): CalendarEvent[] {
+  const events: CalendarEvent[] = [];
 
   try {
     if (!event.ical_event?.rrule) {
@@ -110,16 +114,16 @@ export default defineEventHandler(async (event) => {
       },
     });
 
-    const mappedEvents = events.map(event => ({
+    const mappedEvents: CalendarEvent[] = events.map(event => ({
       id: event.id,
       title: event.title,
-      description: event.description,
+      description: event.description || undefined,
       start: event.start,
       end: event.end,
       allDay: event.allDay,
       color: event.color as string | string[] | undefined,
-      location: event.location,
-      ical_event: event.ical_event,
+      location: event.location || undefined,
+      ical_event: event.ical_event as ICalEvent | undefined,
       users: event.users.map(ce => ce.user),
     }));
 

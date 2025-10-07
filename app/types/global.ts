@@ -1,8 +1,13 @@
 type GlobalThis = {
+  __SKYLITE_SLOGAN__?: string;
   __BROWSER_TIMEZONE__?: string;
   __TIMEZONE_REGISTERED__?: boolean;
   __TIMEZONE_SERVICE_READY__?: boolean;
 };
+
+export function getSlogan(): string | undefined {
+  return (globalThis as GlobalThis).__SKYLITE_SLOGAN__ = "Life, Organized.";
+}
 
 export function getBrowserTimezone(): string | undefined {
   return (globalThis as GlobalThis).__BROWSER_TIMEZONE__;

@@ -1,9 +1,14 @@
+import type { CalendarEvent } from "~/types/calendar";
+import type { ShoppingListWithItemsAndCount, TodoWithUser } from "~/types/database";
+
+export type SyncData = CalendarEvent[] | ShoppingListWithItemsAndCount[] | TodoWithUser[];
+
 export type SyncEvent = {
   type: "integration_sync" | "connection_established" | "sync_status" | "heartbeat";
   integrationId?: string;
   integrationType?: string;
   service?: string;
-  data?: unknown;
+  data?: SyncData;
   timestamp: Date;
   success?: boolean;
   error?: string;
@@ -14,7 +19,7 @@ export type SyncEvent = {
 
 export type IntegrationSyncData = {
   [integrationId: string]: {
-    data: unknown;
+    data: SyncData;
     lastSync: Date;
     success: boolean;
     error?: string;
@@ -66,7 +71,7 @@ export type ServerSyncEvent = {
   integrationId: string;
   integrationType: string;
   service: string;
-  data: unknown;
+  data: SyncData;
   timestamp: Date;
   success: boolean;
   error?: string;

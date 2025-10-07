@@ -1,6 +1,8 @@
+import { getSlogan } from "~/types/global";
+
 const globalState = {
   isLoading: ref(true),
-  loadingMessage: ref("Life, Organized."),
+  loadingMessage: ref(getSlogan()),
 };
 
 export function useGlobalLoading() {

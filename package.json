@@ -1,7 +1,7 @@
 {
   "name": "skylite-ux",
   "type": "module",
-  "version": "0.0.2025",
+  "version": "2025.10.0",
   "private": true,
   "scripts": {
     "dev": "nuxt dev",

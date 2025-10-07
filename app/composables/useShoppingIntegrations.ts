@@ -74,8 +74,6 @@ export function useShoppingIntegrations() {
 
     try {
       await refreshNuxtData("native-shopping-lists");
-
-      consola.debug("Use Shopping Integrations: Shopping lists refreshed successfully");
     }
     catch (err) {
       error.value = "Failed to refresh shopping lists";
@@ -112,8 +110,6 @@ export function useShoppingIntegrations() {
       if (!item) {
         throw new Error("Failed to add item to list");
       }
-
-      consola.debug(`Use Shopping Integrations: Item added to list ${listId} in integration ${integrationId}`);
       return item;
     }
     catch (err) {
@@ -138,8 +134,6 @@ export function useShoppingIntegrations() {
       if (!updatedItem) {
         throw new Error("Service does not support updating shopping list items");
       }
-
-      consola.debug(`Use Shopping Integrations: Item ${itemId} updated in integration ${integrationId}`);
       return updatedItem;
     }
     catch (err) {
@@ -156,7 +150,6 @@ export function useShoppingIntegrations() {
 
     try {
       await (service as unknown as { toggleItem?: (itemId: string, checked: boolean) => Promise<void> }).toggleItem?.(itemId, checked);
-      consola.debug(`Use Shopping Integrations: Item ${itemId} toggled in integration ${integrationId}`);
     }
     catch (err) {
       consola.error(`Use Shopping Integrations: Error toggling item ${itemId} in integration ${integrationId}:`, err);
@@ -195,7 +188,6 @@ export function useShoppingIntegrations() {
       }
 
       await (service as unknown as { deleteShoppingListItems?: (ids: string[]) => Promise<void> }).deleteShoppingListItems?.(itemsToDelete);
-      consola.debug(`Use Shopping Integrations: ${itemsToDelete.length} completed items cleared from list ${listId} in integration ${integrationId}`);
     }
     catch (err) {
       consola.error(`Use Shopping Integrations: Error clearing completed items from list ${listId} in integration ${integrationId}:`, err);

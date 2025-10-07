@@ -179,7 +179,7 @@ export type RawIntegrationItem = {
   quantity: number;
   unit: string | null;
   food: string | null;
-  integrationData?: unknown;
+  integrationData?: JsonObject;
 };
 
 export type { Priority };
