@@ -761,14 +761,20 @@ function handleSave() {
         startDate.value.year,
         startDate.value.month - 1,
         startDate.value.day,
-        0, 0, 0, 0
+        0,
+        0,
+        0,
+        0,
       ));
-      
+
       const endUTC = new Date(Date.UTC(
         endDate.value.year,
         endDate.value.month - 1,
         endDate.value.day + 1,
-        0, 0, 0, 0
+        0,
+        0,
+        0,
+        0,
       ));
 
       start = startUTC;

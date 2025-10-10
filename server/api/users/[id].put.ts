@@ -19,12 +19,14 @@ export default defineEventHandler(async (event) => {
           todoOrder: body.todoOrder ?? undefined,
         },
       }),
-      ...(body.name ? [
-        prisma.todoColumn.updateMany({
-          where: { userId: id },
-          data: { name: body.name },
-        }),
-      ] : []),
+      ...(body.name
+        ? [
+            prisma.todoColumn.updateMany({
+              where: { userId: id },
+              data: { name: body.name },
+            }),
+          ]
+        : []),
     ]);
     return updatedUser;
   }
