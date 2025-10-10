@@ -1,4 +1,8 @@
 <script setup lang="ts">
+import GlobalAppLoading from "~/components/global/globalAppLoading.vue";
+import GlobalDock from "~/components/global/globalDock.vue";
+import GlobalSideBar from "~/components/global/globalSideBar.vue";
+
 const dock = false;
 const { isLoading, loadingMessage, setLoading } = useGlobalLoading();
 
