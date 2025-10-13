@@ -3,6 +3,9 @@ import type { ICalSettings, IntegrationConfig } from "~/types/integrations";
 // This file contains all integration configurations that are used by both client and server
 import type { DialogField } from "~/types/ui";
 
+import type { GoogleCalendarSettings } from "~/server/integrations/googleCalendar/types";
+
+import { createGoogleCalendarService } from "./googleCalendar/googleCalendar";
 import { createICalService } from "./iCal/iCalendar";
 import { createMealieService, getMealieFieldsForItem } from "./mealie/mealieShoppingLists";
 import { createTandoorService, getTandoorFieldsForItem } from "./tandoor/tandoorShoppingLists";
@@ -23,9 +26,58 @@ export const integrationConfigs: IntegrationConfig[] = [
         key: "baseUrl",
         label: "URL",
         type: "url" as const,
-        placeholder: "https://example.com/calendar.ics",
+        placeholder: "https://example.com/calendar.ics or webcal://...",
         required: true,
-        description: "Your iCal URL",
+        description: "Your iCal URL (supports http://, https://, webcal://, or webcals:// protocols)",
+      },
+      {
+        key: "user",
+        label: "User",
+        type: "text" as const,
+        placeholder: "Jane Doe",
+        required: false,
+        description: "Select user(s) to link to this calendar or choose an event color",
+      },
+      {
+        key: "eventColor",
+        label: "Event Color",
+        type: "color" as const,
+        placeholder: "#06b6d4",
+        required: false,
+      },
+      {
+        key: "useUserColors",
+        label: "Use User Profile Colors",
+        type: "boolean" as const,
+        required: false,
+        description: "Use individual user profile colors for events instead of a single event color",
+      },
+    ],
+    capabilities: ["get_events"],
+    icon: "https://unpkg.com/lucide-static@latest/icons/calendar.svg",
+    files: [],
+    dialogFields: [],
+    syncInterval: 10,
+  },
+  {
+    type: "calendar",
+    service: "Google Calendar",
+    settingsFields: [
+      {
+        key: "apiKey",
+        label: "API Key",
+        type: "password" as const,
+        placeholder: "Enter your Google Calendar API key",
+        required: true,
+        description: "Your Google Calendar API key from Google Cloud Console",
+      },
+      {
+        key: "calendarId",
+        label: "Calendar ID",
+        type: "text" as const,
+        placeholder: "primary or your-calendar-id@group.calendar.google.com",
+        required: true,
+        description: "The calendar ID (use 'primary' for your main calendar)",
       },
       {
         key: "user",
@@ -196,6 +248,13 @@ const serviceFactoryMap = {
     const user = settings?.user;
     const useUserColors = settings?.useUserColors || false;
     return createICalService(_id, baseUrl, eventColor, user, useUserColors);
+  },
+  "calendar:Google Calendar": (_id: string, apiKey: string, _baseUrl: string, settings?: GoogleCalendarSettings) => {
+    const eventColor = settings?.eventColor || "#06b6d4";
+    const user = settings?.user;
+    const useUserColors = settings?.useUserColors || false;
+    const calendarId = settings?.calendarId || "";
+    return createGoogleCalendarService(_id, apiKey, calendarId, eventColor, user, useUserColors);
   },
   "shopping:mealie": createMealieService,
   "shopping:tandoor": createTandoorService,

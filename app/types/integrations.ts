@@ -58,6 +58,13 @@ export type ICalSettings = {
   useUserColors?: boolean;
 };
 
+export type GoogleCalendarSettings = {
+  eventColor?: string;
+  user?: string[];
+  useUserColors?: boolean;
+  calendarId: string;
+};
+
 export const integrationRegistry = new Map<string, IntegrationConfig>();
 
 export function registerIntegration(config: IntegrationConfig) {
@@ -88,7 +95,7 @@ export async function createIntegrationService(integration: Integration): Promis
       return null;
     }
 
-    return serviceFactory.factory(integration.id, integration.apiKey || "", integration.baseUrl || "", integration.settings as ICalSettings);
+    return serviceFactory.factory(integration.id, integration.apiKey || "", integration.baseUrl || "", integration.settings as ICalSettings | GoogleCalendarSettings);
   }
   catch (error) {
     consola.error(`Failed to create integration service for ${integration.type}:${integration.service}:`, error);

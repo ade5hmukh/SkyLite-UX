@@ -1,0 +1,10 @@
+-- AlterTable
+ALTER TABLE "users" ADD COLUMN "points" INTEGER NOT NULL DEFAULT 0;
+
+-- AlterTable
+ALTER TABLE "todos" ADD COLUMN "isChore" BOOLEAN NOT NULL DEFAULT false,
+ADD COLUMN "choreType" TEXT,
+ADD COLUMN "choreIcon" TEXT,
+ADD COLUMN "points" INTEGER NOT NULL DEFAULT 0;
+
+

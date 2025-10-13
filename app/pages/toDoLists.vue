@@ -3,7 +3,10 @@ import { consola } from "consola";
 
 import type { BaseListItem, Todo, TodoColumn, TodoList, TodoListItem } from "~/types/database";
 import type { TodoListWithIntegration } from "~/types/ui";
+import type { ChoreTemplate } from "~/types/chores";
 
+import ChoreCelebration from "~/components/chores/choreCelebration.vue";
+import ChorePickerDialog from "~/components/chores/chorePickerDialog.vue";
 import GlobalFloatingActionButton from "~/components/global/globalFloatingActionButton.vue";
 import GlobalList from "~/components/global/globalList.vue";
 import TodoColumnDialog from "~/components/todos/todoColumnDialog.vue";
@@ -32,10 +35,13 @@ const mutableTodoColumns = computed(() => todoColumns.value?.map(col => ({
 
 const todoItemDialog = ref(false);
 const todoColumnDialog = ref(false);
+const chorePickerDialog = ref(false);
 const editingTodo = ref<TodoListItem | null>(null);
 const editingColumn = ref<TodoList | null>(null);
 const reorderingTodos = ref(new Set<string>());
 const reorderingColumns = ref(new Set<string>());
+const selectedColumnForChore = ref<string | null>(null);
+const choreToComplete = ref<{ chore: Todo; userId: string | null } | null>(null);
 
 const editingTodoTyped = computed<TodoListItem | undefined>(() =>
   editingTodo.value as TodoListItem | undefined,
@@ -99,7 +105,7 @@ function openEditTodo(item: BaseListItem) {
   todoItemDialog.value = true;
 }
 
-async function handleTodoSave(todoData: TodoListItem) {
+async function handleTodoSave(todoData: TodoListItem & { isChore?: boolean; choreType?: string; choreIcon?: string; points?: number }) {
   try {
     if (editingTodo.value?.id) {
       const { data: cachedTodos } = useNuxtData("todos");
@@ -147,7 +153,7 @@ async function handleTodoSave(todoData: TodoListItem) {
     else {
       const { data: cachedTodos } = useNuxtData("todos");
       const previousTodos = cachedTodos.value ? [...cachedTodos.value] : [];
-      const newTodo: Todo = {
+      const newTodo: Todo & { isChore?: boolean; choreType?: string; choreIcon?: string; points?: number } = {
         id: `temp-${Date.now()}`,
         title: todoData.name,
         description: todoData.description,
@@ -156,6 +162,10 @@ async function handleTodoSave(todoData: TodoListItem) {
         completed: todoData.checked,
         order: todoData.order,
         todoColumnId: todoData.todoColumnId,
+        isChore: todoData.isChore || false,
+        choreType: todoData.choreType || null,
+        choreIcon: todoData.choreIcon || null,
+        points: todoData.points || 0,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -174,6 +184,10 @@ async function handleTodoSave(todoData: TodoListItem) {
           completed: todoData.checked,
           order: todoData.order,
           todoColumnId: todoData.todoColumnId,
+          isChore: todoData.isChore || false,
+          choreType: todoData.choreType || null,
+          choreIcon: todoData.choreIcon || null,
+          points: todoData.points || 0,
         });
         consola.debug("Todo Lists: Todo created successfully");
 
@@ -493,10 +507,22 @@ async function handleToggleTodo(itemId: string, completed: boolean) {
     const { data: cachedTodos } = useNuxtData("todos");
     const previousTodos = cachedTodos.value ? [...cachedTodos.value] : [];
 
+    let choreInfo: { chore: Todo; userId: string | null } | null = null;
+
     if (cachedTodos.value && Array.isArray(cachedTodos.value)) {
       const todoIndex = cachedTodos.value.findIndex((t: Todo) => t.id === itemId);
       if (todoIndex !== -1) {
         const currentTodo = cachedTodos.value[todoIndex];
+        
+        // Check if this is a chore being completed
+        if (completed && currentTodo.isChore && currentTodo.points > 0) {
+          const todoColumn = todoColumns.value?.find(c => c.id === currentTodo.todoColumnId);
+          choreInfo = { 
+            chore: currentTodo, 
+            userId: todoColumn?.userId || null,
+          };
+        }
+
         const updatedTodo = { ...currentTodo, completed };
         const updatedTodos = [...cachedTodos.value];
         updatedTodos[todoIndex] = updatedTodo;
@@ -507,6 +533,23 @@ async function handleToggleTodo(itemId: string, completed: boolean) {
     try {
       await toggleTodo(itemId, completed);
       consola.debug("Todo Lists: Todo toggled successfully");
+
+      // If this was a chore completion, award points and show celebration
+      if (choreInfo && choreInfo.userId) {
+        try {
+          await $fetch(`/api/users/${choreInfo.userId}/add-points`, {
+            method: "POST",
+            body: { points: choreInfo.chore.points },
+          });
+          consola.debug(`Awarded ${choreInfo.chore.points} points to user ${choreInfo.userId}`);
+          
+          // Show celebration animation
+          choreToComplete.value = choreInfo;
+        }
+        catch (pointsError) {
+          consola.error("Failed to award points:", pointsError);
+        }
+      }
     }
     catch (error) {
       if (cachedTodos.value && previousTodos.length > 0) {
@@ -519,12 +562,59 @@ async function handleToggleTodo(itemId: string, completed: boolean) {
     consola.error("Todo Lists: Failed to toggle todo:", error);
   }
 }
+
+function openChorePickerForColumn(columnId: string) {
+  selectedColumnForChore.value = columnId;
+  chorePickerDialog.value = true;
+}
+
+async function handleChoreSelected(chore: ChoreTemplate) {
+  if (!selectedColumnForChore.value) return;
+
+  try {
+    await handleTodoSave({
+      name: chore.title,
+      description: chore.description,
+      priority: "MEDIUM",
+      dueDate: null,
+      checked: false,
+      order: 0,
+      todoColumnId: selectedColumnForChore.value,
+      shoppingListId: selectedColumnForChore.value,
+      notes: null,
+      isChore: true,
+      choreType: chore.id,
+      choreIcon: chore.icon,
+      points: chore.points,
+    } as TodoListItem & { isChore: boolean; choreType: string; choreIcon: string; points: number });
+    
+    selectedColumnForChore.value = null;
+  }
+  catch (error) {
+    consola.error("Failed to create chore:", error);
+  }
+}
+
+function handleCelebrationComplete() {
+  choreToComplete.value = null;
+}
 </script>
 
 <template>
   <div class="flex h-[calc(100vh-2rem)] w-full flex-col rounded-lg">
     <div class="py-5 sm:px-4 sticky top-0 z-40 bg-default border-b border-default">
-      <GlobalDateHeader />
+      <div class="flex items-center justify-between gap-4 mb-4">
+        <GlobalDateHeader />
+        <UButton
+          color="primary"
+          variant="soft"
+          size="sm"
+          icon="i-lucide-sparkles"
+          @click="chorePickerDialog = true; selectedColumnForChore = todoColumns?.[0]?.id || null"
+        >
+          Add Chore
+        </UButton>
+      </div>
     </div>
 
     <div class="flex flex-1 flex-col min-h-0 p-4">
@@ -576,6 +666,19 @@ async function handleToggleTodo(itemId: string, completed: boolean) {
       @close="todoColumnDialog = false; editingColumn = null"
       @save="handleColumnSave"
       @delete="handleColumnDelete"
+    />
+
+    <ChorePickerDialog
+      :is-open="chorePickerDialog"
+      @close="chorePickerDialog = false; selectedColumnForChore = null"
+      @select-chore="handleChoreSelected"
+    />
+
+    <ChoreCelebration
+      v-if="choreToComplete"
+      :points="choreToComplete.chore.points"
+      :chore-name="choreToComplete.chore.title"
+      @complete="handleCelebrationComplete"
     />
   </div>
 </template>

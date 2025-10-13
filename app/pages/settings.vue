@@ -482,9 +482,15 @@ function getIntegrationIconUrl(integration: Integration) {
                   :alt="user.name"
                 >
                 <div class="flex-1 min-w-0">
-                  <p class="font-medium text-highlighted truncate">
-                    {{ user.name }}
-                  </p>
+                  <div class="flex items-center gap-2">
+                    <p class="font-medium text-highlighted truncate">
+                      {{ user.name }}
+                    </p>
+                    <div v-if="user.points > 0" class="flex items-center gap-1 bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 px-2 py-0.5 rounded-full text-xs font-bold">
+                      <UIcon name="i-lucide-star" class="h-3 w-3" />
+                      {{ user.points }}
+                    </div>
+                  </div>
                   <p v-if="user.email" class="text-sm text-muted truncate">
                     {{ user.email }}
                   </p>

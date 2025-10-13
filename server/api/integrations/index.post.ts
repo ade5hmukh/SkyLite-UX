@@ -39,6 +39,11 @@ export default defineEventHandler(async (event) => {
           return !type;
         if (field.key === "service")
           return !service;
+        // Check settings object for other required fields
+        if (settings && typeof settings === "object" && field.key in settings) {
+          const value = settings[field.key as keyof typeof settings];
+          return !value || (typeof value === "string" && !value.trim());
+        }
         return false;
       })
       .map(field => field.label);

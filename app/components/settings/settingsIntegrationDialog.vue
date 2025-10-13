@@ -240,6 +240,20 @@ async function handleSave() {
   try {
     const integrationName = name.value.trim() || generateUniqueName(service.value, props.existingIntegrations);
 
+    // Build settings object from all settingsData fields except apiKey and baseUrl
+    const settings: Record<string, unknown> = {};
+    for (const [key, value] of Object.entries(settingsData.value)) {
+      if (key !== "apiKey" && key !== "baseUrl") {
+        settings[key] = value;
+      }
+    }
+    // Ensure default values for common calendar fields
+    if (type.value === "calendar") {
+      settings.user = settings.user || [];
+      settings.eventColor = settings.eventColor || "#06b6d4";
+      settings.useUserColors = Boolean(settings.useUserColors);
+    }
+
     const integrationData = {
       name: integrationName,
       type: type.value,
@@ -248,11 +262,7 @@ async function handleSave() {
       baseUrl: null as string | null,
       icon: null,
       enabled: enabled.value,
-      settings: {
-        user: settingsData.value.user || [],
-        eventColor: settingsData.value.eventColor || "#06b6d4",
-        useUserColors: Boolean(settingsData.value.useUserColors),
-      },
+      settings,
       createdAt: new Date(),
       updatedAt: new Date(),
     };

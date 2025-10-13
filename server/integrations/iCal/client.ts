@@ -6,8 +6,29 @@ import type { ICalEvent } from "./types";
 export class ICalServerService {
   constructor(private integrationId: string, private url: string) {}
 
+  private normalizeUrl(url: string): string {
+    // Convert webcal:// to https:// and webcals:// to https://
+    if (url.startsWith("webcal://")) {
+      return url.replace("webcal://", "https://");
+    }
+    if (url.startsWith("webcals://")) {
+      return url.replace("webcals://", "https://");
+    }
+    return url;
+  }
+
   async fetchEventsFromUrl(url: string): Promise<ICalEvent[]> {
-    const response = await fetch(url);
+    const normalizedUrl = this.normalizeUrl(url);
+    consola.debug(`ICalServerService: Fetching events from ${normalizedUrl} (original: ${url})`);
+    
+    const response = await fetch(normalizedUrl);
+    
+    if (!response.ok) {
+      const errorMessage = `Failed to fetch calendar: ${response.status} ${response.statusText}`;
+      consola.error(`ICalServerService: ${errorMessage}`);
+      throw new Error(errorMessage);
+    }
+    
     const icalData = await response.text();
     const jcalData = ical.parse(icalData);
     const vcalendar = new ical.Component(jcalData);
