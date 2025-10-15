@@ -3,10 +3,8 @@ import { consola } from "consola";
 
 import type { BaseListItem, Todo, TodoColumn, TodoList, TodoListItem } from "~/types/database";
 import type { TodoListWithIntegration } from "~/types/ui";
-import type { ChoreTemplate } from "~/types/chores";
 
 import ChoreCelebration from "~/components/chores/choreCelebration.vue";
-import ChorePickerDialog from "~/components/chores/chorePickerDialog.vue";
 import GlobalFloatingActionButton from "~/components/global/globalFloatingActionButton.vue";
 import GlobalList from "~/components/global/globalList.vue";
 import TodoColumnDialog from "~/components/todos/todoColumnDialog.vue";
@@ -35,12 +33,10 @@ const mutableTodoColumns = computed(() => todoColumns.value?.map(col => ({
 
 const todoItemDialog = ref(false);
 const todoColumnDialog = ref(false);
-const chorePickerDialog = ref(false);
 const editingTodo = ref<TodoListItem | null>(null);
 const editingColumn = ref<TodoList | null>(null);
 const reorderingTodos = ref(new Set<string>());
 const reorderingColumns = ref(new Set<string>());
-const selectedColumnForChore = ref<string | null>(null);
 const choreToComplete = ref<{ chore: Todo; userId: string | null } | null>(null);
 
 const editingTodoTyped = computed<TodoListItem | undefined>(() =>
@@ -59,6 +55,12 @@ const todoLists = computed<TodoListWithIntegration[]>(() => {
     updatedAt: parseStableDate(column.updatedAt),
     isDefault: column.isDefault,
     source: "native" as const,
+    user: column.user ? {
+      id: column.user.id,
+      name: column.user.name,
+      avatar: column.user.avatar,
+      points: column.user.points || 0,
+    } : undefined,
     items: todos.value!
       .filter(todo => todo.todoColumnId === column.id)
       .sort((a, b) => (a.order || 0) - (b.order || 0))
@@ -514,8 +516,8 @@ async function handleToggleTodo(itemId: string, completed: boolean) {
       if (todoIndex !== -1) {
         const currentTodo = cachedTodos.value[todoIndex];
         
-        // Check if this is a chore being completed
-        if (completed && currentTodo.isChore && currentTodo.points > 0) {
+        // Check if this is a chore/todo with points being completed
+        if (completed && currentTodo.points > 0) {
           const todoColumn = todoColumns.value?.find(c => c.id === currentTodo.todoColumnId);
           choreInfo = { 
             chore: currentTodo, 
@@ -534,20 +536,26 @@ async function handleToggleTodo(itemId: string, completed: boolean) {
       await toggleTodo(itemId, completed);
       consola.debug("Todo Lists: Todo toggled successfully");
 
-      // If this was a chore completion, award points and show celebration
-      if (choreInfo && choreInfo.userId) {
-        try {
-          await $fetch(`/api/users/${choreInfo.userId}/add-points`, {
-            method: "POST",
-            body: { points: choreInfo.chore.points },
-          });
-          consola.debug(`Awarded ${choreInfo.chore.points} points to user ${choreInfo.userId}`);
-          
-          // Show celebration animation
-          choreToComplete.value = choreInfo;
+      // If this was a chore/todo with points, award points and show celebration
+      if (choreInfo) {
+        // Show celebration animation immediately
+        choreToComplete.value = choreInfo;
+        
+        // Award points to user if column has a user assigned
+        if (choreInfo.userId) {
+          try {
+            await $fetch(`/api/users/${choreInfo.userId}/add-points`, {
+              method: "POST",
+              body: { points: choreInfo.chore.points },
+            });
+            consola.debug(`Awarded ${choreInfo.chore.points} points to user ${choreInfo.userId}`);
+          }
+          catch (pointsError) {
+            consola.error("Failed to award points:", pointsError);
+          }
         }
-        catch (pointsError) {
-          consola.error("Failed to award points:", pointsError);
+        else {
+          consola.debug(`Celebration shown for ${choreInfo.chore.points} points (no user assigned to column)`);
         }
       }
     }
@@ -563,38 +571,6 @@ async function handleToggleTodo(itemId: string, completed: boolean) {
   }
 }
 
-function openChorePickerForColumn(columnId: string) {
-  selectedColumnForChore.value = columnId;
-  chorePickerDialog.value = true;
-}
-
-async function handleChoreSelected(chore: ChoreTemplate) {
-  if (!selectedColumnForChore.value) return;
-
-  try {
-    await handleTodoSave({
-      name: chore.title,
-      description: chore.description,
-      priority: "MEDIUM",
-      dueDate: null,
-      checked: false,
-      order: 0,
-      todoColumnId: selectedColumnForChore.value,
-      shoppingListId: selectedColumnForChore.value,
-      notes: null,
-      isChore: true,
-      choreType: chore.id,
-      choreIcon: chore.icon,
-      points: chore.points,
-    } as TodoListItem & { isChore: boolean; choreType: string; choreIcon: string; points: number });
-    
-    selectedColumnForChore.value = null;
-  }
-  catch (error) {
-    consola.error("Failed to create chore:", error);
-  }
-}
-
 function handleCelebrationComplete() {
   choreToComplete.value = null;
 }
@@ -605,15 +581,6 @@ function handleCelebrationComplete() {
     <div class="py-5 sm:px-4 sticky top-0 z-40 bg-default border-b border-default">
       <div class="flex items-center justify-between gap-4 mb-4">
         <GlobalDateHeader />
-        <UButton
-          color="primary"
-          variant="soft"
-          size="sm"
-          icon="i-lucide-sparkles"
-          @click="chorePickerDialog = true; selectedColumnForChore = todoColumns?.[0]?.id || null"
-        >
-          Add Chore
-        </UButton>
       </div>
     </div>
 
@@ -666,12 +633,6 @@ function handleCelebrationComplete() {
       @close="todoColumnDialog = false; editingColumn = null"
       @save="handleColumnSave"
       @delete="handleColumnDelete"
-    />
-
-    <ChorePickerDialog
-      :is-open="chorePickerDialog"
-      @close="chorePickerDialog = false; selectedColumnForChore = null"
-      @select-chore="handleChoreSelected"
     />
 
     <ChoreCelebration

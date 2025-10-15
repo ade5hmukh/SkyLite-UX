@@ -13,7 +13,7 @@ const emit = defineEmits<{
 
 const selectedCategory = ref("all");
 
-const { data: choreData } = await useFetch("/api/chores/templates");
+const { data: choreData } = useFetch("/api/chores/templates"); // FIXED: Removed await
 
 const templates = computed(() => choreData.value?.templates || []);
 const categories = computed(() => choreData.value?.categories || []);

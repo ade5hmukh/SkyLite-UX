@@ -19,6 +19,12 @@ export type TodoListWithIntegration = TodoList & {
   integrationId?: string;
   integrationName?: string;
   integrationIcon?: string | null;
+  user?: {
+    id: string;
+    name: string;
+    avatar: string | null;
+    points: number;
+  };
 };
 
 export type AnyListWithIntegration = ShoppingListWithIntegration | TodoListWithIntegration;

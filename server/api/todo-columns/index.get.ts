@@ -9,6 +9,7 @@ export default defineEventHandler(async (_event) => {
             id: true,
             name: true,
             avatar: true,
+            points: true,
           },
         },
         todos: {

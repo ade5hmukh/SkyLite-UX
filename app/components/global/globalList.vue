@@ -141,9 +141,24 @@ function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyList
                           @error="(event) => { const target = event.target as HTMLImageElement; if (target) target.style.display = 'none'; }"
                         >
                       </div>
-                      <h2 class="text-lg font-semibold text-highlighted truncate">
-                        {{ list.name }}
-                      </h2>
+                      <div class="flex-1 min-w-0">
+                        <h2 class="text-lg font-semibold text-highlighted truncate">
+                          {{ list.name }}
+                        </h2>
+                        <div v-if="'user' in list && list.user" class="flex items-center gap-1.5 mt-1">
+                          <img
+                            v-if="list.user.avatar"
+                            :src="list.user.avatar"
+                            :alt="list.user.name"
+                            class="w-4 h-4 rounded-full object-cover"
+                          >
+                          <span class="text-xs text-muted truncate">{{ list.user.name }}</span>
+                          <div v-if="list.user.points > 0" class="flex items-center gap-0.5 bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 px-1.5 py-0.5 rounded-full text-xs font-bold">
+                            <UIcon name="i-lucide-star" class="h-3 w-3" />
+                            {{ list.user.points }}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                     <div class="flex gap-1">
                       <div
