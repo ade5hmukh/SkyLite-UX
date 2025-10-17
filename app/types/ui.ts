@@ -24,6 +24,8 @@ export type TodoListWithIntegration = TodoList & {
     name: string;
     avatar: string | null;
     points: number;
+    pointsToday: number;
+    pointsThisWeek: number;
   };
 };
 

@@ -24,35 +24,64 @@ export default defineEventHandler(async (event) => {
       });
     }
 
-    // Get current user points
-    const user = await prisma.user.findUnique({
-      where: { id: userId },
-      select: { points: true },
-    });
+          // Get current user points
+          const user = await prisma.user.findUnique({
+            where: { id: userId },
+            select: { points: true, pointsToday: true, pointsThisWeek: true },
+          });
 
-    if (!user) {
-      throw createError({
-        statusCode: 404,
-        message: "User not found",
-      });
-    }
+          if (!user) {
+            throw createError({
+              statusCode: 404,
+              message: "User not found",
+            });
+          }
 
-    // Update user points
-    const updatedUser = await prisma.user.update({
-      where: { id: userId },
-      data: {
-        points: user.points + points,
-      },
-      select: {
-        id: true,
-        name: true,
-        points: true,
-      },
-    });
+          // Update user points (total, daily, and weekly)
+          const updatedUser = await prisma.user.update({
+            where: { id: userId },
+            data: {
+              points: user.points + points,
+              pointsToday: user.pointsToday + points,
+              pointsThisWeek: user.pointsThisWeek + points,
+            },
+            select: {
+              id: true,
+              name: true,
+              points: true,
+              pointsToday: true,
+              pointsThisWeek: true,
+            },
+          });
 
-    consola.debug(`Added ${points} points to user ${userId}. New total: ${updatedUser.points}`);
+          consola.debug(`Added ${points} points to user ${userId}. Total: ${updatedUser.points}, Today: ${updatedUser.pointsToday}, Week: ${updatedUser.pointsThisWeek}`);
 
-    return updatedUser;
+          // Log the activity
+          try {
+            await prisma.activityLog.create({
+              data: {
+                level: "INFO",
+                serviceName: "points",
+                message: `Earned ${points} points`,
+                userId: updatedUser.id,
+                username: updatedUser.name,
+                entityType: "user",
+                entityId: updatedUser.id,
+                entityName: updatedUser.name,
+                metadata: {
+                  pointsAdded: points,
+                  totalPoints: updatedUser.points,
+                  pointsToday: updatedUser.pointsToday,
+                  pointsThisWeek: updatedUser.pointsThisWeek,
+                },
+              },
+            });
+          }
+          catch (logError) {
+            console.error("Failed to log activity:", logError);
+          }
+
+          return updatedUser;
   }
   catch (error: unknown) {
     consola.error("Error adding points to user:", error);

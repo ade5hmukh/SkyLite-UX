@@ -22,6 +22,14 @@ export default defineEventHandler(async (event) => {
         dueDate: body.dueDate ? new Date(body.dueDate) : null,
         todoColumnId: body.todoColumnId,
         order: (maxOrder._max.order || 0) + 1,
+        isChore: body.isChore ?? false,
+        choreType: body.choreType ?? null,
+        choreIcon: body.choreIcon ?? null,
+        points: body.points ?? 0,
+        recurring: body.recurring ?? false,
+        recurringPattern: body.recurringPattern ?? "DAILY",
+        recurringDaysOfWeek: body.recurringDaysOfWeek ?? [],
+        recurringDayOfMonth: body.recurringDayOfMonth ?? null,
       },
       include: {
         todoColumn: {
@@ -41,6 +49,31 @@ export default defineEventHandler(async (event) => {
         },
       },
     });
+
+    // Log the activity
+    try {
+      await prisma.activityLog.create({
+        data: {
+          level: "INFO",
+          serviceName: todo.isChore ? "chore" : "todolist",
+          message: `Created ${todo.isChore ? "chore" : "todo"}: ${todo.title}`,
+          userId: todo.todoColumn?.user?.id || null,
+          username: todo.todoColumn?.user?.name || null,
+          entityType: "todo",
+          entityId: todo.id,
+          entityName: todo.title,
+          metadata: {
+            priority: todo.priority,
+            points: todo.points,
+            recurring: todo.recurring,
+            columnName: todo.todoColumn?.name,
+          },
+        },
+      });
+    }
+    catch (logError) {
+      console.error("Failed to log activity:", logError);
+    }
 
     return todo;
   }

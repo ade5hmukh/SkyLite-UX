@@ -28,7 +28,23 @@ const { getStableDate } = useStableDate();
 const currentDate = computed(() => props.currentDate || getStableDate());
 const view = computed(() => props.view || "week");
 
-const now = computed(() => getStableDate());
+// Create a reactive current time that updates every second
+const now = ref(new Date());
+
+// Update the clock every second
+let clockInterval: NodeJS.Timeout | null = null;
+
+onMounted(() => {
+  clockInterval = setInterval(() => {
+    now.value = new Date(); // Use new Date() to get current time
+  }, 1000); // Update every second
+});
+
+onUnmounted(() => {
+  if (clockInterval) {
+    clearInterval(clockInterval);
+  }
+});
 
 const viewTitle = computed(() => {
   if (view.value === "month") {

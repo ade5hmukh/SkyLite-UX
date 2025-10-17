@@ -171,15 +171,18 @@ function getEventIntegrationCapabilities(event: CalendarEvent): { capabilities: 
 
 <!-- TODO: allow user to choose initial view -->
 <template>
-  <div>
-    <CalendarMainView
-      :events="allEvents as CalendarEvent[]"
-      initial-view="week"
-      class="h-[calc(100vh-2rem)]"
-      :get-integration-capabilities="getEventIntegrationCapabilities"
-      @event-add="handleEventAdd"
-      @event-update="handleEventUpdate"
-      @event-delete="handleEventDelete"
-    />
+  <div class="flex flex-col h-[calc(100vh-2rem)] p-4">
+    <!-- Calendar -->
+    <div class="flex-1 min-h-0">
+      <CalendarMainView
+        :events="allEvents as CalendarEvent[]"
+        initial-view="week"
+        class="h-full"
+        :get-integration-capabilities="getEventIntegrationCapabilities"
+        @event-add="handleEventAdd"
+        @event-update="handleEventUpdate"
+        @event-delete="handleEventDelete"
+      />
+    </div>
   </div>
 </template>

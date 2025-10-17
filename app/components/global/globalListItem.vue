@@ -60,7 +60,7 @@ function getPriorityColor(priority: Priority) {
           {{ item.name }}
         </span>
       </div>
-      <div class="flex items-center gap-2 mt-1">
+      <div class="flex items-center gap-2 mt-1 flex-wrap">
         <span
           v-if="isTodoItem(item) && item.priority"
           class="text-xs px-2 py-0.5 rounded-full"
@@ -78,6 +78,14 @@ function getPriorityColor(priority: Priority) {
             month="short"
             day="numeric"
           />
+        </span>
+        <span
+          v-if="'points' in item && typeof item.points === 'number' && item.points > 0"
+          class="text-xs px-2 py-0.5 rounded-full font-semibold flex items-center gap-1"
+          :class="item.checked ? 'bg-gray-100 text-gray-500 dark:bg-gray-800' : 'bg-yellow-100 text-yellow-700 dark:bg-yellow-900/30 dark:text-yellow-500'"
+        >
+          <UIcon name="i-lucide-star" class="h-3 w-3" />
+          {{ (item as any).points }}
         </span>
         <span
           v-if="isShoppingItem(item) && showQuantity && item.quantity"

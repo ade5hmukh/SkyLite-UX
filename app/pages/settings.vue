@@ -4,11 +4,44 @@ import { consola } from "consola";
 import type { CreateIntegrationInput, CreateUserInput, Integration, User } from "~/types/database";
 import type { ConnectionTestResult } from "~/types/ui";
 
+import AdminPinModal from "~/components/admin/adminPinModal.vue";
+import SettingsActivityLog from "~/components/settings/settingsActivityLog.vue";
 import SettingsIntegrationDialog from "~/components/settings/settingsIntegrationDialog.vue";
+import SettingsRewardsManagement from "~/components/settings/settingsRewardsManagement.vue";
 import SettingsUserDialog from "~/components/settings/settingsUserDialog.vue";
 import { integrationServices } from "~/plugins/02.appInit";
 import { getSlogan } from "~/types/global";
 import { createIntegrationService, integrationRegistry } from "~/types/integrations";
+
+// Admin mode protection
+const { isActive: isAdminMode } = useAdminMode();
+const showPinModal = ref(false);
+const router = useRouter();
+
+// Check admin mode on mount and watch for changes
+onMounted(() => {
+  if (!isAdminMode.value) {
+    showPinModal.value = true;
+  }
+});
+
+watch(isAdminMode, (newValue) => {
+  if (!newValue) {
+    // Redirect to home when admin mode is deactivated
+    router.push("/");
+  }
+});
+
+function handlePinVerified() {
+  showPinModal.value = false;
+}
+
+function handlePinClosed() {
+  if (!isAdminMode.value) {
+    // Redirect to home if PIN modal is closed without verification
+    router.push("/");
+  }
+}
 
 const { users, loading, error, createUser, deleteUser, updateUser } = useUsers();
 
@@ -474,7 +507,8 @@ function getIntegrationIconUrl(integration: Integration) {
               <div
                 v-for="user in users"
                 :key="user.id"
-                class="flex items-center gap-3 p-4 rounded-lg border border-default bg-muted"
+                class="flex items-center gap-3 p-4 rounded-lg border border-default"
+                :style="{ backgroundColor: `${user.color || '#06b6d4'}15` }"
               >
                 <img
                   :src="user.avatar || `https://ui-avatars.com/api/?name=${encodeURIComponent(user.name)}&background=${(user.color || '#06b6d4').replace('#', '')}&color=374151&size=96`"
@@ -683,6 +717,10 @@ function getIntegrationIconUrl(integration: Integration) {
           </div>
         </div>
 
+        <SettingsRewardsManagement />
+
+        <SettingsActivityLog class="mb-6" />
+
         <div class="bg-default rounded-lg shadow-sm border border-default p-6">
           <h2 class="text-lg font-semibold text-highlighted mb-4">
             About
@@ -743,6 +781,13 @@ function getIntegrationIconUrl(integration: Integration) {
       @close="() => { isIntegrationDialogOpen = false; selectedIntegration = null; }"
       @save="handleIntegrationSave"
       @delete="handleIntegrationDelete"
+    />
+
+    <!-- Admin PIN Modal -->
+    <AdminPinModal
+      :is-open="showPinModal"
+      @close="handlePinClosed"
+      @verified="handlePinVerified"
     />
   </div>
 </template>

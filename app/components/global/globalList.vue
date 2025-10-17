@@ -112,9 +112,10 @@ function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyList
               <div
                 v-for="(list, listIndex) in sortedLists"
                 :key="list.id"
-                class="flex-shrink-0 w-80 h-full flex flex-col bg-default rounded-lg border border-default shadow-sm"
+                class="flex-shrink-0 w-80 h-full flex flex-col rounded-lg border border-default shadow-sm"
+                :style="'user' in list && list.user ? { backgroundColor: `${list.user.color || '#06b6d4'}15` } : { backgroundColor: 'var(--color-background-default)' }"
               >
-                <div class="p-4 border-b border-default bg-default rounded-t-lg">
+                <div class="p-4 border-b border-default rounded-t-lg" :style="'user' in list && list.user ? { backgroundColor: `${list.user.color || '#06b6d4'}20` } : { backgroundColor: 'var(--color-background-default)' }">
                   <div class="flex items-center justify-between mb-3">
                     <div class="flex items-center gap-2 flex-1 min-w-0">
                       <div
@@ -153,10 +154,16 @@ function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyList
                             class="w-4 h-4 rounded-full object-cover"
                           >
                           <span class="text-xs text-muted truncate">{{ list.user.name }}</span>
-                          <div v-if="list.user.points > 0" class="flex items-center gap-0.5 bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 px-1.5 py-0.5 rounded-full text-xs font-bold">
-                            <UIcon name="i-lucide-star" class="h-3 w-3" />
-                            {{ list.user.points }}
-                          </div>
+                          <UTooltip 
+                            :text="`Today: ${list.user.pointsToday} | Week: ${list.user.pointsThisWeek} | Total: ${list.user.points}`"
+                            :popper="{ placement: 'top' }"
+                          >
+                            <div class="flex items-center gap-0.5 bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 px-1.5 py-0.5 rounded-full text-xs font-bold cursor-help">
+                              <UIcon name="i-lucide-star" class="h-3 w-3" />
+                              {{ list.user.pointsToday }}
+                              <span class="text-[10px] opacity-70">today</span>
+                            </div>
+                          </UTooltip>
                         </div>
                       </div>
                     </div>
@@ -233,8 +240,8 @@ function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyList
                     <div class="w-full bg-muted rounded-full h-2">
                       <div
                         class="h-2 rounded-full transition-all duration-300"
-                        :class="getProgressColor(getProgressPercentage(list))"
-                        :style="{ width: `${getProgressPercentage(list)}%` }"
+                        :class="'user' in list && list.user ? '' : getProgressColor(getProgressPercentage(list))"
+                        :style="'user' in list && list.user ? { width: `${getProgressPercentage(list)}%`, backgroundColor: list.user.color } : { width: `${getProgressPercentage(list)}%` }"
                       />
                     </div>
                   </div>

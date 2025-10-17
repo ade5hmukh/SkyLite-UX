@@ -14,18 +14,22 @@ datasource db {
 }
 
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String?  @unique
-  avatar    String?
-  color     String?
-  todoOrder Int      @default(0)
-  points    Int      @default(0)
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id             String   @id @default(cuid())
+  name           String
+  email          String?  @unique
+  avatar         String?
+  color          String?
+  todoOrder      Int      @default(0)
+  points         Int      @default(0)
+  pointsToday    Int      @default(0)
+  pointsThisWeek Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   todoColumn TodoColumn?
   calendarEvents CalendarEventUser[]
+  activityLogs ActivityLog[]
+  rewardRedemptions RewardRedemption[]
 
   @@map("users")
 }
@@ -45,19 +49,26 @@ model TodoColumn {
 }
 
 model Todo {
-  id          String   @id @default(cuid())
-  title       String
-  description String?
-  completed   Boolean  @default(false)
-  priority    Priority @default(MEDIUM)
-  dueDate     DateTime?
-  order       Int      @default(0)
-  isChore     Boolean  @default(false)
-  choreType   String?
-  choreIcon   String?
-  points      Int      @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  id                   String            @id @default(cuid())
+  title                String
+  description          String?
+  completed            Boolean           @default(false)
+  priority             Priority          @default(MEDIUM)
+  dueDate              DateTime?
+  order                Int               @default(0)
+  isChore              Boolean           @default(false)
+  choreType            String?
+  choreIcon            String?
+  points               Int               @default(0)
+  recurring            Boolean           @default(false)
+  recurringPattern     RecurringPattern? @default(DAILY)
+  recurringDaysOfWeek  Int[]             @default([])
+  recurringDayOfMonth  Int?
+  lastResetDate        DateTime?
+  snoozedUntil         DateTime?
+  skipNext             Boolean           @default(false)
+  createdAt            DateTime          @default(now())
+  updatedAt            DateTime          @updatedAt
 
   todoColumnId String?
   todoColumn   TodoColumn? @relation(fields: [todoColumnId], references: [id], onDelete: Cascade)
@@ -140,9 +151,86 @@ model CalendarEventUser {
   @@map("calendar_event_users")
 }
 
+model ActivityLog {
+  id          String   @id @default(cuid())
+  timestamp   DateTime @default(now())
+  level       LogLevel @default(INFO)
+  serviceName String   // calendar, todolist, chore, user, integration, points, etc.
+  message     String   // Human-readable description of the action
+  userId      String?  // User who performed the action (null for system actions)
+  username    String?  // Username for display (denormalized for performance)
+  entityType  String?  // Type of entity affected: todo, user, integration, etc.
+  entityId    String?  // ID of the affected entity
+  entityName  String?  // Name/title of the entity for display
+  metadata    Json?    // Additional context (old/new values, IP, etc.)
+  
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  
+  @@index([timestamp])
+  @@index([userId])
+  @@index([serviceName])
+  @@index([level])
+  @@map("activity_logs")
+}
+
+enum LogLevel {
+  INFO
+  WARNING
+  ERROR
+}
+
 enum Priority {
   LOW
   MEDIUM
   HIGH
   URGENT
+}
+
+enum RecurringPattern {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+model Reward {
+  id          String   @id @default(cuid())
+  title       String
+  description String?
+  icon        String?
+  pointCost   Int
+  category    String?  // e.g., "screen-time", "treats", "activities", "privileges"
+  color       String?
+  order       Int      @default(0)
+  enabled     Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  redemptions RewardRedemption[]
+
+  @@map("rewards")
+}
+
+model RewardRedemption {
+  id          String   @id @default(cuid())
+  rewardId    String
+  userId      String
+  pointsSpent Int
+  status      RedemptionStatus @default(PENDING)
+  redeemedAt  DateTime @default(now())
+  fulfilledAt DateTime?
+  notes       String?
+
+  reward Reward @relation(fields: [rewardId], references: [id], onDelete: Cascade)
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([rewardId])
+  @@index([status])
+  @@map("reward_redemptions")
+}
+
+enum RedemptionStatus {
+  PENDING   // Redeemed but not yet fulfilled by parent
+  FULFILLED // Parent has marked as complete
+  CANCELLED // Cancelled/refunded
 }

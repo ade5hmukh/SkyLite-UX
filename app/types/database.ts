@@ -150,6 +150,7 @@ export type TodoListItem = BaseListItem & {
   dueDate: Date | null;
   todoColumnId: string;
   shoppingListId: string;
+  recurring?: boolean;
 };
 
 export type TodoWithOrder = TodoWithUser & { order: number };

@@ -19,10 +19,12 @@ export default defineEventHandler(async (event) => {
       });
     }
 
+    // Only delete completed non-recurring todos
     await prisma.todo.deleteMany({
       where: {
         todoColumnId: columnId,
         completed: true,
+        recurring: false, // Don't delete recurring chores
       },
     });
 

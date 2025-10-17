@@ -9,7 +9,10 @@ export default defineEventHandler(async (_event) => {
             id: true,
             name: true,
             avatar: true,
+            color: true,
             points: true,
+            pointsToday: true,
+            pointsThisWeek: true,
           },
         },
         todos: {

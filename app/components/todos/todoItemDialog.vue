@@ -31,8 +31,12 @@ const todoTitle = ref("");
 const todoDescription = ref("");
 const todoPriority = ref<Priority>("MEDIUM");
 const todoDueDate = ref<DateValue | null>(null);
-const todoColumnId = ref<string | undefined>(undefined);
+const todoColumnIds = ref<string[]>([]); // Changed to array for multi-selection
 const todoPoints = ref<number>(0);
+const todoRecurring = ref<boolean>(false);
+const todoRecurringPattern = ref<"DAILY" | "WEEKLY" | "MONTHLY">("DAILY");
+const todoRecurringDaysOfWeek = ref<number[]>([]);
+const todoRecurringDayOfMonth = ref<number>(1);
 const todoError = ref<string | null>(null);
 
 // Chore picker state
@@ -56,9 +60,28 @@ const priorityOptions = [
   { label: "Urgent", value: "URGENT" },
 ];
 
+// Computed property for user column options
+const columnOptions = computed(() => {
+  return props.todoColumns.map(col => ({
+    label: col.name,
+    value: col.id,
+  }));
+});
+
 watch(() => [props.isOpen, props.todo], ([isOpen, todo]) => {
   if (isOpen) {
+    // Store the column ID(s) before resetting
+    const columnIdToPreserve = todo && typeof todo === "object" && "todoColumnId" in todo 
+      ? todo.todoColumnId 
+      : undefined;
+    
     resetForm();
+    
+    // Restore column ID after reset (convert single ID to array for backward compatibility)
+    if (columnIdToPreserve && columnIdToPreserve !== "") {
+      todoColumnIds.value = [columnIdToPreserve];
+    }
+    
     if (todo && typeof todo === "object") {
       if ("name" in todo) {
         todoTitle.value = todo.name || "";
@@ -69,15 +92,19 @@ watch(() => [props.isOpen, props.todo], ([isOpen, todo]) => {
           todoDueDate.value = parseDate(date.toISOString().split("T")[0]!);
         }
       }
-      if ("todoColumnId" in todo) {
-        todoColumnId.value = todo.todoColumnId || undefined;
+      // Load points and chore data
+      if ("points" in todo) {
+        todoPoints.value = (todo as any).points || 0;
+      }
+      if ("recurring" in todo) {
+        todoRecurring.value = (todo as any).recurring || false;
+        todoRecurringPattern.value = (todo as any).recurringPattern || "DAILY";
+        todoRecurringDaysOfWeek.value = (todo as any).recurringDaysOfWeek || [];
+        todoRecurringDayOfMonth.value = (todo as any).recurringDayOfMonth || 1;
       }
       // Check if editing a chore
-      if ("isChore" in todo && todo.isChore) {
+      if ("isChore" in todo && (todo as any).isChore) {
         mode.value = 'chore';
-        if ("points" in todo) {
-          todoPoints.value = (todo as any).points || 0;
-        }
       }
     }
   }
@@ -89,8 +116,12 @@ function resetForm() {
   todoDescription.value = "";
   todoPriority.value = "MEDIUM";
   todoDueDate.value = null;
-  todoColumnId.value = undefined;
+  todoColumnIds.value = []; // Reset to empty array
   todoPoints.value = 0;
+  todoRecurring.value = false;
+  todoRecurringPattern.value = "DAILY";
+  todoRecurringDaysOfWeek.value = [];
+  todoRecurringDayOfMonth.value = 1;
   todoError.value = null;
   selectedChore.value = null;
 }
@@ -108,8 +139,8 @@ function handleSave() {
     return;
   }
 
-  if (!todoColumnId.value && props.todoColumns.length > 0) {
-    todoError.value = "Please select a column";
+  if (todoColumnIds.value.length === 0 && props.todoColumns.length > 0) {
+    todoError.value = "Please select at least one user";
     return;
   }
 
@@ -118,28 +149,51 @@ function handleSave() {
     return;
   }
 
-  const todoData: TodoListItem & { isChore?: boolean; choreType?: string; choreIcon?: string; points?: number } = {
-    id: props.todo?.id,
-    name: todoTitle.value.trim(),
-    description: todoDescription.value.trim() || null,
-    priority: todoPriority.value,
-    dueDate: todoDueDate.value
-      ? (() => {
-          const date = todoDueDate.value!.toDate(getLocalTimeZone());
-          date.setHours(23, 59, 59, 999);
-          return date;
-        })()
-      : null,
-    todoColumnId: todoColumnId.value || (props.todoColumns.length > 0 ? props.todoColumns[0]?.id ?? undefined : undefined),
-    checked: props.todo?.checked || false,
-    order: props.todo?.order || 0,
-    isChore: mode.value === 'chore',
-    choreType: mode.value === 'chore' && selectedChore.value ? selectedChore.value.id : null,
-    choreIcon: mode.value === 'chore' && selectedChore.value ? selectedChore.value.icon : null,
-    points: todoPoints.value,
-  };
+  // When editing an existing todo, only use the first selected column
+  // When creating a new todo, create one for each selected column
+  const columnsToProcess = props.todo?.id 
+    ? [todoColumnIds.value[0]] 
+    : todoColumnIds.value;
 
-  emit("save", todoData);
+  // Create todo data for each selected column
+  for (const columnId of columnsToProcess) {
+    const todoData: TodoListItem & { 
+      isChore?: boolean; 
+      choreType?: string; 
+      choreIcon?: string; 
+      points?: number; 
+      recurring?: boolean;
+      recurringPattern?: "DAILY" | "WEEKLY" | "MONTHLY";
+      recurringDaysOfWeek?: number[];
+      recurringDayOfMonth?: number;
+    } = {
+      id: props.todo?.id,
+      name: todoTitle.value.trim(),
+      description: todoDescription.value.trim() || null,
+      priority: todoPriority.value,
+      dueDate: todoDueDate.value
+        ? (() => {
+            const date = todoDueDate.value!.toDate(getLocalTimeZone());
+            date.setHours(23, 59, 59, 999);
+            return date;
+          })()
+        : null,
+      todoColumnId: columnId || (props.todoColumns.length > 0 ? props.todoColumns[0]?.id ?? undefined : undefined),
+      checked: props.todo?.checked || false,
+      order: props.todo?.order || 0,
+      isChore: mode.value === 'chore',
+      choreType: mode.value === 'chore' && selectedChore.value ? selectedChore.value.id : null,
+      choreIcon: mode.value === 'chore' && selectedChore.value ? selectedChore.value.icon : null,
+      points: todoPoints.value,
+      recurring: todoRecurring.value,
+      recurringPattern: todoRecurring.value ? todoRecurringPattern.value : undefined,
+      recurringDaysOfWeek: todoRecurring.value && todoRecurringPattern.value === "WEEKLY" ? todoRecurringDaysOfWeek.value : undefined,
+      recurringDayOfMonth: todoRecurring.value && todoRecurringPattern.value === "MONTHLY" ? todoRecurringDayOfMonth.value : undefined,
+    };
+
+    emit("save", todoData);
+  }
+  
   resetForm();
   emit("close");
 }
@@ -308,16 +362,38 @@ function handleDelete() {
 
           <div class="grid grid-cols-2 md:grid-cols-3 gap-4">
             <div class="space-y-2">
-              <label class="block text-sm font-medium text-highlighted">Column</label>
-              <USelect
-                v-model="todoColumnId"
-                :items="todoColumns"
-                option-attribute="name"
-                value-attribute="id"
-                placeholder="Select column"
-                class="w-full"
-                :ui="{ base: 'w-full' }"
-              />
+              <label class="block text-sm font-medium text-highlighted flex items-center gap-1">
+                Assign to
+                <span class="text-xs text-muted font-normal">(select one or more users)</span>
+              </label>
+              
+              <!-- Debug info (remove after testing) -->
+              <div v-if="false" class="text-xs text-gray-500 mb-2">
+                Columns: {{ todoColumns.length }} | Options: {{ columnOptions.length }} | Selected: {{ todoColumnIds.length }}
+              </div>
+              
+              <!-- Checkbox-based multi-select -->
+              <div class="border border-default rounded-lg p-3 space-y-2 bg-default">
+                <label v-for="column in todoColumns" :key="column.id" class="flex items-center gap-2 cursor-pointer hover:bg-muted px-2 py-1.5 rounded">
+                  <input
+                    v-model="todoColumnIds"
+                    type="checkbox"
+                    :value="column.id"
+                    class="w-4 h-4 text-primary rounded focus:ring-primary"
+                  >
+                  <span class="text-sm text-highlighted">{{ column.name }}</span>
+                  <span v-if="column.user?.avatar" class="ml-auto">
+                    <img :src="column.user.avatar" :alt="column.name" class="w-5 h-5 rounded-full">
+                  </span>
+                </label>
+                <div v-if="todoColumns.length === 0" class="text-sm text-muted text-center py-2">
+                  No users available
+                </div>
+              </div>
+              
+              <p v-if="!props.todo?.id && todoColumnIds.length > 1" class="text-xs text-muted">
+                💡 A separate task will be created for each of the {{ todoColumnIds.length }} selected users
+              </p>
             </div>
 
             <div class="space-y-2">
@@ -336,16 +412,20 @@ function handleDelete() {
               <label class="block text-sm font-medium text-highlighted flex items-center gap-1">
                 <UIcon name="i-lucide-star" class="h-4 w-4 text-yellow-500" />
                 Points
+                <span class="text-xs text-muted">(optional)</span>
               </label>
               <UInput
                 v-model.number="todoPoints"
                 type="number"
                 min="0"
-                :placeholder="mode === 'chore' ? 'Points from chore' : 'Optional points'"
+                step="1"
+                placeholder="Enter points (0 for no celebration)"
                 class="w-full"
                 :ui="{ base: 'w-full' }"
-                :readonly="mode === 'chore' && !!selectedChore && !todo?.id"
               />
+              <p class="text-xs text-muted">
+                Tasks with points > 0 trigger celebration animation when completed! 🎉
+              </p>
             </div>
           </div>
 
@@ -390,6 +470,64 @@ function handleDelete() {
                 </div>
               </template>
             </UPopover>
+          </div>
+
+          <div class="space-y-3">
+            <label class="flex items-center gap-2 cursor-pointer">
+              <input
+                v-model="todoRecurring"
+                type="checkbox"
+                class="w-4 h-4 text-primary rounded focus:ring-primary"
+              >
+              <span class="text-sm font-medium text-highlighted flex items-center gap-1.5">
+                <UIcon name="i-lucide-repeat" class="h-4 w-4" />
+                Recurring Task
+              </span>
+            </label>
+
+            <div v-if="todoRecurring" class="ml-6 space-y-3 p-3 bg-muted rounded-lg">
+              <div>
+                <label class="block text-xs font-medium text-highlighted mb-1">Pattern</label>
+                <select
+                  v-model="todoRecurringPattern"
+                  class="w-full px-3 py-1.5 text-sm bg-default border border-default rounded-lg focus:ring-2 focus:ring-primary"
+                >
+                  <option value="DAILY">Daily</option>
+                  <option value="WEEKLY">Weekly</option>
+                  <option value="MONTHLY">Monthly</option>
+                </select>
+              </div>
+
+              <div v-if="todoRecurringPattern === 'WEEKLY'" class="space-y-2">
+                <label class="block text-xs font-medium text-highlighted">Days of Week</label>
+                <div class="flex flex-wrap gap-2">
+                  <label v-for="(day, index) in ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat']" :key="index" class="flex items-center gap-1">
+                    <input
+                      v-model="todoRecurringDaysOfWeek"
+                      type="checkbox"
+                      :value="index"
+                      class="w-4 h-4 text-primary rounded"
+                    >
+                    <span class="text-xs">{{ day }}</span>
+                  </label>
+                </div>
+              </div>
+
+              <div v-if="todoRecurringPattern === 'MONTHLY'" class="space-y-2">
+                <label class="block text-xs font-medium text-highlighted">Day of Month</label>
+                <input
+                  v-model.number="todoRecurringDayOfMonth"
+                  type="number"
+                  min="1"
+                  max="31"
+                  class="w-24 px-3 py-1.5 text-sm bg-default border border-default rounded-lg focus:ring-2 focus:ring-primary"
+                >
+              </div>
+
+              <p class="text-xs text-muted">
+                This item will reset at midnight based on the pattern above
+              </p>
+            </div>
           </div>
         </div>
       </div>

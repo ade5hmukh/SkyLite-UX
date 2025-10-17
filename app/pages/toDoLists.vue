@@ -28,6 +28,7 @@ const mutableTodoColumns = computed(() => todoColumns.value?.map(col => ({
         id: col.user.id,
         name: col.user.name,
         avatar: col.user.avatar,
+        color: col.user.color,
       },
 })) || []);
 
@@ -38,6 +39,7 @@ const editingColumn = ref<TodoList | null>(null);
 const reorderingTodos = ref(new Set<string>());
 const reorderingColumns = ref(new Set<string>());
 const choreToComplete = ref<{ chore: Todo; userId: string | null } | null>(null);
+const awardingPoints = ref(new Set<string>()); // Guard against duplicate point awards
 
 const editingTodoTyped = computed<TodoListItem | undefined>(() =>
   editingTodo.value as TodoListItem | undefined,
@@ -59,7 +61,10 @@ const todoLists = computed<TodoListWithIntegration[]>(() => {
       id: column.user.id,
       name: column.user.name,
       avatar: column.user.avatar,
+      color: column.user.color,
       points: column.user.points || 0,
+      pointsToday: column.user.pointsToday || 0,
+      pointsThisWeek: column.user.pointsThisWeek || 0,
     } : undefined,
     items: todos.value!
       .filter(todo => todo.todoColumnId === column.id)
@@ -75,6 +80,7 @@ const todoLists = computed<TodoListWithIntegration[]>(() => {
         dueDate: todo.dueDate,
         description: todo.description ?? "",
         todoColumnId: todo.todoColumnId || "",
+        points: todo.points || 0,
       })),
     _count: column._count ? { items: column._count.todos } : undefined,
   }));
@@ -103,11 +109,16 @@ function openEditTodo(item: BaseListItem) {
     order: todo.order,
     shoppingListId: todo.todoColumnId || "",
     notes: todo.description,
-  };
+    isChore: todo.isChore || false,
+    choreType: todo.choreType || null,
+    choreIcon: todo.choreIcon || null,
+    points: todo.points || 0,
+    recurring: todo.recurring || false,
+  } as any;
   todoItemDialog.value = true;
 }
 
-async function handleTodoSave(todoData: TodoListItem & { isChore?: boolean; choreType?: string; choreIcon?: string; points?: number }) {
+async function handleTodoSave(todoData: TodoListItem & { isChore?: boolean; choreType?: string; choreIcon?: string; points?: number; recurring?: boolean }) {
   try {
     if (editingTodo.value?.id) {
       const { data: cachedTodos } = useNuxtData("todos");
@@ -142,6 +153,11 @@ async function handleTodoSave(todoData: TodoListItem & { isChore?: boolean; chor
           completed: todoData.checked,
           order: todoData.order,
           todoColumnId: todoData.todoColumnId,
+          isChore: todoData.isChore || false,
+          choreType: todoData.choreType || null,
+          choreIcon: todoData.choreIcon || null,
+          points: todoData.points || 0,
+          recurring: todoData.recurring || false,
         });
         consola.debug("Todo Lists: Todo updated successfully");
       }
@@ -155,7 +171,7 @@ async function handleTodoSave(todoData: TodoListItem & { isChore?: boolean; chor
     else {
       const { data: cachedTodos } = useNuxtData("todos");
       const previousTodos = cachedTodos.value ? [...cachedTodos.value] : [];
-      const newTodo: Todo & { isChore?: boolean; choreType?: string; choreIcon?: string; points?: number } = {
+      const newTodo: Todo & { isChore?: boolean; choreType?: string; choreIcon?: string; points?: number; recurring?: boolean } = {
         id: `temp-${Date.now()}`,
         title: todoData.name,
         description: todoData.description,
@@ -168,6 +184,7 @@ async function handleTodoSave(todoData: TodoListItem & { isChore?: boolean; chor
         choreType: todoData.choreType || null,
         choreIcon: todoData.choreIcon || null,
         points: todoData.points || 0,
+        recurring: todoData.recurring || false,
         createdAt: new Date(),
         updatedAt: new Date(),
       };
@@ -178,7 +195,7 @@ async function handleTodoSave(todoData: TodoListItem & { isChore?: boolean; chor
       }
 
       try {
-        const createdTodo = await createTodo({
+        const todoPayload = {
           title: todoData.name,
           description: todoData.description,
           priority: todoData.priority,
@@ -190,8 +207,11 @@ async function handleTodoSave(todoData: TodoListItem & { isChore?: boolean; chor
           choreType: todoData.choreType || null,
           choreIcon: todoData.choreIcon || null,
           points: todoData.points || 0,
-        });
-        consola.debug("Todo Lists: Todo created successfully");
+          recurring: todoData.recurring || false,
+        };
+        consola.debug("Todo Lists: Creating todo with payload:", todoPayload);
+        const createdTodo = await createTodo(todoPayload);
+        consola.debug("Todo Lists: Todo created successfully", createdTodo);
 
         if (cachedTodos.value && Array.isArray(cachedTodos.value)) {
           const tempIndex = cachedTodos.value.findIndex((t: Todo) => t.id === newTodo.id);
@@ -476,16 +496,37 @@ async function handleClearCompleted(columnId: string) {
   try {
     const { data: cachedTodos } = useNuxtData("todos");
     const previousTodos = cachedTodos.value ? [...cachedTodos.value] : [];
-    const completedTodos = cachedTodos.value?.filter((t: Todo) => t.todoColumnId === columnId && t.completed) || [];
+    
+    // DEBUG: Log ALL todos in this column to see their recurring status
+    const allColumnTodos = cachedTodos.value?.filter((t: Todo) => t.todoColumnId === columnId) || [];
+    const todoDetails = allColumnTodos.map(t => ({ 
+      id: t.id, 
+      title: t.title, 
+      completed: t.completed, 
+      recurring: t.recurring,
+      isChore: t.isChore,
+      points: t.points
+    }));
+    consola.debug(`Clear Completed: All todos in column ${columnId}:`, todoDetails);
+    
+    // Only clear completed non-recurring todos
+    const completedTodos = cachedTodos.value?.filter((t: Todo) => t.todoColumnId === columnId && t.completed && !t.recurring) || [];
+    const recurringTodos = cachedTodos.value?.filter((t: Todo) => t.todoColumnId === columnId && t.completed && t.recurring) || [];
+    
+    consola.debug(`Clear Completed: Found ${completedTodos.length} non-recurring completed, ${recurringTodos.length} recurring completed`);
+    if (recurringTodos.length > 0) {
+      consola.debug("Recurring todos being kept:", recurringTodos.map(t => ({ id: t.id, title: t.title, recurring: t.recurring })));
+    }
 
     if (cachedTodos.value && Array.isArray(cachedTodos.value)) {
-      const updatedTodos = cachedTodos.value.filter((t: Todo) => !(t.todoColumnId === columnId && t.completed));
+      // Keep todos that are: not completed, or recurring, or from different column
+      const updatedTodos = cachedTodos.value.filter((t: Todo) => !(t.todoColumnId === columnId && t.completed && !t.recurring));
       cachedTodos.value = updatedTodos;
     }
 
     try {
       await clearCompleted(columnId, completedTodos);
-      consola.debug("Todo Lists: Completed todos cleared successfully");
+      consola.debug("Todo Lists: Completed non-recurring todos cleared successfully");
     }
     catch (error) {
       if (cachedTodos.value && previousTodos.length > 0) {
@@ -511,50 +552,51 @@ async function handleToggleTodo(itemId: string, completed: boolean) {
 
     let choreInfo: { chore: Todo; userId: string | null } | null = null;
 
-    if (cachedTodos.value && Array.isArray(cachedTodos.value)) {
-      const todoIndex = cachedTodos.value.findIndex((t: Todo) => t.id === itemId);
-      if (todoIndex !== -1) {
-        const currentTodo = cachedTodos.value[todoIndex];
-        
-        // Check if this is a chore/todo with points being completed
-        if (completed && currentTodo.points > 0) {
-          const todoColumn = todoColumns.value?.find(c => c.id === currentTodo.todoColumnId);
-          choreInfo = { 
-            chore: currentTodo, 
-            userId: todoColumn?.userId || null,
-          };
-        }
-
-        const updatedTodo = { ...currentTodo, completed };
-        const updatedTodos = [...cachedTodos.value];
-        updatedTodos[todoIndex] = updatedTodo;
-        cachedTodos.value = updatedTodos;
-      }
+    // Get the todo BEFORE toggling to check for points
+    const todoBeforeToggle = cachedTodos.value?.find((t: Todo) => t.id === itemId);
+    if (todoBeforeToggle && completed && todoBeforeToggle.points > 0) {
+      const todoColumn = todoColumns.value?.find(c => c.id === todoBeforeToggle.todoColumnId);
+      choreInfo = { 
+        chore: todoBeforeToggle, 
+        userId: todoColumn?.userId || null,
+      };
     }
 
     try {
+      // Call API first (don't do optimistic update to avoid cache corruption)
       await toggleTodo(itemId, completed);
       consola.debug("Todo Lists: Todo toggled successfully");
+      
 
       // If this was a chore/todo with points, award points and show celebration
       if (choreInfo) {
         // Show celebration animation immediately
         choreToComplete.value = choreInfo;
         
-        // Award points to user if column has a user assigned
-        if (choreInfo.userId) {
+        // Award points to user if column has a user assigned (with duplicate guard)
+        if (choreInfo.userId && !awardingPoints.value.has(itemId)) {
+          awardingPoints.value.add(itemId);
           try {
             await $fetch(`/api/users/${choreInfo.userId}/add-points`, {
               method: "POST",
               body: { points: choreInfo.chore.points },
             });
             consola.debug(`Awarded ${choreInfo.chore.points} points to user ${choreInfo.userId}`);
+            
+            // Refresh todo-columns to update points display in UI
+            await refreshNuxtData("todo-columns");
           }
           catch (pointsError) {
             consola.error("Failed to award points:", pointsError);
           }
+          finally {
+            // Remove from guard after a short delay to allow for legitimate re-completions
+            setTimeout(() => {
+              awardingPoints.value.delete(itemId);
+            }, 1000);
+          }
         }
-        else {
+        else if (!choreInfo.userId) {
           consola.debug(`Celebration shown for ${choreInfo.chore.points} points (no user assigned to column)`);
         }
       }
