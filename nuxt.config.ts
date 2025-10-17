@@ -17,7 +17,70 @@ export default defineNuxtConfig({
     },
   },
 
-  modules: ["@nuxt/ui", "@nuxt/eslint", "@nuxtjs/html-validator"],
+  modules: ["@nuxt/ui", "@nuxt/eslint", "@nuxtjs/html-validator", "@vite-pwa/nuxt"],
+
+  pwa: {
+    registerType: "autoUpdate",
+    manifest: {
+      name: "SkyLite Family Manager",
+      short_name: "SkyLite",
+      description: "Family chores, rewards, and calendar with gamification for kids",
+      theme_color: "#06b6d4",
+      background_color: "#ffffff",
+      display: "standalone",
+      orientation: "portrait",
+      scope: "/",
+      start_url: "/",
+      icons: [
+        {
+          src: "/icon-192.png",
+          sizes: "192x192",
+          type: "image/png",
+          purpose: "any",
+        },
+        {
+          src: "/icon-512.png",
+          sizes: "512x512",
+          type: "image/png",
+          purpose: "any",
+        },
+        {
+          src: "/icon-maskable-192.png",
+          sizes: "192x192",
+          type: "image/png",
+          purpose: "maskable",
+        },
+        {
+          src: "/icon-maskable-512.png",
+          sizes: "512x512",
+          type: "image/png",
+          purpose: "maskable",
+        },
+      ],
+      categories: ["productivity", "lifestyle"],
+    },
+    workbox: {
+      navigateFallback: "/",
+      globPatterns: ["**/*.{js,css,html,png,svg,ico,json}"],
+      runtimeCaching: [
+        {
+          urlPattern: /^https:\/\/api\..*/i,
+          handler: "NetworkFirst",
+          options: {
+            cacheName: "api-cache",
+            expiration: {
+              maxEntries: 100,
+              maxAgeSeconds: 60 * 60 * 24, // 24 hours
+            },
+          },
+        },
+      ],
+    },
+    devOptions: {
+      enabled: true,
+      type: "module",
+    },
+  },
 
   components: {
     dirs: [
