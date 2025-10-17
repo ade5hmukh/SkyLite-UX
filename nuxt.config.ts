@@ -100,6 +100,20 @@ export default defineNuxtConfig({
         lang: "en",
       },
       title: "SkyLite UX",
+      meta: [
+        { charset: "utf-8" },
+        { name: "viewport", content: "width=device-width, initial-scale=1, maximum-scale=5, user-scalable=yes" },
+        { name: "description", content: "Family chores, rewards, and calendar with gamification for kids" },
+        { name: "format-detection", content: "telephone=no" },
+        { name: "mobile-web-app-capable", content: "yes" },
+        { name: "apple-mobile-web-app-capable", content: "yes" },
+        { name: "apple-mobile-web-app-status-bar-style", content: "default" },
+        { name: "theme-color", content: "#06b6d4" },
+      ],
+      link: [
+        { rel: "icon", type: "image/x-icon", href: "/favicon.ico" },
+        { rel: "apple-touch-icon", href: "/icon-192.png" },
+      ],
     },
   },
 

@@ -52,3 +52,78 @@
   --color-slate-900: #141f38;
   --color-slate-950: #0d1526;
 }
+
+/* Mobile Optimization Styles */
+html {
+  -webkit-text-size-adjust: 100%;
+  -moz-text-size-adjust: 100%;
+  -ms-text-size-adjust: 100%;
+  text-size-adjust: 100%;
+}
+
+body {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  touch-action: manipulation;
+}
+
+/* Ensure touch targets are at least 44x44 pixels on mobile */
+@media (max-width: 768px) {
+  button, a, input, select, textarea {
+    min-height: 44px;
+    min-width: 44px;
+  }
+
+  /* Optimize font sizes for mobile */
+  html {
+    font-size: 16px; /* Prevents iOS zoom on input focus */
+  }
+
+  /* Better spacing on mobile */
+  .p-4 {
+    padding: 0.75rem;
+  }
+
+  .gap-4 {
+    gap: 0.75rem;
+  }
+
+  /* Make modals and dialogs mobile-friendly */
+  [role="dialog"] {
+    max-width: 95vw !important;
+    margin: 0.5rem;
+  }
+
+  /* Ensure images don't overflow */
+  img {
+    max-width: 100%;
+    height: auto;
+  }
+
+  /* Better table scrolling on mobile */
+  table {
+    display: block;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+  }
+}
+
+/* Prevent text selection on buttons/interactive elements */
+button, .cursor-pointer {
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0.1);
+  user-select: none;
+  -webkit-user-select: none;
+}
+
+/* Smooth scrolling */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* PWA safe area insets for iPhone X and above */
+@supports (padding: max(0px)) {
+  body {
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+}

@@ -39,7 +39,7 @@ function handleLogoClick() {
 </script>
 
 <template>
-  <div class="sticky top-0 left-0 h-[calc(100vh-80px)] w-[50px] bg-default flex flex-col items-center py-4 z-100">
+  <div class="sticky top-0 left-0 h-screen sm:h-[calc(100vh-80px)] w-[50px] bg-default flex flex-col items-center py-2 sm:py-4 z-100">
     <!-- Logo with triple-tap -->
     <button
       class="mb-4 p-2 rounded-lg hover:bg-muted transition-colors relative"
