@@ -68,6 +68,27 @@ const defaultViewPreference = computed({
   set: value => updatePreferences({ defaultView: value }),
 });
 
+const { data: notificationStatus } = await useFetch<{ configured: boolean; eventLeadMinutes: number; morningTime: string; eveningTime: string }>("/api/notifications/status");
+const sendingNotification = ref<"test" | "today" | null>(null);
+
+async function sendTestNotification(type: "test" | "today") {
+  sendingNotification.value = type;
+  try {
+    const { sent } = await $fetch<{ sent: boolean }>("/api/notifications/test", { method: "POST", body: { type } });
+    if (sent)
+      useAlertToast().showSuccess("Sent", "Check the ntfy app on your phone.");
+    else
+      useAlertToast().showError("Couldn't reach ntfy", "Check the server address, topic and token.");
+  }
+  catch (error) {
+    consola.error("Settings: Failed to send test notification:", error);
+    useAlertToast().showError("Couldn't send the notification");
+  }
+  finally {
+    sendingNotification.value = null;
+  }
+}
+
 const selectedUser = ref<User | null>(null);
 const isUserDialogOpen = ref(false);
 const selectedIntegration = ref<Integration | null>(null);
@@ -734,22 +755,36 @@ function getIntegrationIconUrl(integration: Integration) {
                 aria-label="Start page"
               />
             </div>
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-4">
               <div>
                 <p class="font-medium text-highlighted">
-                  Notifications
+                  Phone Reminders (ntfy)
                 </p>
-                <p class="text-sm text-muted">
-                  Enable push notifications (Coming Soon™)
+                <p v-if="notificationStatus?.configured" class="text-sm text-muted">
+                  On: {{ notificationStatus.eventLeadMinutes }} min before events, today's plan at {{ notificationStatus.morningTime }}, tomorrow's at {{ notificationStatus.eveningTime }}.
+                </p>
+                <p v-else class="text-sm text-muted">
+                  Off. Set NUXT_NTFY_URL and NUXT_NTFY_TOPIC on the server to turn them on.
                 </p>
               </div>
-              <USwitch
-                color="primary"
-                checked-icon="i-lucide-alarm-clock-check"
-                unchecked-icon="i-lucide-alarm-clock-off"
-                size="xl"
-                aria-label="Toggle notifications"
-              />
+              <div v-if="notificationStatus?.configured" class="flex gap-2 shrink-0">
+                <UButton
+                  size="sm"
+                  variant="outline"
+                  :loading="sendingNotification === 'test'"
+                  @click="sendTestNotification('test')"
+                >
+                  Send test
+                </UButton>
+                <UButton
+                  size="sm"
+                  variant="outline"
+                  :loading="sendingNotification === 'today'"
+                  @click="sendTestNotification('today')"
+                >
+                  Send today's plan
+                </UButton>
+              </div>
             </div>
           </div>
         </div>

@@ -55,6 +55,10 @@ services:
       - TZ=America/Los_Angeles
       - NUXT_PUBLIC_TZ=America/Los_Angeles
       - NUXT_PUBLIC_LOG_LEVEL=info
+    # Optional secrets (NUXT_NTFY_URL, NUXT_NTFY_TOPIC, NUXT_NTFY_TOKEN, NUXT_GEMINI_API_KEY, NUXT_PARENT_PIN).
+    env_file:
+      - path: staging.env
+        required: false
     ports:
       - "3004:3000"
     depends_on:

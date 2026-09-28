@@ -9,6 +9,21 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // Server-only. Set with NUXT_PARENT_PIN (NUXT_PUBLIC_PARENT_PIN is still accepted).
     parentPin: "",
+    // Server-only. NUXT_NTFY_URL (e.g. https://ntfy.sh), NUXT_NTFY_TOPIC, optional NUXT_NTFY_TOKEN.
+    ntfy: {
+      url: "",
+      topic: "",
+      token: "",
+      eventLeadMinutes: 30,
+      morningTime: "07:00",
+      eveningTime: "19:30",
+    },
+    // Server-only. NUXT_GEMINI_API_KEY enables importing events from emails and flyers.
+    gemini: {
+      apiKey: "",
+      model: "gemini-3.5-flash",
+      fallbackModel: "gemini-3.1-flash-lite",
+    },
     public: {
       skyliteVersion: pkg.version,
       nuxtVersion: pkg.devDependencies.nuxt,
