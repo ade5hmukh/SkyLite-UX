@@ -54,7 +54,7 @@ onMounted(() => {
             </p>
 
             <!-- Points earned -->
-            <div class="bg-white/30 backdrop-blur-sm rounded-2xl p-4 inline-block">
+            <div v-if="points > 0" class="bg-white/30 backdrop-blur-sm rounded-2xl p-4 inline-block">
               <div class="flex items-center gap-3">
                 <UIcon name="i-lucide-trophy" class="h-12 w-12 text-yellow-200" />
                 <div class="text-left">

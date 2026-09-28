@@ -27,6 +27,7 @@ const serviceOptions = [
   { label: "All Services", value: "all" },
   { label: "To-Do List", value: "todolist" },
   { label: "Chore", value: "chore" },
+  { label: "Routine", value: "routine" },
   { label: "Points", value: "points" },
   { label: "Rewards", value: "rewards" },
   { label: "Calendar", value: "calendar" },
@@ -86,6 +87,8 @@ function getServiceIcon(serviceName: string) {
       return "i-lucide-list-todo";
     case "chore":
       return "i-lucide-brush-cleaning";
+    case "routine":
+      return "i-lucide-list-checks";
     case "points":
       return "i-lucide-star";
     case "calendar":

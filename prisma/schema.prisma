@@ -30,6 +30,7 @@ model User {
   calendarEvents CalendarEventUser[]
   activityLogs ActivityLog[]
   rewardRedemptions RewardRedemption[]
+  routines Routine[]
 
   @@map("users")
 }
@@ -227,6 +228,56 @@ model RewardRedemption {
   @@index([rewardId])
   @@index([status])
   @@map("reward_redemptions")
+}
+
+model Routine {
+  id         String   @id @default(cuid())
+  name       String
+  icon       String?
+  daysOfWeek Int[]    @default([]) // 0 = Sunday; empty means every day
+  points     Int      @default(0)
+  order      Int      @default(0)
+  enabled    Boolean  @default(true)
+  userId     String?
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  user        User?               @relation(fields: [userId], references: [id], onDelete: SetNull)
+  steps       RoutineStep[]
+  completions RoutineCompletion[]
+
+  @@index([userId])
+  @@map("routines")
+}
+
+model RoutineStep {
+  id              String  @id @default(cuid())
+  routineId       String
+  title           String
+  icon            String?
+  durationMinutes Int? // Shows a timer for this step, e.g. piano practice
+  order           Int     @default(0)
+
+  routine Routine @relation(fields: [routineId], references: [id], onDelete: Cascade)
+
+  @@index([routineId])
+  @@map("routine_steps")
+}
+
+model RoutineCompletion {
+  id               String    @id @default(cuid())
+  routineId        String
+  day              String // YYYY-MM-DD in the app timezone
+  completedStepIds String[]  @default([])
+  completedAt      DateTime?
+  pointsAwarded    Int       @default(0)
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  routine Routine @relation(fields: [routineId], references: [id], onDelete: Cascade)
+
+  @@unique([routineId, day])
+  @@map("routine_completions")
 }
 
 enum RedemptionStatus {

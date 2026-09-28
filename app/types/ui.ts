@@ -97,6 +97,7 @@ export type ClientPreferences = {
 export const MAIN_VIEW_OPTIONS: { path: string; label: string }[] = [
   { path: "/calendar", label: "Calendar" },
   { path: "/toDoLists", label: "Todo Lists" },
+  { path: "/routines", label: "Routines" },
   { path: "/rewards", label: "Rewards" },
   { path: "/leaderboard", label: "Leaderboard" },
   { path: "/mealPlanner", label: "Meal Planner" },

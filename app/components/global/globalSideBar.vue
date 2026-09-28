@@ -70,6 +70,14 @@ function handleLogoClick() {
       aria-label="Todo Lists"
     />
     <UButton
+      :class="isActivePath('/routines') ? 'text-primary' : 'text-default'"
+      to="/routines"
+      variant="ghost"
+      icon="i-lucide-list-checks"
+      size="xl"
+      aria-label="Routines"
+    />
+    <UButton
       :class="isActivePath('/rewards') ? 'text-primary' : 'text-default'"
       to="/rewards"
       variant="ghost"
