@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { addDays, addMonths, addWeeks, isSameMonth, subMonths, subWeeks } from "date-fns";
+import { addDays, addMonths, addWeeks, format, isSameMonth, subMonths, subWeeks } from "date-fns";
 
 import type { CalendarEvent, CalendarView } from "~/types/calendar";
 
@@ -7,6 +7,7 @@ import GlobalDateHeader from "~/components/global/globalDateHeader.vue";
 import GlobalFloatingActionButton from "~/components/global/globalFloatingActionButton.vue";
 import { useCalendar } from "~/composables/useCalendar";
 import { useStableDate } from "~/composables/useStableDate";
+import { findEventConflicts } from "~/utils/eventConflicts";
 
 const props = defineProps<{
   events?: CalendarEvent[];
@@ -239,6 +240,23 @@ const filteredEvents = computed(() => {
   return events;
 });
 
+const conflicts = computed(() => findEventConflicts(filteredEvents.value));
+const conflictsOpen = ref(false);
+
+const { data: aiStatus } = useFetch<{ eventImport: boolean }>("/api/ai/status", { key: "ai-status" });
+const isImportDialogOpen = ref(false);
+
+function handleImportedEvents(events: CalendarEvent[]) {
+  for (const event of events) {
+    _emit("eventAdd", event);
+  }
+  isImportDialogOpen.value = false;
+}
+
+function formatConflictTime(event: CalendarEvent) {
+  return format(new Date(event.start), "EEE MMM d, h:mm a");
+}
+
 function getWeeksForMonth(date: Date) {
   const { getLocalMonthWeeks } = useCalendar();
   return getLocalMonthWeeks(date);
@@ -264,6 +282,49 @@ function getDaysForAgenda(date: Date) {
         @view-change="(newView) => view = newView"
         @date-change="(newDate) => currentDate = newDate"
       />
+      <div v-if="aiStatus?.eventImport || conflicts.length" class="mt-3 flex flex-wrap items-center gap-2">
+        <UButton
+          v-if="aiStatus?.eventImport"
+          color="primary"
+          variant="soft"
+          size="sm"
+          icon="i-lucide-sparkles"
+          @click="isImportDialogOpen = true"
+        >
+          Import from email or flyer
+        </UButton>
+        <UPopover v-if="conflicts.length" v-model:open="conflictsOpen">
+          <UButton
+            color="warning"
+            variant="soft"
+            size="sm"
+            icon="i-lucide-triangle-alert"
+          >
+            {{ conflicts.length }} schedule {{ conflicts.length === 1 ? 'conflict' : 'conflicts' }}
+          </UButton>
+          <template #content>
+            <ul class="p-2 w-80 max-h-96 overflow-y-auto space-y-1" aria-label="Schedule conflicts">
+              <li v-for="conflict in conflicts" :key="`${conflict.first.id}|${conflict.second.id}|${new Date(conflict.first.start).getTime()}`">
+                <button
+                  type="button"
+                  class="w-full text-left rounded-md p-2 hover:bg-muted"
+                  @click="conflictsOpen = false; handleEventSelect(conflict.first)"
+                >
+                  <p class="text-xs text-muted">
+                    {{ formatConflictTime(conflict.first) }} · {{ conflict.people.join(', ') }}
+                  </p>
+                  <p class="text-sm text-highlighted">
+                    {{ conflict.first.title }}
+                  </p>
+                  <p class="text-sm text-highlighted">
+                    <span class="text-muted">overlaps</span> {{ conflict.second.title }} ({{ format(new Date(conflict.second.start), "h:mm a") }})
+                  </p>
+                </button>
+              </li>
+            </ul>
+          </template>
+        </UPopover>
+      </div>
     </div>
     <div class="flex flex-1 flex-col min-h-0">
       <GlobalMonthView
@@ -317,10 +378,16 @@ function getDaysForAgenda(date: Date) {
   <CalendarEventDialog
     :event="selectedEvent"
     :is-open="isEventDialogOpen"
+    :events="props.events"
     :integration-capabilities="selectedEvent && props.getIntegrationCapabilities ? props.getIntegrationCapabilities(selectedEvent)?.capabilities : undefined"
     :integration-service-name="selectedEvent && props.getIntegrationCapabilities ? props.getIntegrationCapabilities(selectedEvent)?.serviceName : undefined"
     @close="isEventDialogOpen = false"
     @save="handleEventSave"
     @delete="handleEventDelete"
+  />
+  <CalendarImportDialog
+    :is-open="isImportDialogOpen"
+    @close="isImportDialogOpen = false"
+    @add="handleImportedEvents"
   />
 </template>

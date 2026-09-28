@@ -4,7 +4,7 @@ import type { DateValue } from "@internationalized/date";
 import { CalendarDate, getLocalTimeZone, parseDate } from "@internationalized/date";
 import { useEventListener } from "@vueuse/core";
 import { consola } from "consola";
-import { isBefore } from "date-fns";
+import { format, isBefore } from "date-fns";
 import ical from "ical.js";
 
 import type { CalendarEvent } from "~/types/calendar";
@@ -12,6 +12,7 @@ import type { CalendarEvent } from "~/types/calendar";
 import { useCalendar } from "~/composables/useCalendar";
 import { useUsers } from "~/composables/useUsers";
 import { getBrowserTimezone } from "~/types/global";
+import { findConflictsFor } from "~/utils/eventConflicts";
 
 import type { ICalEvent } from "../../../server/integrations/iCal/types";
 
@@ -20,6 +21,7 @@ const props = defineProps<{
   isOpen: boolean;
   integrationCapabilities?: string[];
   integrationServiceName?: string;
+  events?: CalendarEvent[];
 }>();
 
 const emit = defineEmits<{
@@ -164,6 +166,31 @@ const canAdd = computed(() => {
 
 const isReadOnly = computed(() => {
   return Boolean(props.event && !canEdit.value);
+});
+
+function formatClock(date: Date | string) {
+  return format(new Date(date), "h:mm a");
+}
+
+function to24Hour(hour: number, amPm: string) {
+  if (amPm === "PM" && hour !== 12)
+    return hour + 12;
+  if (amPm === "AM" && hour === 12)
+    return 0;
+  return hour;
+}
+
+const scheduleConflicts = computed(() => {
+  if (!props.isOpen || allDay.value || !startDate.value || !endDate.value || !props.events?.length)
+    return [];
+  const start = startDate.value.toDate(getLocalTimeZone());
+  const end = endDate.value.toDate(getLocalTimeZone());
+  start.setHours(to24Hour(startHour.value, startAmPm.value), startMinute.value, 0, 0);
+  end.setHours(to24Hour(endHour.value, endAmPm.value), endMinute.value, 0, 0);
+  if (end <= start)
+    return [];
+  return findConflictsFor({ start, end }, selectedUsers.value, props.events, props.event?.id || undefined)
+    .filter(match => match.event.title.trim().toLowerCase() !== title.value.trim().toLowerCase());
 });
 
 watch(() => props.isOpen, async (isOpen) => {
@@ -952,6 +979,20 @@ async function handleDelete() {
         </div>
         <div v-if="isReadOnly" class="bg-info/10 text-info rounded-md px-3 py-2 text-sm">
           This event cannot be edited. {{ integrationServiceName || 'This integration' }} does not support editing events.
+        </div>
+        <div
+          v-if="scheduleConflicts.length"
+          class="bg-warning/10 text-warning rounded-md px-3 py-2 text-sm space-y-1"
+          role="status"
+        >
+          <p class="font-medium flex items-center gap-1.5">
+            <UIcon name="i-lucide-triangle-alert" class="h-4 w-4" />
+            Overlaps with {{ scheduleConflicts.length === 1 ? 'another event' : `${scheduleConflicts.length} events` }}
+          </p>
+          <p v-for="match in scheduleConflicts.slice(0, 3)" :key="`${match.event.id}-${new Date(match.event.start).getTime()}`">
+            {{ match.event.title }}, {{ formatClock(match.event.start) }}–{{ formatClock(match.event.end) }}
+            ({{ match.people.join(', ') }})
+          </p>
         </div>
         <div class="space-y-2">
           <label class="block text-sm font-medium text-highlighted">Title</label>
