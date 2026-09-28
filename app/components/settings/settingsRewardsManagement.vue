@@ -14,7 +14,15 @@ const categories = computed(() => rewardData.value?.categories || []);
 const { data: redemptions, refresh: refreshRedemptions } = await useFetch("/api/rewards/redemptions");
 
 // UI State
-const activeTab = ref<"templates" | "active" | "redemptions">("templates");
+const route = useRoute();
+const activeTab = ref<"templates" | "active" | "redemptions">(route.query.tab === "redemptions" ? "redemptions" : "templates");
+const rootElement = ref<HTMLElement | null>(null);
+
+onMounted(() => {
+  if (route.query.tab === "redemptions") {
+    nextTick(() => rootElement.value?.scrollIntoView({ behavior: "smooth", block: "start" }));
+  }
+});
 const selectedCategory = ref("all");
 const editingRewardId = ref<string | null>(null);
 
@@ -156,7 +164,7 @@ async function handleUpdateRedemption(redemptionId: string, status: string) {
 </script>
 
 <template>
-  <div class="bg-default rounded-lg shadow-sm border border-default p-6 mb-6">
+  <div ref="rootElement" class="bg-default rounded-lg shadow-sm border border-default p-6 mb-6 scroll-mt-28">
     <div class="flex items-center justify-between mb-4">
       <h2 class="text-lg font-semibold text-highlighted flex items-center gap-2">
         <UIcon name="i-lucide-gift" class="h-5 w-5 text-primary" />

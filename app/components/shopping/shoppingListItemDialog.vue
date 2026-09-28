@@ -97,9 +97,14 @@ function handleSave() {
   emit("close");
 }
 
-function handleDelete() {
+const { confirmAction } = useConfirmDialog();
+
+async function handleDelete() {
   if (props.item?.id) {
-    emit("delete", props.item.id);
+    const itemId = props.item.id;
+    if (!await confirmAction({ title: `Delete "${props.item.name}"?` }))
+      return;
+    emit("delete", itemId);
   }
 }
 </script>

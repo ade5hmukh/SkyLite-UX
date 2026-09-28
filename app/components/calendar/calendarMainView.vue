@@ -198,22 +198,14 @@ const filteredEvents = computed(() => {
       break;
     }
     case "week": {
-      const sunday = new Date(now.getTime());
-      const dayOfWeek = sunday.getDay();
-      sunday.setDate(sunday.getDate() - dayOfWeek);
-      const saturday = new Date(sunday.getTime() + 6 * 24 * 60 * 60 * 1000);
-      start = sunday;
-      end = saturday;
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+      end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 6, 23, 59, 59, 999);
       events = getEventsForDateRange(start, end);
       break;
     }
     case "twoweeks": {
-      const sunday = new Date(now.getTime());
-      const dayOfWeek = sunday.getDay();
-      sunday.setDate(sunday.getDate() - dayOfWeek);
-      const endOfTwoWeeks = new Date(sunday.getTime() + 13 * 24 * 60 * 60 * 1000);
-      start = sunday;
-      end = endOfTwoWeeks;
+      start = new Date(now.getFullYear(), now.getMonth(), now.getDate() - now.getDay());
+      end = new Date(start.getFullYear(), start.getMonth(), start.getDate() + 13, 23, 59, 59, 999);
       events = getEventsForDateRange(start, end);
       break;
     }

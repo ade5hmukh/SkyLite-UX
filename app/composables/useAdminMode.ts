@@ -1,12 +1,13 @@
 import { ref, computed } from "vue";
 
 const ADMIN_MODE_TIMEOUT = 10 * 60 * 1000; // 10 minutes
-const PARENTAL_PIN = "1111"; // TODO: Move to environment variable or settings
 
 const isAdminMode = ref(false);
 let adminModeTimer: NodeJS.Timeout | null = null;
 
 export function useAdminMode() {
+  const parentalPin = String(useRuntimeConfig().public.parentPin || "1111");
+
   const activateAdminMode = () => {
     isAdminMode.value = true;
     resetTimer();
@@ -18,7 +19,7 @@ export function useAdminMode() {
   };
 
   const verifyPin = (pin: string): boolean => {
-    return pin === PARENTAL_PIN;
+    return pin === parentalPin;
   };
 
   const resetTimer = () => {

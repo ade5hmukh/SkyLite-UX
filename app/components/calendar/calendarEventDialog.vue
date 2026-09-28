@@ -371,12 +371,9 @@ function resetForm() {
 
   const now = new Date();
 
-  const todayString = now.toISOString().split("T")[0];
-  if (todayString) {
-    const todayDate = parseDate(todayString);
-    startDate.value = todayDate;
-    endDate.value = todayDate;
-  }
+  const todayDate = parseDate(now.toLocaleDateString("en-CA"));
+  startDate.value = todayDate;
+  endDate.value = todayDate;
 
   const currentMinutes = now.getMinutes();
   const roundedMinutes = Math.round(currentMinutes / 5) * 5;
@@ -891,14 +888,19 @@ function handleSave() {
   }
 }
 
-function handleDelete() {
+const { confirmAction } = useConfirmDialog();
+
+async function handleDelete() {
   if (!canDelete.value) {
     error.value = "This integration does not support deleting events";
     return;
   }
 
   if (props.event?.id) {
-    emit("delete", props.event.id);
+    const eventId = props.event.id;
+    if (!await confirmAction({ title: `Delete "${title.value || props.event.title}"?` }))
+      return;
+    emit("delete", eventId);
   }
 }
 </script>

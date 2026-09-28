@@ -14,6 +14,7 @@ export default defineNuxtConfig({
       // consola log level. See https://github.com/unjs/consola/blob/main/src/constants.ts
       logLevel: "info", // Default log level, can be overridden by NUXT_PUBLIC_LOG_LEVEL env var
       tz: "America/Los_Angeles", // Default timezone, can be overridden by NUXT_PUBLIC_TZ env var
+      parentPin: "1111", // Parent PIN for Settings, can be overridden by NUXT_PUBLIC_PARENT_PIN env var
     },
   },
 

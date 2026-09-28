@@ -293,9 +293,14 @@ async function handleSave() {
   }
 }
 
-function handleDelete() {
+const { confirmAction } = useConfirmDialog();
+
+async function handleDelete() {
   if (props.integration?.id) {
-    emit("delete", props.integration.id);
+    const integrationId = props.integration.id;
+    if (!await confirmAction({ title: `Delete integration "${props.integration.name}"?` }))
+      return;
+    emit("delete", integrationId);
   }
 }
 </script>

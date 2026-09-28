@@ -17,6 +17,31 @@ type FeedCacheEntry = {
 
 const feedCache = new Map<string, FeedCacheEntry>();
 
+const HTML_ENTITIES: Record<string, string> = { amp: "&", lt: "<", gt: ">", quot: "\"", apos: "'", nbsp: " " };
+
+// Google Calendar exports descriptions as HTML; the app renders them as plain text
+function htmlToText(value: string): string {
+  if (!/<[a-z][^>]*>|&[#a-z0-9]+;/i.test(value)) {
+    return value;
+  }
+  return value
+    .replace(/<br\s*\/?>/gi, "\n")
+    .replace(/<\/(p|div|li|h[1-6])>/gi, "\n")
+    .replace(/<li[^>]*>/gi, "• ")
+    .replace(/<a\s[^>]*href="([^"]*)"[^>]*>(.*?)<\/a>/gi, (_, href: string, text: string) => text && text !== href ? `${text} (${href})` : href)
+    .replace(/<[^>]+>/g, "")
+    .replace(/&(#x[0-9a-f]+|#\d+|[a-z]+);/gi, (entity, code: string) => {
+      if (code[0] === "#") {
+        const point = code[1]?.toLowerCase() === "x" ? Number.parseInt(code.slice(2), 16) : Number.parseInt(code.slice(1), 10);
+        return Number.isFinite(point) ? String.fromCodePoint(point) : entity;
+      }
+      return HTML_ENTITIES[code.toLowerCase()] ?? entity;
+    })
+    .replace(/[ \t]+\n/g, "\n")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+}
+
 export class ICalServerService {
   constructor(private integrationId: string, private url: string) {}
 
@@ -89,19 +114,73 @@ export class ICalServerService {
     const startDate = new Date(now.getFullYear() - 1, now.getMonth(), now.getDate());
     const endDate = new Date(now.getFullYear() + 2, now.getMonth(), now.getDate());
 
+    // Changed occurrences of a series are separate VEVENTs sharing the series UID
+    const overridesByUid = new Map<string, ical.Component[]>();
     for (const vevent of vevents) {
-      const rrule = vevent.getFirstPropertyValue("rrule");
+      if (vevent.hasProperty("recurrence-id")) {
+        const uid = vevent.getFirstPropertyValue("uid") as string;
+        overridesByUid.set(uid, [...(overridesByUid.get(uid) || []), vevent]);
+      }
+    }
 
-      if (rrule) {
-        const expandedEvents = this.expandRecurringEvent(vevent, startDate, endDate);
-        events.push(...expandedEvents);
+    const expandedUids = new Set<string>();
+    for (const vevent of vevents) {
+      if (vevent.hasProperty("recurrence-id")) {
+        continue;
+      }
+
+      if (vevent.getFirstPropertyValue("rrule")) {
+        const uid = vevent.getFirstPropertyValue("uid") as string;
+        events.push(...this.expandRecurringEvent(vevent, overridesByUid.get(uid) || [], startDate, endDate));
+        expandedUids.add(uid);
       }
       else {
         events.push(this.parseICalEvent(vevent));
       }
     }
 
+    for (const [uid, overrides] of overridesByUid) {
+      if (expandedUids.has(uid)) {
+        continue;
+      }
+      for (const override of overrides) {
+        if (!this.isCancelled(override)) {
+          const recurrenceId = override.getFirstPropertyValue("recurrence-id") as ical.Time;
+          events.push({ ...this.parseICalEvent(override), uid: `${uid}-${recurrenceId.toICALString()}` });
+        }
+      }
+    }
+
     return events;
+  }
+
+  private isCancelled(vevent: ical.Component): boolean {
+    return String(vevent.getFirstPropertyValue("status") || "").toUpperCase() === "CANCELLED";
+  }
+
+  private parseRrule(vevent: ical.Component): ICalEvent["rrule"] {
+    const rrule = vevent.getFirstPropertyValue("rrule") as ical.Recur | null;
+    if (!rrule) {
+      return undefined;
+    }
+    const byday = rrule.getComponent("byday") as string[];
+    const bymonth = rrule.getComponent("bymonth") as number[];
+    return {
+      freq: rrule.freq,
+      ...(rrule.interval && { interval: rrule.interval }),
+      ...(byday?.length && { byday }),
+      ...(bymonth?.length && { bymonth }),
+      ...(typeof rrule.count === "number" && { count: rrule.count }),
+      ...(rrule.until && { until: rrule.until.toString() }),
+    };
+  }
+
+  private parseAttendees(vevent: ical.Component): ICalEvent["attendees"] {
+    return vevent.getAllSubcomponents("attendee")?.map((attendee: ical.Component) => ({
+      cn: attendee.getFirstPropertyValue("cn") as string || "",
+      mailto: attendee.getFirstPropertyValue("email") as string || "",
+      role: attendee.getFirstPropertyValue("role") as string || "REQ-PARTICIPANT",
+    })) || undefined;
   }
 
   private parseICalEvent(vevent: ical.Component): ICalEvent {
@@ -120,75 +199,46 @@ export class ICalServerService {
       type: "VEVENT",
       uid: vevent.getFirstPropertyValue("uid") as string || "",
       summary: vevent.getFirstPropertyValue("summary") as string || "",
-      description: vevent.getFirstPropertyValue("description") as string || "",
+      description: htmlToText(vevent.getFirstPropertyValue("description") as string || ""),
       dtstart: startUTC,
       dtend: endUTC,
       location: vevent.getFirstPropertyValue("location") as string || undefined,
-      attendees: vevent.getAllSubcomponents("attendee")?.map((attendee: ical.Component) => ({
-        cn: attendee.getFirstPropertyValue("cn") as string || "",
-        mailto: attendee.getFirstPropertyValue("email") as string || "",
-        role: attendee.getFirstPropertyValue("role") as string || "REQ-PARTICIPANT",
-      })) || undefined,
-      rrule: vevent.getFirstPropertyValue("rrule")
-        ? {
-            freq: (vevent.getFirstPropertyValue("rrule") as ical.Recur).freq,
-            ...(vevent.getFirstPropertyValue("rrule") as ical.Recur).interval && {
-              interval: (vevent.getFirstPropertyValue("rrule") as ical.Recur).interval,
-            },
-            ...((vevent.getFirstPropertyValue("rrule") as ical.Recur).getComponent("byday")?.length && {
-              byday: (vevent.getFirstPropertyValue("rrule") as ical.Recur).getComponent("byday") as string[],
-            }),
-            ...((vevent.getFirstPropertyValue("rrule") as ical.Recur).getComponent("bymonth")?.length && {
-              bymonth: (vevent.getFirstPropertyValue("rrule") as ical.Recur).getComponent("bymonth") as number[],
-            }),
-            ...(typeof (vevent.getFirstPropertyValue("rrule") as ical.Recur).count === "number" && {
-              count: (vevent.getFirstPropertyValue("rrule") as ical.Recur).count as number,
-            }),
-            ...(vevent.getFirstPropertyValue("rrule") as ical.Recur).until && {
-              until: (vevent.getFirstPropertyValue("rrule") as ical.Recur).until?.toString(),
-            },
-          }
-        : undefined,
+      attendees: this.parseAttendees(vevent),
+      rrule: this.parseRrule(vevent),
     };
   }
 
-  private expandRecurringEvent(vevent: ical.Component, startDate: Date, endDate: Date): ICalEvent[] {
+  private expandRecurringEvent(vevent: ical.Component, overrides: ical.Component[], startDate: Date, endDate: Date): ICalEvent[] {
     const events: ICalEvent[] = [];
 
     try {
-      const recurrence = vevent.getFirstPropertyValue("rrule");
-      const dtstart = vevent.getFirstPropertyValue("dtstart") as ical.Time;
-
-      if (!recurrence || !dtstart) {
+      if (!vevent.getFirstPropertyValue("dtstart")) {
         return [this.parseICalEvent(vevent)];
       }
 
-      const expansion = new ical.RecurExpansion({
-        component: vevent,
-        dtstart,
-      });
+      const series = new ical.Event(vevent);
+      for (const override of overrides) {
+        series.relateException(override);
+      }
 
+      const iterator = series.iterator();
       let count = 0;
       const maxInstances = 1000;
 
       while (count < maxInstances) {
-        const currentTime = expansion.next();
+        const occurrence = iterator.next();
 
-        if (!currentTime) {
+        if (!occurrence) {
           break;
         }
 
-        const currentDate = currentTime.toJSDate();
-
-        if (currentDate > endDate) {
+        if (occurrence.toJSDate() > endDate) {
           break;
         }
 
-        if (currentDate >= startDate) {
-          const eventInstance = this.createRecurringEventInstance(vevent, currentTime);
-          if (eventInstance) {
-            events.push(eventInstance);
-          }
+        const details = series.getOccurrenceDetails(occurrence);
+        if (details.startDate.toJSDate() >= startDate && !this.isCancelled(details.item.component)) {
+          events.push(this.createRecurringEventInstance(vevent, details));
         }
         count++;
       }
@@ -201,78 +251,36 @@ export class ICalServerService {
     return events;
   }
 
-  private createRecurringEventInstance(vevent: ical.Component, occurrenceTime: ical.Time): ICalEvent | null {
-    try {
-      const dtstart = vevent.getFirstPropertyValue("dtstart") as ical.Time;
+  private createRecurringEventInstance(
+    series: ical.Component,
+    details: { recurrenceId: ical.Time; item: ical.Event; startDate: ical.Time; endDate: ical.Time },
+  ): ICalEvent {
+    const occurrence = details.item.component;
+    const newStart = details.startDate.toJSDate();
+    const newEnd = details.endDate.toJSDate();
 
-      if (!dtstart) {
-        return null;
-      }
+    let start: Date;
+    let end: Date;
 
-      const originalStart = dtstart.toJSDate();
-      const originalEnd = new ical.Event(vevent).endDate.toJSDate();
-      const duration = originalEnd.getTime() - originalStart.getTime();
-
-      const newStart = occurrenceTime.toJSDate();
-      const newEnd = new Date(newStart.getTime() + duration);
-
-      const isAllDay = dtstart.isDate;
-
-      let start: Date;
-      let end: Date;
-
-      if (isAllDay) {
-        start = new Date(Date.UTC(newStart.getUTCFullYear(), newStart.getUTCMonth(), newStart.getUTCDate(), 0, 0, 0, 0));
-        end = new Date(Date.UTC(newEnd.getUTCFullYear(), newEnd.getUTCMonth(), newEnd.getUTCDate(), 0, 0, 0, 0));
-      }
-      else {
-        start = newStart;
-        end = newEnd;
-      }
-
-      // Convert to UTC and format as iCal string
-      const startUTC = ical.Time.fromJSDate(start, true).toString();
-      const endUTC = ical.Time.fromJSDate(end, true).toString();
-
-      const eventInstance: ICalEvent = {
-        type: "VEVENT",
-        uid: `${vevent.getFirstPropertyValue("uid")}-${occurrenceTime.toICALString()}`,
-        summary: vevent.getFirstPropertyValue("summary") as string || "",
-        description: vevent.getFirstPropertyValue("description") as string || "",
-        dtstart: startUTC,
-        dtend: endUTC,
-        location: vevent.getFirstPropertyValue("location") as string || undefined,
-        attendees: vevent.getAllSubcomponents("attendee")?.map((attendee: ical.Component) => ({
-          cn: attendee.getFirstPropertyValue("cn") as string || "",
-          mailto: attendee.getFirstPropertyValue("email") as string || "",
-          role: attendee.getFirstPropertyValue("role") as string || "REQ-PARTICIPANT",
-        })) || undefined,
-        rrule: vevent.getFirstPropertyValue("rrule")
-          ? {
-              freq: (vevent.getFirstPropertyValue("rrule") as ical.Recur).freq,
-              ...(vevent.getFirstPropertyValue("rrule") as ical.Recur).interval && {
-                interval: (vevent.getFirstPropertyValue("rrule") as ical.Recur).interval,
-              },
-              ...((vevent.getFirstPropertyValue("rrule") as ical.Recur).getComponent("byday")?.length && {
-                byday: (vevent.getFirstPropertyValue("rrule") as ical.Recur).getComponent("byday") as string[],
-              }),
-              ...((vevent.getFirstPropertyValue("rrule") as ical.Recur).getComponent("bymonth")?.length && {
-                bymonth: (vevent.getFirstPropertyValue("rrule") as ical.Recur).getComponent("bymonth") as number[],
-              }),
-              ...(typeof (vevent.getFirstPropertyValue("rrule") as ical.Recur).count === "number" && {
-                count: (vevent.getFirstPropertyValue("rrule") as ical.Recur).count as number,
-              }),
-              ...(vevent.getFirstPropertyValue("rrule") as ical.Recur).until && {
-                until: (vevent.getFirstPropertyValue("rrule") as ical.Recur).until?.toString(),
-              },
-            }
-          : undefined,
-      };
-      return eventInstance;
+    if (details.startDate.isDate) {
+      start = new Date(Date.UTC(newStart.getUTCFullYear(), newStart.getUTCMonth(), newStart.getUTCDate(), 0, 0, 0, 0));
+      end = new Date(Date.UTC(newEnd.getUTCFullYear(), newEnd.getUTCMonth(), newEnd.getUTCDate(), 0, 0, 0, 0));
     }
-    catch (error) {
-      consola.warn("ICalServerService: Failed to create recurring event instance:", error);
-      return null;
+    else {
+      start = newStart;
+      end = newEnd;
     }
+
+    return {
+      type: "VEVENT",
+      uid: `${series.getFirstPropertyValue("uid")}-${details.recurrenceId.toICALString()}`,
+      summary: occurrence.getFirstPropertyValue("summary") as string || "",
+      description: htmlToText(occurrence.getFirstPropertyValue("description") as string || ""),
+      dtstart: ical.Time.fromJSDate(start, true).toString(),
+      dtend: ical.Time.fromJSDate(end, true).toString(),
+      location: occurrence.getFirstPropertyValue("location") as string || undefined,
+      attendees: this.parseAttendees(occurrence),
+      rrule: this.parseRrule(series),
+    };
   }
 }

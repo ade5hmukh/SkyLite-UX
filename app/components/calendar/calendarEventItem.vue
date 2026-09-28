@@ -7,9 +7,6 @@ import { useStableDate } from "~/composables/useStableDate";
 const props = defineProps<{
   event: CalendarEvent;
   className?: string;
-  onClick?: (e: MouseEvent) => void;
-  onMouseDown?: (e: MouseEvent) => void;
-  onTouchStart?: (e: TouchEvent) => void;
   view: string;
   currentDay?: Date;
 }>();
@@ -84,17 +81,14 @@ function isEventPast(event: CalendarEvent): boolean {
 
 function handleClick(e: MouseEvent) {
   emit("click", e);
-  props.onClick?.(e);
 }
 
 function handleMouseDown(e: MouseEvent) {
   emit("mousedown", e);
-  props.onMouseDown?.(e);
 }
 
 function handleTouchStart(e: TouchEvent) {
   emit("touchstart", e);
-  props.onTouchStart?.(e);
 }
 
 function handleKeydown(e: KeyboardEvent) {
@@ -208,7 +202,7 @@ function handleKeydown(e: KeyboardEvent) {
               <span>{{ event.location }}</span>
             </template>
           </div>
-          <div v-if="event.description" class="my-1 text-xs opacity-90">
+          <div v-if="event.description" class="my-1 text-xs opacity-90 whitespace-pre-line line-clamp-3">
             {{ event.description }}
           </div>
         </div>
@@ -268,7 +262,7 @@ function handleKeydown(e: KeyboardEvent) {
               <span>{{ event.location }}</span>
             </template>
           </div>
-          <div v-if="event.description" class="my-1 text-xs opacity-90">
+          <div v-if="event.description" class="my-1 text-xs opacity-90 whitespace-pre-line line-clamp-3">
             {{ event.description }}
           </div>
         </div>

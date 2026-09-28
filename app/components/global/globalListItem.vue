@@ -47,7 +47,7 @@ function getPriorityColor(priority: Priority) {
       :model-value="item.checked"
       color="primary"
       size="xl"
-      aria-label="`Mark ${item.name} as ${item.checked ? 'incomplete' : 'complete'}`"
+      :aria-label="`Mark ${item.name} as ${item.checked ? 'incomplete' : 'complete'}`"
       @update:model-value="emit('toggle', { itemId: item.id, checked: Boolean($event) })"
       @click.stop
     />

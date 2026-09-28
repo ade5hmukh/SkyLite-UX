@@ -41,13 +41,10 @@ const nextWeekDays = computed(() => {
 
 const nextWeekEvents = computed(() => {
   const start = props.startDate || getStableDate();
-  const sunday = new Date(start.getTime());
-  const dayOfWeek = sunday.getDay();
-  sunday.setDate(sunday.getDate() - dayOfWeek);
-  const nextWeekSunday = new Date(sunday.getTime() + 7 * 24 * 60 * 60 * 1000);
-  const nextWeekSaturday = new Date(nextWeekSunday.getTime() + 6 * 24 * 60 * 60 * 1000);
+  const nextWeekSunday = new Date(start.getFullYear(), start.getMonth(), start.getDate() - start.getDay() + 7);
+  const nextWeekSaturdayEnd = new Date(nextWeekSunday.getFullYear(), nextWeekSunday.getMonth(), nextWeekSunday.getDate() + 6, 23, 59, 59, 999);
 
-  return getEventsForDateRange(nextWeekSunday, nextWeekSaturday);
+  return getEventsForDateRange(nextWeekSunday, nextWeekSaturdayEnd);
 });
 
 const firstRow = computed(() => weekDays.value.slice(0, 4));

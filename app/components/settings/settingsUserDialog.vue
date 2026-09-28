@@ -81,9 +81,14 @@ function handleSave() {
   } as CreateUserInput);
 }
 
-function handleDelete() {
+const { confirmAction } = useConfirmDialog();
+
+async function handleDelete() {
   if (props.user?.id) {
-    emit("delete", props.user.id);
+    const userId = props.user.id;
+    if (!await confirmAction({ title: `Delete user "${props.user.name}"?`, message: "Their to-dos, points and reward history will be removed too." }))
+      return;
+    emit("delete", userId);
   }
 }
 </script>

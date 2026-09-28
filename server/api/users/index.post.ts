@@ -32,6 +32,25 @@ export default defineEventHandler(async (event) => {
       return { user, todoColumn };
     });
 
+    // Log the activity
+    try {
+      await prisma.activityLog.create({
+        data: {
+          level: "INFO",
+          serviceName: "user",
+          message: `Added user: ${result.user.name}`,
+          userId: result.user.id,
+          username: result.user.name,
+          entityType: "user",
+          entityId: result.user.id,
+          entityName: result.user.name,
+        },
+      });
+    }
+    catch (logError) {
+      console.error("Failed to log activity:", logError);
+    }
+
     return result.user;
   }
   catch (error) {

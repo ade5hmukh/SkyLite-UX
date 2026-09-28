@@ -460,7 +460,7 @@ function getIntegrationIconUrl(integration: Integration) {
       <GlobalDateHeader />
     </div>
 
-    <div class="flex-1 bg-default p-6">
+    <div v-if="isAdminMode" class="flex-1 bg-default p-6">
       <div class="max-w-4xl mx-auto">
         <div class="bg-default rounded-lg shadow-sm border border-default p-6 mb-6">
           <div class="flex items-center justify-between mb-6">

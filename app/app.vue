@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import GlobalAppLoading from "~/components/global/globalAppLoading.vue";
+import GlobalConfirmDialog from "~/components/global/globalConfirmDialog.vue";
 import GlobalDock from "~/components/global/globalDock.vue";
 import GlobalSideBar from "~/components/global/globalSideBar.vue";
 
@@ -16,7 +17,7 @@ onNuxtReady(() => {
 <template>
   <UApp>
     <GlobalAppLoading :is-loading="isLoading" :loading-message="loadingMessage || ''" />
-
+    <GlobalConfirmDialog />
     <div v-if="!dock" class="flex min-h-screen">
       <GlobalSideBar />
       <div class="flex flex-col flex-1">

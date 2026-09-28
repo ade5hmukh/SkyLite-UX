@@ -41,9 +41,14 @@ function handleSave() {
   emit("close");
 }
 
-function handleDelete() {
+const { confirmAction } = useConfirmDialog();
+
+async function handleDelete() {
   if (props.column?.id) {
-    emit("delete", props.column.id);
+    const columnId = props.column.id;
+    if (!await confirmAction({ title: `Delete list "${props.column.name}"?`, message: "All to-dos in this list will be deleted too." }))
+      return;
+    emit("delete", columnId);
     emit("close");
   }
 }

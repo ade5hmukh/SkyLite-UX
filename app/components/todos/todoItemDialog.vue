@@ -89,7 +89,7 @@ watch(() => [props.isOpen, props.todo], ([isOpen, todo]) => {
         todoPriority.value = todo.priority || "MEDIUM";
         if (todo.dueDate) {
           const date = todo.dueDate instanceof Date ? todo.dueDate : parseStableDate(todo.dueDate);
-          todoDueDate.value = parseDate(date.toISOString().split("T")[0]!);
+          todoDueDate.value = parseDate(date.toLocaleDateString("en-CA"));
         }
       }
       // Load points and chore data
@@ -198,9 +198,14 @@ function handleSave() {
   emit("close");
 }
 
-function handleDelete() {
+const { confirmAction } = useConfirmDialog();
+
+async function handleDelete() {
   if (props.todo?.id) {
-    emit("delete", props.todo.id);
+    const todoId = props.todo.id;
+    if (!await confirmAction({ title: `Delete "${props.todo.name}"?` }))
+      return;
+    emit("delete", todoId);
     emit("close");
   }
 }

@@ -25,7 +25,7 @@ async function handleEventAdd(event: CalendarEvent) {
       };
 
       if (cachedEvents.value && Array.isArray(cachedEvents.value)) {
-        cachedEvents.value.push(newEvent);
+        cachedEvents.value = [...cachedEvents.value, newEvent];
       }
 
       try {
@@ -44,18 +44,13 @@ async function handleEventAdd(event: CalendarEvent) {
         });
 
         if (cachedEvents.value && Array.isArray(cachedEvents.value)) {
-          const tempIndex = cachedEvents.value.findIndex((e: CalendarEvent) => e.id === newEvent.id);
-          if (tempIndex !== -1) {
-            cachedEvents.value[tempIndex] = createdEvent;
-          }
+          cachedEvents.value = cachedEvents.value.map((e: CalendarEvent) => e.id === newEvent.id ? createdEvent : e);
         }
 
         showSuccess("Event Created", "Local event created successfully");
       }
       catch (error) {
-        if (cachedEvents.value && previousEvents.length > 0) {
-          cachedEvents.value.splice(0, cachedEvents.value.length, ...previousEvents);
-        }
+        cachedEvents.value = previousEvents;
         throw error;
       }
     }
@@ -75,10 +70,7 @@ async function handleEventUpdate(event: CalendarEvent) {
       const previousEvents = cachedEvents.value ? [...cachedEvents.value] : [];
 
       if (cachedEvents.value && Array.isArray(cachedEvents.value)) {
-        const eventIndex = cachedEvents.value.findIndex((e: CalendarEvent) => e.id === event.id);
-        if (eventIndex !== -1) {
-          cachedEvents.value[eventIndex] = { ...cachedEvents.value[eventIndex], ...event };
-        }
+        cachedEvents.value = cachedEvents.value.map((e: CalendarEvent) => e.id === event.id ? { ...e, ...event } : e);
       }
 
       try {
@@ -99,9 +91,7 @@ async function handleEventUpdate(event: CalendarEvent) {
         showSuccess("Event Updated", "Local event updated successfully");
       }
       catch (error) {
-        if (cachedEvents.value && previousEvents.length > 0) {
-          cachedEvents.value.splice(0, cachedEvents.value.length, ...previousEvents);
-        }
+        cachedEvents.value = previousEvents;
         throw error;
       }
     }
@@ -128,7 +118,7 @@ async function handleEventDelete(eventId: string) {
       const previousEvents = cachedEvents.value ? [...cachedEvents.value] : [];
 
       if (cachedEvents.value && Array.isArray(cachedEvents.value)) {
-        cachedEvents.value.splice(0, cachedEvents.value.length, ...cachedEvents.value.filter((e: CalendarEvent) => e.id !== eventId));
+        cachedEvents.value = cachedEvents.value.filter((e: CalendarEvent) => e.id !== eventId);
       }
 
       try {
@@ -137,9 +127,7 @@ async function handleEventDelete(eventId: string) {
         showSuccess("Event Deleted", "Local event deleted successfully");
       }
       catch (error) {
-        if (cachedEvents.value && previousEvents.length > 0) {
-          cachedEvents.value.splice(0, cachedEvents.value.length, ...previousEvents);
-        }
+        cachedEvents.value = previousEvents;
         throw error;
       }
     }

@@ -122,6 +122,14 @@ const items: DropdownMenuItem[][] = [
   ],
 ];
 
+const viewLabels: Record<string, string> = {
+  month: "Month",
+  twoweeks: "2 Weeks",
+  week: "Week",
+  day: "Day",
+  agenda: "Agenda",
+};
+
 function handlePrevious() {
   emit("previous");
 }
@@ -269,7 +277,7 @@ function handleToday() {
             size="xl"
             trailing-icon="i-lucide-chevron-down"
           >
-            <span class="capitalize">{{ view }}</span>
+            <span>{{ viewLabels[view] ?? view }}</span>
           </UButton>
         </UDropdownMenu>
       </div>

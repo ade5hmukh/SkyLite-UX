@@ -10,6 +10,8 @@ const emit = defineEmits<{
   (e: "verified"): void;
 }>();
 
+const { verifyPin: verify, activateAdminMode } = useAdminMode();
+
 const pin = ref("");
 const error = ref("");
 
@@ -37,8 +39,6 @@ function backspace() {
 }
 
 function verifyPin() {
-  const { verifyPin: verify, activateAdminMode } = useAdminMode();
-  
   if (verify(pin.value)) {
     activateAdminMode();
     emit("verified");
@@ -69,6 +69,7 @@ function verifyPin() {
           color="neutral"
           variant="ghost"
           icon="i-lucide-x"
+          aria-label="Close PIN dialog"
           @click="emit('close')"
         />
       </div>
@@ -113,4 +114,3 @@ function verifyPin() {
     </div>
   </div>
 </template>
-

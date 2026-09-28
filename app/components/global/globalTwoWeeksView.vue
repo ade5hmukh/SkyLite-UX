@@ -98,7 +98,7 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
             >
               <UIcon name="i-lucide-calendar-off" class="w-10 h-10" />
               <span class="text-lg text-muted">
-                {{ isToday(day) ? 'No events' : 'No events' }}
+                {{ isToday(day) ? 'No events today' : 'No events' }}
               </span>
             </div>
           </div>

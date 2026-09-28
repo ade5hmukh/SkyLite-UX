@@ -53,13 +53,14 @@ const categories = [
 ];
 
 // Redeem reward
-const isRedeeming = ref(false);
+const redeemingRewardId = ref<string | null>(null);
+const isRedeeming = computed(() => redeemingRewardId.value !== null);
 const redeemError = ref<string | null>(null);
 
 async function redeemReward(rewardId: string) {
   if (!selectedUserId.value) return;
 
-  isRedeeming.value = true;
+  redeemingRewardId.value = rewardId;
   redeemError.value = null;
 
   try {
@@ -88,7 +89,7 @@ async function redeemReward(rewardId: string) {
     alert(redeemError.value);
   }
   finally {
-    isRedeeming.value = false;
+    redeemingRewardId.value = null;
   }
 }
 
@@ -146,7 +147,7 @@ function canAfford(pointCost: number): boolean {
           <!-- Pending Redemptions Badge -->
           <NuxtLink
             v-if="pendingRedemptionsCount > 0"
-            to="/rewards/history"
+            to="/settings?tab=redemptions"
             class="relative"
           >
             <UButton color="primary" variant="outline" icon="i-lucide-clock">
@@ -221,7 +222,7 @@ function canAfford(pointCost: number): boolean {
                 :disabled="!canAfford(reward.pointCost) || isRedeeming || !selectedUserId"
                 :color="canAfford(reward.pointCost) ? 'primary' : 'gray'"
                 size="sm"
-                :loading="isRedeeming"
+                :loading="redeemingRewardId === reward.id"
                 @click="redeemReward(reward.id)"
               >
                 Redeem

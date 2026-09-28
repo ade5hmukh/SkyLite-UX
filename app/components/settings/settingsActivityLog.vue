@@ -28,6 +28,7 @@ const serviceOptions = [
   { label: "To-Do List", value: "todolist" },
   { label: "Chore", value: "chore" },
   { label: "Points", value: "points" },
+  { label: "Rewards", value: "rewards" },
   { label: "Calendar", value: "calendar" },
   { label: "User", value: "user" },
   { label: "Integration", value: "integration" },
@@ -56,11 +57,12 @@ async function loadLogs() {
   }
 }
 
-// Format timestamp to Pacific timezone
+const timeZone = String(useRuntimeConfig().public.tz || "America/Los_Angeles");
+
 function formatTimestamp(timestamp: string) {
   const date = new Date(timestamp);
-  const pacificDate = toZonedTime(date, "America/Los_Angeles");
-  return format(pacificDate, "yyyy-MM-dd HH:mm:ss zzz");
+  const zonedDate = toZonedTime(date, timeZone);
+  return format(zonedDate, "yyyy-MM-dd HH:mm:ss zzz");
 }
 
 // Get level color
@@ -83,7 +85,7 @@ function getServiceIcon(serviceName: string) {
     case "todolist":
       return "i-lucide-list-todo";
     case "chore":
-      return "i-lucide-broom";
+      return "i-lucide-brush-cleaning";
     case "points":
       return "i-lucide-star";
     case "calendar":
@@ -103,9 +105,19 @@ watch([filterLevel, filterServiceName, filterUserId], () => {
   loadLogs();
 });
 
-// Load logs on mount
+let refreshTimer: ReturnType<typeof setInterval> | null = null;
+
 onMounted(() => {
   loadLogs();
+  refreshTimer = setInterval(() => {
+    if (currentPage.value === 1 && !loading.value)
+      loadLogs();
+  }, 30 * 1000);
+});
+
+onUnmounted(() => {
+  if (refreshTimer)
+    clearInterval(refreshTimer);
 });
 
 // Pagination

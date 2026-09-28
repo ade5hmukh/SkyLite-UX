@@ -47,6 +47,28 @@ export default defineEventHandler(async (event) => {
       });
     });
 
+    // Log the activity
+    try {
+      await prisma.activityLog.create({
+        data: {
+          level: "INFO",
+          serviceName: "user",
+          message: `Deleted user: ${existingUser.name}`,
+          username: existingUser.name,
+          entityType: "user",
+          entityId: existingUser.id,
+          entityName: existingUser.name,
+          metadata: {
+            deletedTodos: existingUser.todoColumn?.todos.length ?? 0,
+            points: existingUser.points,
+          },
+        },
+      });
+    }
+    catch (logError) {
+      console.error("Failed to log activity:", logError);
+    }
+
     return { success: true };
   }
   catch (error) {

@@ -41,7 +41,11 @@ function handleSave() {
   });
 }
 
-function handleDelete() {
+const { confirmAction } = useConfirmDialog();
+
+async function handleDelete() {
+  if (!await confirmAction({ title: "Delete this shopping list?" }))
+    return;
   emit("delete");
 }
 </script>

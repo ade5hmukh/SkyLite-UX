@@ -250,7 +250,7 @@ export const choreCategories = [
   { id: "all", name: "All Chores", icon: "i-lucide-list" },
   { id: "behavior", name: "Good Behavior", icon: "i-lucide-smile" },
   { id: "hygiene", name: "Hygiene", icon: "i-lucide-sparkles" },
-  { id: "cleaning", name: "Cleaning", icon: "i-lucide-broom" },
+  { id: "cleaning", name: "Cleaning", icon: "i-lucide-brush-cleaning" },
   { id: "meal", name: "Meal Time", icon: "i-lucide-utensils" },
   { id: "learning", name: "Learning", icon: "i-lucide-book" },
   { id: "pet-care", name: "Pet Care", icon: "i-lucide-dog" },
