@@ -1,5 +1,3 @@
-version: "3.8"
-
 services:
   app:
     build:
@@ -15,16 +13,14 @@ services:
       - NUXT_PUBLIC_LOG_LEVEL=verbose
       - NUXT_PUBLIC_TZ=America/Los_Angeles
       - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
-    # Auto-start dev server
-    command: bash -c "npm install && npm run dev"
+    # Stays idle until you start the dev server yourself:
+    #   docker compose -p devcontainer exec app npm run dev
+    command: sleep infinity
     # Runs app on the same network as the database container, allows "forwardPorts" in devcontainer.json function.
     network_mode: service:db
-    # Use "forwardPorts" in **devcontainer.json** to forward an app port locally.
-    # (Adding the "ports" property to this file will not forward from a Codespace.)
     depends_on:
       db:
         condition: service_healthy
-    restart: unless-stopped
 
   db:
     image: postgres:16
@@ -36,13 +32,34 @@ services:
       - POSTGRES_PASSWORD=postgres
       - POSTGRES_DB=postgres
     ports:
-      - "3003:3000"  # Nuxt dev server (via app container network sharing)
-      - "5433:5432"  # PostgreSQL
+      - "127.0.0.1:3003:3000"  # Nuxt dev server (via app container network sharing)
+      - "127.0.0.1:5433:5432"  # PostgreSQL
     healthcheck:
       test: [CMD-SHELL, pg_isready -U postgres]
-      interval: 5s
+      interval: 30s
       timeout: 5s
       retries: 5
+
+  # Production image built from this repo, pointed at the dev database.
+  # Only runs when asked for:
+  #   docker compose -p devcontainer --profile staging up -d --build staging
+  staging:
+    profiles: [staging]
+    image: skylite-ux:staging
+    build:
+      context: ..
+      dockerfile: Dockerfile
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@db:5432/postgres
+      # Server clock timezone; the midnight chore/points reset uses it
+      - TZ=America/Los_Angeles
+      - NUXT_PUBLIC_TZ=America/Los_Angeles
+      - NUXT_PUBLIC_LOG_LEVEL=info
+    ports:
+      - "3004:3000"
+    depends_on:
+      db:
+        condition: service_healthy
 
 volumes:
   postgres-data:

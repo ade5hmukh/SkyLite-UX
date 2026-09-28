@@ -2,15 +2,14 @@ services:
   skylite-ux:
     build:
       context: .
-      dockerfile: Dockerfile.simple
-      args:
-        - NODE_OPTIONS=--max-old-space-size=4096
+      dockerfile: Dockerfile
     restart: unless-stopped
     environment:
       - DATABASE_URL=postgresql://skylite:password@skylite-ux-db:5432/skylite
+      # Server clock timezone; the midnight chore/points reset uses it
+      - TZ=America/Los_Angeles
       - NUXT_PUBLIC_TZ=America/Los_Angeles
       - NUXT_PUBLIC_LOG_LEVEL=info
-      - NODE_OPTIONS=--max-old-space-size=2048
     depends_on:
       skylite-ux-db:
         condition: service_healthy

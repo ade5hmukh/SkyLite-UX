@@ -1,55 +1,46 @@
-# syntax=docker/dockerfile:1
-
 # Build stage
-FROM --platform=$BUILDPLATFORM node:20-slim AS builder
+FROM node:22-slim AS builder
 
-# Set working directory
 WORKDIR /app
 
-# Install dependencies first (for better caching)
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
+
 COPY package*.json ./
 COPY prisma ./prisma/
+RUN npm ci
 
-# Install system dependencies and npm packages
-RUN apt-get update -y && apt-get install -y openssl && \
-    npm ci
-
-# Copy source code
 COPY . .
+RUN npx prisma generate && NODE_OPTIONS=--max-old-space-size=3072 npm run build
 
-# Generate Prisma client
-RUN npx prisma generate
-
-# Build the application
-RUN npm run build
+# The Nuxt output bundles its own runtime dependencies, so the final image only
+# needs the Prisma CLI on top of it to run `migrate deploy` at startup.
+RUN PRISMA_VERSION=$(node -p "require('./node_modules/prisma/package.json').version") \
+    && mkdir /prisma-cli && cd /prisma-cli \
+    && npm init -y > /dev/null \
+    && npm install --omit=dev --no-audit --no-fund "prisma@${PRISMA_VERSION}"
 
 # Production stage
-FROM --platform=$TARGETPLATFORM node:20-slim AS production
+FROM node:22-slim AS production
 
-# Set environment variables
 ENV NODE_ENV=production
 ENV HOST=0.0.0.0
+ENV PORT=3000
 
-# Set working directory
 WORKDIR /app
 
-# Copy package files
-COPY package*.json ./
+RUN apt-get update -y && apt-get install -y --no-install-recommends openssl \
+    && rm -rf /var/lib/apt/lists/*
+
+COPY --from=builder /prisma-cli/node_modules ./node_modules
+COPY --from=builder /app/.output ./.output
 COPY prisma ./prisma/
 
-# Install system dependencies and production npm packages
-RUN apt-get update -y && apt-get install -y openssl && \
-    npm ci --omit=dev
+USER node
 
-# Copy built application from builder stage
-COPY --from=builder /app/.output ./.output
-COPY --from=builder /app/node_modules/.prisma ./node_modules/.prisma
-
-# Generate Prisma client in production
-RUN npx prisma generate
-
-# Expose the port the app runs on
 EXPOSE 3000
 
-# Initialize database and start application
-CMD npx prisma migrate deploy && node .output/server/index.mjs
+HEALTHCHECK --interval=60s --timeout=5s --start-period=60s --retries=3 \
+    CMD node -e "fetch('http://127.0.0.1:3000/favicon.ico').then(r => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+
+CMD ["sh", "-c", "node node_modules/prisma/build/index.js migrate deploy && exec node .output/server/index.mjs"]

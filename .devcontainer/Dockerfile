@@ -1,7 +1,8 @@
-FROM node:20
+FROM node:22
 
 # Install basic development tools
-RUN apt update && apt install -y less man-db sudo
+RUN apt-get update && apt-get install -y --no-install-recommends less sudo \
+    && rm -rf /var/lib/apt/lists/*
 
 # Ensure default `node` user has access to `sudo`
 ARG USERNAME=node

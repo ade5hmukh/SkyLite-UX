@@ -20,15 +20,15 @@ export class ICalServerService {
   async fetchEventsFromUrl(url: string): Promise<ICalEvent[]> {
     const normalizedUrl = this.normalizeUrl(url);
     consola.debug(`ICalServerService: Fetching events from ${normalizedUrl} (original: ${url})`);
-    
+
     const response = await fetch(normalizedUrl);
-    
+
     if (!response.ok) {
       const errorMessage = `Failed to fetch calendar: ${response.status} ${response.statusText}`;
       consola.error(`ICalServerService: ${errorMessage}`);
       throw new Error(errorMessage);
     }
-    
+
     const icalData = await response.text();
     const jcalData = ical.parse(icalData);
     const vcalendar = new ical.Component(jcalData);
@@ -57,7 +57,8 @@ export class ICalServerService {
 
   private parseICalEvent(vevent: ical.Component): ICalEvent {
     const dtstart = vevent.getFirstPropertyValue("dtstart") as ical.Time;
-    const dtend = vevent.getFirstPropertyValue("dtend") as ical.Time;
+    // Falls back to DURATION, or one day for all-day events, when DTEND is missing
+    const dtend = dtstart ? new ical.Event(vevent).endDate : null;
 
     const startUTC = dtstart
       ? dtstart.convertToZone(ical.TimezoneService.get("UTC")).toString()
@@ -154,14 +155,13 @@ export class ICalServerService {
   private createRecurringEventInstance(vevent: ical.Component, occurrenceTime: ical.Time): ICalEvent | null {
     try {
       const dtstart = vevent.getFirstPropertyValue("dtstart") as ical.Time;
-      const dtend = vevent.getFirstPropertyValue("dtend") as ical.Time;
 
       if (!dtstart) {
         return null;
       }
 
       const originalStart = dtstart.toJSDate();
-      const originalEnd = dtend ? dtend.toJSDate() : originalStart;
+      const originalEnd = new ical.Event(vevent).endDate.toJSDate();
       const duration = originalEnd.getTime() - originalStart.getTime();
 
       const newStart = occurrenceTime.toJSDate();
