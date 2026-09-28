@@ -3,6 +3,20 @@ import ical from "ical.js";
 
 import type { ICalEvent } from "./types";
 
+// Each page render requests every feed (validate + getEvents), so feeds are served from
+// memory and refreshed in the background once stale.
+const FEED_FRESH_MS = 5 * 60 * 1000;
+const FEED_EVICT_MS = 60 * 60 * 1000;
+
+type FeedCacheEntry = {
+  fetchedAt: number;
+  lastUsed: number;
+  events: Promise<ICalEvent[]>;
+  refreshing: boolean;
+};
+
+const feedCache = new Map<string, FeedCacheEntry>();
+
 export class ICalServerService {
   constructor(private integrationId: string, private url: string) {}
 
@@ -19,6 +33,41 @@ export class ICalServerService {
 
   async fetchEventsFromUrl(url: string): Promise<ICalEvent[]> {
     const normalizedUrl = this.normalizeUrl(url);
+    const now = Date.now();
+
+    for (const [key, entry] of feedCache) {
+      if (now - entry.lastUsed > FEED_EVICT_MS)
+        feedCache.delete(key);
+    }
+
+    const cached = feedCache.get(normalizedUrl);
+    if (cached) {
+      cached.lastUsed = now;
+      if (now - cached.fetchedAt > FEED_FRESH_MS && !cached.refreshing) {
+        cached.refreshing = true;
+        this.downloadEvents(normalizedUrl, url)
+          .then((events) => {
+            cached.events = Promise.resolve(events);
+            cached.fetchedAt = Date.now();
+          })
+          .catch(error => consola.warn(`ICalServerService: Refresh failed, keeping cached events for integration ${this.integrationId}:`, error))
+          .finally(() => {
+            cached.refreshing = false;
+          });
+      }
+      return cached.events;
+    }
+
+    const events = this.downloadEvents(normalizedUrl, url);
+    feedCache.set(normalizedUrl, { fetchedAt: now, lastUsed: now, events, refreshing: false });
+    events.catch(() => {
+      if (feedCache.get(normalizedUrl)?.events === events)
+        feedCache.delete(normalizedUrl);
+    });
+    return events;
+  }
+
+  private async downloadEvents(normalizedUrl: string, url: string): Promise<ICalEvent[]> {
     consola.debug(`ICalServerService: Fetching events from ${normalizedUrl} (original: ${url})`);
 
     const response = await fetch(normalizedUrl);
