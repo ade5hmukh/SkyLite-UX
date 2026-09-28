@@ -14,6 +14,7 @@ const { verifyPin: verify, activateAdminMode } = useAdminMode();
 
 const pin = ref("");
 const error = ref("");
+const checking = ref(false);
 
 const numpadButtons = ["1", "2", "3", "4", "5", "6", "7", "8", "9", "0"];
 
@@ -25,6 +26,8 @@ watch(() => props.isOpen, (isOpen) => {
 });
 
 function addDigit(digit: string) {
+  if (checking.value)
+    return;
   if (pin.value.length < 4) {
     pin.value += digit;
     if (pin.value.length === 4) {
@@ -38,15 +41,26 @@ function backspace() {
   error.value = "";
 }
 
-function verifyPin() {
-  if (verify(pin.value)) {
-    activateAdminMode();
-    emit("verified");
-    emit("close");
+async function verifyPin() {
+  checking.value = true;
+  try {
+    if (await verify(pin.value)) {
+      activateAdminMode();
+      emit("verified");
+      emit("close");
+    }
+    else {
+      error.value = "Incorrect PIN";
+      pin.value = "";
+    }
   }
-  else {
-    error.value = "Incorrect PIN";
+  catch (err) {
+    const status = (err as { statusCode?: number }).statusCode;
+    error.value = status === 429 ? "Too many attempts. Try again in a minute." : "Couldn't check the PIN. Try again.";
     pin.value = "";
+  }
+  finally {
+    checking.value = false;
   }
 }
 </script>

@@ -6,8 +6,6 @@ const isAdminMode = ref(false);
 let adminModeTimer: NodeJS.Timeout | null = null;
 
 export function useAdminMode() {
-  const parentalPin = String(useRuntimeConfig().public.parentPin || "1111");
-
   const activateAdminMode = () => {
     isAdminMode.value = true;
     resetTimer();
@@ -18,8 +16,12 @@ export function useAdminMode() {
     clearTimer();
   };
 
-  const verifyPin = (pin: string): boolean => {
-    return pin === parentalPin;
+  const verifyPin = async (pin: string): Promise<boolean> => {
+    const { valid } = await $fetch<{ valid: boolean }>("/api/admin/verifyPin", {
+      method: "POST",
+      body: { pin },
+    });
+    return valid;
   };
 
   const resetTimer = () => {
