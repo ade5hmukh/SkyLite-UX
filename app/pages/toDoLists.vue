@@ -2,7 +2,7 @@
 import { consola } from "consola";
 
 import type { BaseListItem, Todo, TodoColumn, TodoList, TodoListItem } from "~/types/database";
-import type { TodoListWithIntegration } from "~/types/ui";
+import type { TodoListWithIntegration, TodoSortMode } from "~/types/ui";
 
 import ChoreCelebration from "~/components/chores/choreCelebration.vue";
 import GlobalFloatingActionButton from "~/components/global/globalFloatingActionButton.vue";
@@ -12,6 +12,7 @@ import TodoItemDialog from "~/components/todos/todoItemDialog.vue";
 import { useStableDate } from "~/composables/useStableDate";
 import { useTodoColumns } from "~/composables/useTodoColumns";
 import { useTodos } from "~/composables/useTodos";
+import { TODO_SORT_OPTIONS } from "~/types/ui";
 
 const { parseStableDate } = useStableDate();
 
@@ -41,6 +42,33 @@ const reorderingColumns = ref(new Set<string>());
 const choreToComplete = ref<{ chore: Todo; userId: string | null } | null>(null);
 const awardingPoints = ref(new Set<string>()); // Guard against duplicate point awards
 
+const { preferences, updatePreferences } = useClientPreferences();
+const sortMode = ref<TodoSortMode>("manual");
+onMounted(() => {
+  sortMode.value = preferences.value.todoSortBy ?? "manual";
+});
+watch(sortMode, mode => updatePreferences({ todoSortBy: mode }));
+
+const PRIORITY_RANK: Record<Todo["priority"], number> = { URGENT: 0, HIGH: 1, MEDIUM: 2, LOW: 3 };
+
+function dueTime(todo: Todo) {
+  return todo.dueDate ? new Date(todo.dueDate).getTime() : Number.POSITIVE_INFINITY;
+}
+
+function compareTodos(a: Todo, b: Todo) {
+  const byOrder = (a.order || 0) - (b.order || 0);
+  switch (sortMode.value) {
+    case "date":
+      return (dueTime(a) - dueTime(b)) || byOrder;
+    case "priority":
+      return (PRIORITY_RANK[a.priority] - PRIORITY_RANK[b.priority]) || (dueTime(a) - dueTime(b)) || byOrder;
+    case "alpha":
+      return a.title.localeCompare(b.title, undefined, { sensitivity: "base", numeric: true }) || byOrder;
+    default:
+      return byOrder;
+  }
+}
+
 const editingTodoTyped = computed<TodoListItem | undefined>(() =>
   editingTodo.value as TodoListItem | undefined,
 );
@@ -68,7 +96,7 @@ const todoLists = computed<TodoListWithIntegration[]>(() => {
     } : undefined,
     items: todos.value!
       .filter(todo => todo.todoColumnId === column.id)
-      .sort((a, b) => (a.order || 0) - (b.order || 0))
+      .sort(compareTodos)
       .map(todo => ({
         id: todo.id,
         name: todo.title,
@@ -623,6 +651,15 @@ function handleCelebrationComplete() {
     <div class="py-5 sm:px-4 sticky top-0 z-40 bg-default border-b border-default">
       <div class="flex items-center justify-between gap-4 mb-4">
         <GlobalDateHeader />
+        <USelect
+          v-model="sortMode"
+          :items="TODO_SORT_OPTIONS"
+          value-key="value"
+          label-key="label"
+          icon="i-lucide-arrow-up-down"
+          class="w-40 shrink-0"
+          aria-label="Sort to-dos"
+        />
       </div>
     </div>
 
@@ -634,6 +671,7 @@ function handleCelebrationComplete() {
         empty-state-title="No todo lists found"
         empty-state-description="Create your first todo column to get started"
         show-reorder
+        :hide-item-reorder="sortMode !== 'manual'"
         :show-edit="(list) => 'isDefault' in list ? !list.isDefault : true"
         show-add
         show-edit-item

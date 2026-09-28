@@ -13,6 +13,7 @@ const props = defineProps<{
   showQuantity?: boolean;
   showNotes?: boolean;
   showReorder?: boolean;
+  hideItemReorder?: boolean;
   showEdit?: boolean | ((list: AnyListWithIntegration) => boolean);
   showAdd?: boolean | ((list: AnyListWithIntegration) => boolean);
   showEditItem?: boolean | ((list: AnyListWithIntegration) => boolean);
@@ -280,7 +281,7 @@ function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyList
                         :total-items="list.activeItems.length"
                         :show-quantity="showQuantity"
                         :show-notes="showNotes"
-                        :show-reorder="(list as AnyListWithIntegration).source === 'integration' ? false : showReorder"
+                        :show-reorder="(list as AnyListWithIntegration).source === 'integration' || hideItemReorder ? false : showReorder"
                         :show-edit="showItemEdit"
                         @edit="_emit('editItem', $event)"
                         @toggle="(payload) => _emit('toggleItem', payload.itemId, payload.checked)"
@@ -311,7 +312,7 @@ function hasIntegrationProperties(list: AnyListWithIntegration): list is AnyList
                         :total-items="list.completedItems.length"
                         :show-quantity="showQuantity"
                         :show-notes="showNotes"
-                        :show-reorder="(list as AnyListWithIntegration).source === 'integration' ? false : showReorder"
+                        :show-reorder="(list as AnyListWithIntegration).source === 'integration' || hideItemReorder ? false : showReorder"
                         :show-edit="showItemEdit"
                         @edit="_emit('editItem', $event)"
                         @toggle="(payload) => _emit('toggleItem', payload.itemId, payload.checked)"
