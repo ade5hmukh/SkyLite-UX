@@ -12,6 +12,7 @@ import SettingsUserDialog from "~/components/settings/settingsUserDialog.vue";
 import { integrationServices } from "~/plugins/02.appInit";
 import { getSlogan } from "~/types/global";
 import { createIntegrationService, integrationRegistry } from "~/types/integrations";
+import { COLOR_MODE_OPTIONS, FONT_OPTIONS, MAIN_VIEW_OPTIONS } from "~/types/ui";
 
 // Admin mode protection
 const { isActive: isAdminMode } = useAdminMode();
@@ -50,21 +51,21 @@ const logoLoaded = ref(true);
 const { integrations, loading: integrationsLoading, servicesInitializing, createIntegration, updateIntegration, deleteIntegration } = useIntegrations();
 const { checkIntegrationCache, purgeIntegrationCache, triggerImmediateSync } = useSyncManager();
 
-const colorMode = useColorMode();
-const isDark = computed({
-  get() {
-    return colorMode.value === "dark";
-  },
-  set() {
-    colorMode.value = colorMode.value === "dark" ? "light" : "dark";
-  },
+const { preferences, updatePreferences } = useClientPreferences();
+
+const colorModePreference = computed({
+  get: () => preferences.value.colorMode ?? "system",
+  set: value => updatePreferences({ colorMode: value }),
 });
 
-onMounted(() => {
-  if (!colorMode.value) {
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches;
-    colorMode.preference = prefersDark ? "dark" : "light";
-  }
+const fontPreference = computed({
+  get: () => preferences.value.font ?? "system",
+  set: value => updatePreferences({ font: value }),
+});
+
+const defaultViewPreference = computed({
+  get: () => preferences.value.defaultView ?? "/calendar",
+  set: value => updatePreferences({ defaultView: value }),
 });
 
 const selectedUser = ref<User | null>(null);
@@ -679,22 +680,58 @@ function getIntegrationIconUrl(integration: Integration) {
             Application Settings
           </h2>
           <div class="space-y-4">
-            <div class="flex items-center justify-between">
+            <div class="flex items-center justify-between gap-4">
               <div>
                 <p class="font-medium text-highlighted">
-                  Dark Mode
+                  Theme
                 </p>
                 <p class="text-sm text-muted">
-                  Toggle between light and dark themes (Coming Soon™)
+                  Light or dark screen. Saved for this device.
                 </p>
               </div>
-              <USwitch
-                v-model="isDark"
-                color="primary"
-                checked-icon="i-lucide-moon"
-                unchecked-icon="i-lucide-sun"
-                size="xl"
-                aria-label="Toggle dark mode"
+              <USelect
+                v-model="colorModePreference"
+                :items="COLOR_MODE_OPTIONS"
+                value-key="value"
+                label-key="label"
+                class="w-44"
+                aria-label="Theme"
+              />
+            </div>
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <p class="font-medium text-highlighted">
+                  Font
+                </p>
+                <p class="text-sm text-muted">
+                  Font used across the app. Saved for this device.
+                </p>
+              </div>
+              <USelect
+                v-model="fontPreference"
+                :items="FONT_OPTIONS"
+                value-key="value"
+                label-key="label"
+                class="w-44"
+                aria-label="Font"
+              />
+            </div>
+            <div class="flex items-center justify-between gap-4">
+              <div>
+                <p class="font-medium text-highlighted">
+                  Start Page
+                </p>
+                <p class="text-sm text-muted">
+                  Page shown when the app opens. Saved for this device.
+                </p>
+              </div>
+              <USelect
+                v-model="defaultViewPreference"
+                :items="MAIN_VIEW_OPTIONS"
+                value-key="path"
+                label-key="label"
+                class="w-44"
+                aria-label="Start page"
               />
             </div>
             <div class="flex items-center justify-between">

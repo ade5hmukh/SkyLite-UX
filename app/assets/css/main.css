@@ -51,6 +51,12 @@
   --color-slate-800: #1d2f58;
   --color-slate-900: #141f38;
   --color-slate-950: #0d1526;
+  --app-font-sans: ui-sans-serif, system-ui, sans-serif;
+}
+
+html,
+body {
+  font-family: var(--app-font-sans);
 }
 
 /* Mobile Optimization Styles */

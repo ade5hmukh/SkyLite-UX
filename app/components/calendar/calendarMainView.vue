@@ -28,11 +28,20 @@ const currentDate = useState<Date>("calendar-current-date", () => getStableDate(
 const view = ref<CalendarView>(props.initialView || "twoweeks");
 const isEventDialogOpen = ref(false);
 const selectedEvent = ref<CalendarEvent | null>(null);
+const { preferences, updatePreferences } = useClientPreferences();
 
 // Track if user has manually navigated away from today
 const hasManuallyNavigated = ref(false);
 
 onMounted(() => {
+  // Applied after mount so the server-rendered view matches during hydration.
+  if (preferences.value.calendarView) {
+    view.value = preferences.value.calendarView;
+  }
+  watch(view, (newView) => {
+    updatePreferences({ calendarView: newView });
+  });
+
   const handleKeyDown = (e: KeyboardEvent) => {
     if (
       isEventDialogOpen.value

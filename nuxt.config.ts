@@ -175,7 +175,19 @@ export default defineNuxtConfig({
     "~/plugins/01.logging.ts",
     "~/plugins/02.appInit.ts",
     "~/plugins/03.syncManager.client.ts",
+    "~/plugins/04.clientPreferences.client.ts",
   ],
+
+  fonts: {
+    families: [
+      { name: "Inclusive Sans", provider: "google", global: true },
+      { name: "Noto Sans", provider: "google", global: true },
+      { name: "EB Garamond", provider: "google", global: true },
+      { name: "IBM Plex Mono", provider: "google", global: true },
+      { name: "Ovo", provider: "google", global: true },
+      { name: "Handlee", provider: "google", global: true },
+    ],
+  },
 
   future: {
     compatibilityVersion: 4,
