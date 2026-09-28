@@ -179,18 +179,11 @@ This fork is optimized for shared family tablets:
 - **Database**: PostgreSQL with Prisma ORM
 - **Deployment**: Docker & Docker Compose
 - **Logging**: Consola + Custom Activity Log System
-- **Scheduling**: Node-cron for recurring tasks and point resets
+- **Scheduling**: Nitro server plugins for recurring tasks, point resets and ntfy reminders
 
 ## 📚 Documentation
 
-This fork includes extensive documentation:
-- `LEADERBOARD_CHANGES.md` - Points leaderboard feature
-- `REWARDS_CATALOG_FEATURE.md` - Rewards system documentation
-- `TESTING_RECURRING_TASKS.md` - Recurring tasks guide
-- `POINTS_DISPLAY_FEATURE.md` - Points display implementation
-- `NEW_CHORES_4-6.md` - Chores for young children
-- `DAILY_WEEKLY_REWARDS_GUIDE.md` - Reward suggestions
-- `PERFORMANCE_STATUS.md` - Performance optimization guide
+See [`guide.md`](guide.md) for how this fork runs (staging and prod), its configuration and every feature.
 
 ## 🧪 Testing
 

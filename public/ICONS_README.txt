@@ -19,5 +19,5 @@ Option 1 - Online Tool (Easiest):
 Option 2 - Use the script (if you have ImageMagick):
 → From project root: ./generate-pwa-icons.sh
 
-See PWA_SETUP_GUIDE.md for detailed instructions.
+See guide.md ("Installing on tablets and phones") for setup.
 
