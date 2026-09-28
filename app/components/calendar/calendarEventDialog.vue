@@ -2,6 +2,7 @@
 import type { DateValue } from "@internationalized/date";
 
 import { CalendarDate, getLocalTimeZone, parseDate } from "@internationalized/date";
+import { useEventListener } from "@vueuse/core";
 import { consola } from "consola";
 import { isBefore } from "date-fns";
 import ical from "ical.js";
@@ -602,12 +603,18 @@ function parseICalEvent(icalData: ICalEvent | null): void {
         recurrenceEndType.value = "until";
         const untilICal = ical.Time.fromString(rrule.until, "UTC");
         if (untilICal) {
-          const untilDate = untilICal.toJSDate();
-          recurrenceUntil.value = new CalendarDate(
-            untilDate.getUTCFullYear(),
-            untilDate.getUTCMonth() + 1,
-            untilDate.getUTCDate(),
-          );
+          if (untilICal.isDate) {
+            recurrenceUntil.value = new CalendarDate(untilICal.year, untilICal.month, untilICal.day);
+          }
+          else {
+            // UNTIL date-times are UTC, usually the end of the last local day.
+            const untilDate = untilICal.toJSDate();
+            recurrenceUntil.value = new CalendarDate(
+              untilDate.getFullYear(),
+              untilDate.getMonth() + 1,
+              untilDate.getDate(),
+            );
+          }
         }
       }
       else {
@@ -888,7 +895,18 @@ function handleSave() {
   }
 }
 
-const { confirmAction } = useConfirmDialog();
+const { confirmAction, pendingConfirm } = useConfirmDialog();
+
+useEventListener(window, "keydown", (e: KeyboardEvent) => {
+  if (e.key !== "Escape" || !props.isOpen || e.defaultPrevented || pendingConfirm.value) {
+    return;
+  }
+  // An open date picker or select closes first; the next Escape closes the dialog.
+  if (document.querySelector("[data-dismissable-layer]")) {
+    return;
+  }
+  emit("close");
+});
 
 async function handleDelete() {
   if (!canDelete.value) {

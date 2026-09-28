@@ -1,5 +1,15 @@
 <script setup lang="ts">
+import { useEventListener } from "@vueuse/core";
+
 const { pendingConfirm, settle } = useConfirmDialog();
+
+useEventListener(window, "keydown", (e: KeyboardEvent) => {
+  if (e.key === "Escape" && pendingConfirm.value) {
+    // Stops dialogs underneath from also closing on this key press.
+    e.preventDefault();
+    settle(false);
+  }
+});
 </script>
 
 <template>
