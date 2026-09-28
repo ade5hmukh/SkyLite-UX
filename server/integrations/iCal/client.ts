@@ -3,6 +3,9 @@ import ical from "ical.js";
 
 import type { ICalEvent } from "./types";
 
+// Some providers emit slightly malformed values (https://bugzilla.mozilla.org/show_bug.cgi?id=1754412)
+ical.design.strict = false;
+
 // Each page render requests every feed (validate + getEvents), so feeds are served from
 // memory and refreshed in the background once stale.
 const FEED_FRESH_MS = 5 * 60 * 1000;
@@ -46,14 +49,7 @@ export class ICalServerService {
   constructor(private integrationId: string, private url: string) {}
 
   private normalizeUrl(url: string): string {
-    // Convert webcal:// to https:// and webcals:// to https://
-    if (url.startsWith("webcal://")) {
-      return url.replace("webcal://", "https://");
-    }
-    if (url.startsWith("webcals://")) {
-      return url.replace("webcals://", "https://");
-    }
-    return url;
+    return url.trim().replace(/^webcals?:\/\//i, "https://");
   }
 
   async fetchEventsFromUrl(url: string): Promise<ICalEvent[]> {
@@ -70,7 +66,7 @@ export class ICalServerService {
       cached.lastUsed = now;
       if (now - cached.fetchedAt > FEED_FRESH_MS && !cached.refreshing) {
         cached.refreshing = true;
-        this.downloadEvents(normalizedUrl, url)
+        this.downloadEvents(normalizedUrl)
           .then((events) => {
             cached.events = Promise.resolve(events);
             cached.fetchedAt = Date.now();
@@ -83,7 +79,7 @@ export class ICalServerService {
       return cached.events;
     }
 
-    const events = this.downloadEvents(normalizedUrl, url);
+    const events = this.downloadEvents(normalizedUrl);
     feedCache.set(normalizedUrl, { fetchedAt: now, lastUsed: now, events, refreshing: false });
     events.catch(() => {
       if (feedCache.get(normalizedUrl)?.events === events)
@@ -92,8 +88,8 @@ export class ICalServerService {
     return events;
   }
 
-  private async downloadEvents(normalizedUrl: string, url: string): Promise<ICalEvent[]> {
-    consola.debug(`ICalServerService: Fetching events from ${normalizedUrl} (original: ${url})`);
+  private async downloadEvents(normalizedUrl: string): Promise<ICalEvent[]> {
+    consola.debug(`ICalServerService: Fetching events for integration ${this.integrationId}`);
 
     const response = await fetch(normalizedUrl);
 
@@ -129,13 +125,18 @@ export class ICalServerService {
         continue;
       }
 
-      if (vevent.getFirstPropertyValue("rrule")) {
-        const uid = vevent.getFirstPropertyValue("uid") as string;
-        events.push(...this.expandRecurringEvent(vevent, overridesByUid.get(uid) || [], startDate, endDate));
-        expandedUids.add(uid);
+      try {
+        if (vevent.getFirstPropertyValue("rrule")) {
+          const uid = vevent.getFirstPropertyValue("uid") as string;
+          events.push(...this.expandRecurringEvent(vevent, overridesByUid.get(uid) || [], startDate, endDate));
+          expandedUids.add(uid);
+        }
+        else {
+          events.push(this.parseICalEvent(vevent));
+        }
       }
-      else {
-        events.push(this.parseICalEvent(vevent));
+      catch (error) {
+        consola.warn(`ICalServerService: Skipping unreadable event ${vevent.getFirstPropertyValue("uid") || "(no UID)"} in integration ${this.integrationId}:`, error);
       }
     }
 
@@ -144,9 +145,14 @@ export class ICalServerService {
         continue;
       }
       for (const override of overrides) {
-        if (!this.isCancelled(override)) {
-          const recurrenceId = override.getFirstPropertyValue("recurrence-id") as ical.Time;
-          events.push({ ...this.parseICalEvent(override), uid: `${uid}-${recurrenceId.toICALString()}` });
+        try {
+          if (!this.isCancelled(override)) {
+            const recurrenceId = override.getFirstPropertyValue("recurrence-id") as ical.Time;
+            events.push({ ...this.parseICalEvent(override), uid: `${uid}-${recurrenceId.toICALString()}` });
+          }
+        }
+        catch (error) {
+          consola.warn(`ICalServerService: Skipping unreadable event ${uid} in integration ${this.integrationId}:`, error);
         }
       }
     }

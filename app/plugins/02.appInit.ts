@@ -9,6 +9,8 @@ import { integrationConfigs } from "~/integrations/integrationConfig";
 import { setBrowserTimezone, setTimezoneRegistered } from "~/types/global";
 import { createIntegrationService, registerIntegration } from "~/types/integrations";
 
+ical.design.strict = false;
+
 export const integrationServices = new Map<string, IntegrationService>();
 
 export default defineNuxtPlugin(async () => {
