@@ -60,6 +60,16 @@ const viewTitle = computed(() => {
       return "week-different-months";
     }
   }
+  else if (view.value === "twoweeks") {
+    const start = startOfWeek(currentDate.value, { weekStartsOn: 0 });
+    const end = addDays(start, 13);
+    if (isSameMonth(start, end)) {
+      return "twoweeks-same-month";
+    }
+    else {
+      return "twoweeks-different-months";
+    }
+  }
   else if (view.value === "day") {
     return "day";
   }
@@ -82,6 +92,14 @@ const items: DropdownMenuItem[][] = [
       label: "Month",
       icon: "i-lucide-calendar-days",
       onSelect: () => emit("viewChange", "month"),
+    },
+    {
+      label: "2 Weeks",
+      icon: "i-lucide-calendar-range",
+      onSelect: () => {
+        emit("viewChange", "twoweeks");
+        emit("dateChange", getStableDate());
+      },
     },
     {
       label: "Week",
@@ -161,6 +179,23 @@ function handleToday() {
           /> -
           <NuxtTime
             :datetime="endOfWeek(currentDate, { weekStartsOn: 0 })"
+            month="short"
+            year="numeric"
+          />
+        </span>
+        <NuxtTime
+          v-else-if="viewTitle === 'twoweeks-same-month'"
+          :datetime="startOfWeek(currentDate, { weekStartsOn: 0 })"
+          month="long"
+          year="numeric"
+        />
+        <span v-else-if="viewTitle === 'twoweeks-different-months'">
+          <NuxtTime
+            :datetime="startOfWeek(currentDate, { weekStartsOn: 0 })"
+            month="short"
+          /> -
+          <NuxtTime
+            :datetime="addDays(startOfWeek(currentDate, { weekStartsOn: 0 }), 13)"
             month="short"
             year="numeric"
           />

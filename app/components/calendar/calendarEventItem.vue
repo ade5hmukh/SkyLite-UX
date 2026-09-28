@@ -125,12 +125,12 @@ function handleKeydown(e: KeyboardEvent) {
         </span>
       </div>
     </div>
-    <div v-show="view === 'week'">
-      <div class="font-medium text-sm truncate">
+    <div v-show="view === 'week' || view === 'twoweeks'">
+      <div class="font-medium truncate" :class="view === 'twoweeks' ? 'text-base' : 'text-sm'">
         {{ event.title }}
       </div>
       <div class="flex items-center justify-between gap-2 mt-1 min-h-[1.25rem]">
-        <div class="text-xs opacity-70">
+        <div class="opacity-70" :class="view === 'twoweeks' ? 'text-sm' : 'text-xs'">
           <template v-if="isAllDay">
             All day
           </template>
@@ -154,7 +154,7 @@ function handleKeydown(e: KeyboardEvent) {
         <div class="flex-shrink-0 h-5 flex items-center">
           <UAvatarGroup
             v-if="eventUsers.length > 0"
-            size="xs"
+            :size="view === 'twoweeks' ? 'sm' : 'xs'"
             :max="4"
             :ui="{
               base: 'relative ring-0 border-0 shadow-none outline-none first:me-0',

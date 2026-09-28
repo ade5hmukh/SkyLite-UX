@@ -1,6 +1,6 @@
 import type { ICalEvent } from "../../server/integrations/iCal/types";
 
-export type CalendarView = "month" | "week" | "day" | "agenda";
+export type CalendarView = "month" | "week" | "twoweeks" | "day" | "agenda";
 
 export type CalendarEvent = {
   id: string;

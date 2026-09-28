@@ -25,9 +25,12 @@ const _emit = defineEmits<{
 const { getStableDate } = useStableDate();
 const { getEventsForDateRange, scrollToDate } = useCalendar();
 const currentDate = useState<Date>("calendar-current-date", () => getStableDate());
-const view = ref<CalendarView>(props.initialView || "week");
+const view = ref<CalendarView>(props.initialView || "twoweeks");
 const isEventDialogOpen = ref(false);
 const selectedEvent = ref<CalendarEvent | null>(null);
+
+// Track if user has manually navigated away from today
+const hasManuallyNavigated = ref(false);
 
 onMounted(() => {
   const handleKeyDown = (e: KeyboardEvent) => {
@@ -47,6 +50,9 @@ onMounted(() => {
       case "w":
         view.value = "week";
         break;
+      case "t":
+        view.value = "twoweeks";
+        break;
       case "d":
         view.value = "day";
         break;
@@ -57,17 +63,42 @@ onMounted(() => {
   };
 
   window.addEventListener("keydown", handleKeyDown, { passive: false });
+
+  // Check for date change at midnight and auto-update if user hasn't navigated away
+  const checkDateChange = () => {
+    const now = new Date();
+    const currentDateValue = currentDate.value;
+    
+    // If user hasn't manually navigated and we're on a different day, update
+    if (!hasManuallyNavigated.value) {
+      const currentDay = new Date(currentDateValue.getFullYear(), currentDateValue.getMonth(), currentDateValue.getDate());
+      const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+      
+      if (currentDay.getTime() !== today.getTime()) {
+        currentDate.value = now;
+      }
+    }
+  };
+
+  // Check every minute for date change
+  const dateCheckInterval = setInterval(checkDateChange, 60000);
+
   onUnmounted(() => {
     window.removeEventListener("keydown", handleKeyDown);
+    clearInterval(dateCheckInterval);
   });
 });
 
 function handlePrevious() {
+  hasManuallyNavigated.value = true;
   if (view.value === "month") {
     currentDate.value = subMonths(currentDate.value, 1);
   }
   else if (view.value === "week") {
     currentDate.value = subWeeks(currentDate.value, 1);
+  }
+  else if (view.value === "twoweeks") {
+    currentDate.value = subWeeks(currentDate.value, 2);
   }
   else if (view.value === "day") {
     currentDate.value = addDays(currentDate.value, -1);
@@ -78,11 +109,15 @@ function handlePrevious() {
 }
 
 function handleNext() {
+  hasManuallyNavigated.value = true;
   if (view.value === "month") {
     currentDate.value = addMonths(currentDate.value, 1);
   }
   else if (view.value === "week") {
     currentDate.value = addWeeks(currentDate.value, 1);
+  }
+  else if (view.value === "twoweeks") {
+    currentDate.value = addWeeks(currentDate.value, 2);
   }
   else if (view.value === "day") {
     currentDate.value = addDays(currentDate.value, 1);
@@ -93,10 +128,11 @@ function handleNext() {
 }
 
 function handleToday() {
-  currentDate.value = getStableDate();
+  hasManuallyNavigated.value = false;
+  currentDate.value = new Date();
 
   nextTick(() => {
-    scrollToDate(getStableDate(), view.value);
+    scrollToDate(new Date(), view.value);
   });
 }
 
@@ -171,6 +207,16 @@ const filteredEvents = computed(() => {
       events = getEventsForDateRange(start, end);
       break;
     }
+    case "twoweeks": {
+      const sunday = new Date(now.getTime());
+      const dayOfWeek = sunday.getDay();
+      sunday.setDate(sunday.getDate() - dayOfWeek);
+      const endOfTwoWeeks = new Date(sunday.getTime() + 13 * 24 * 60 * 60 * 1000);
+      start = sunday;
+      end = endOfTwoWeeks;
+      events = getEventsForDateRange(start, end);
+      break;
+    }
     case "day": {
       start = new Date(now.getFullYear(), now.getMonth(), now.getDate());
       end = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
@@ -230,6 +276,13 @@ function getDaysForAgenda(date: Date) {
       />
       <GlobalWeekView
         v-if="view === 'week'"
+        :start-date="currentDate"
+        :events="filteredEvents"
+        @event-click="handleEventSelect"
+        @event-create="handleEventCreate"
+      />
+      <GlobalTwoWeeksView
+        v-if="view === 'twoweeks'"
         :start-date="currentDate"
         :events="filteredEvents"
         @event-click="handleEventSelect"
