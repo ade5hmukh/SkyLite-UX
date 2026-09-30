@@ -72,6 +72,8 @@ Settings → **Phone Reminders** shows whether ntfy is on and has "Send test" / 
 - `/leaderboard` ranks by today, week or all time.
 - `/rewards` is the shop: kids spend all-time points on rewards (45 templates, 15–250 pts). Parents approve or cancel redemptions in Settings → Rewards; cancelling refunds points.
 
+**School menu** (`/schoolMenu`, replaces the old meal planner). Breakfast and lunch for the next two weeks from a School Nutrition and Fitness web menu (the `…/webmenus2/#/view?id=…` link districts publish). Add it in Settings → Integrations → Meal → Add Integration → School Menu, paste the link (any month; later months are found automatically) and pick the kid(s). Before 2 PM the big card shows today; after that, the next school day. Menus are read live and cached for 3 hours, with no background sync.
+
 **Phone reminders (ntfy).** "In 30 min: …" before each timed event, a "Today" summary at 07:00 and a "Tomorrow" summary at 19:30 (events, due to-dos, routines). Subscribe to the topic in the ntfy app.
 
 **Parent mode.** Triple-tap the logo and enter the PIN. Unlocks editing for 10 minutes. Five wrong PINs lock it for a minute.

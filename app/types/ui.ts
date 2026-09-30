@@ -100,7 +100,7 @@ export const MAIN_VIEW_OPTIONS: { path: string; label: string }[] = [
   { path: "/routines", label: "Routines" },
   { path: "/rewards", label: "Rewards" },
   { path: "/leaderboard", label: "Leaderboard" },
-  { path: "/mealPlanner", label: "Meal Planner" },
+  { path: "/schoolMenu", label: "School Menu" },
 ];
 
 export const COLOR_MODE_OPTIONS: { value: NonNullable<ClientPreferences["colorMode"]>; label: string }[] = [

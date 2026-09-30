@@ -84,6 +84,10 @@ export async function setupIntegrationSync(integration: Integration, performImme
       return;
     }
 
+    if (!config.syncInterval) {
+      return;
+    }
+
     clearIntegrationSync(integration.id);
 
     const service = await createIntegrationService(integration);

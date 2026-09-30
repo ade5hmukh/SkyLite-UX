@@ -32,12 +32,12 @@ function isActivePath(path: string) {
       aria-label="Shopping Lists"
     />
     <UButton
-      :class="isActivePath('/mealplanner') ? 'text-primary' : 'text-default'"
-      to="/mealplanner"
+      :class="isActivePath('/schoolMenu') ? 'text-primary' : 'text-default'"
+      to="/schoolMenu"
       variant="ghost"
       icon="i-lucide-utensils"
       size="xl"
-      aria-label="Meal Planner"
+      aria-label="School Menu"
     />
     <UButton
       :class="isActivePath('/settings') ? 'text-primary' : 'text-default'"

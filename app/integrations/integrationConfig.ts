@@ -8,6 +8,7 @@ import type { GoogleCalendarSettings } from "~/server/integrations/googleCalenda
 import { createGoogleCalendarService } from "./googleCalendar/googleCalendar";
 import { createICalService } from "./iCal/iCalendar";
 import { createMealieService, getMealieFieldsForItem } from "./mealie/mealieShoppingLists";
+import { createSchoolMenuService } from "./schoolMenu/schoolMenu";
 import { createTandoorService, getTandoorFieldsForItem } from "./tandoor/tandoorShoppingLists";
 
 export const integrationConfigs: IntegrationConfig[] = [
@@ -110,10 +111,40 @@ export const integrationConfigs: IntegrationConfig[] = [
   },
   // ================================================
   // Meal integration configs can support the following list-level capabilities:
+  // - get_menu: Can read upcoming school or meal menus
   // ================================================
-  // TODO: Add meal integration configs
-  // TODO: Define meal capabilities
-  // ================================================
+  {
+    type: "meal",
+    service: "School Menu",
+    settingsFields: [
+      {
+        key: "baseUrl",
+        label: "Menu Link",
+        type: "url" as const,
+        placeholder: "https://yourdistrict.org/webmenus2/#/view?id=...",
+        required: true,
+        description: "Link to a School Nutrition and Fitness web menu (any month; later months are found automatically)",
+      },
+      {
+        key: "user",
+        label: "User",
+        type: "text" as const,
+        placeholder: "Jane Doe",
+        required: false,
+        description: "Select the kid(s) who eat from this menu",
+      },
+    ],
+    capabilities: ["get_menu"],
+    icon: "https://unpkg.com/lucide-static@latest/icons/utensils.svg",
+    files: [
+      "/integrations/schoolMenu/schoolMenu.ts",
+      "/server/api/integrations/schoolMenu/index.get.ts",
+      "/server/integrations/schoolMenu/",
+    ],
+    dialogFields: [],
+    // Read on demand by the School Menu page, so no background sync.
+    syncInterval: 0,
+  },
   // Shopping integration configs can support the following list-level capabilities:
   // - add_items: Can add new items to lists
   // - clear_items: Can clear completed items from lists
@@ -256,6 +287,7 @@ const serviceFactoryMap = {
     const calendarId = settings?.calendarId || "";
     return createGoogleCalendarService(_id, apiKey, calendarId, eventColor, user, useUserColors);
   },
+  "meal:School Menu": createSchoolMenuService,
   "shopping:mealie": createMealieService,
   "shopping:tandoor": createTandoorService,
 } as const;
