@@ -6,7 +6,7 @@ One page for running, changing and using SkyLite at home. `README.md` is the ups
 
 |                               | URL                     | Defined in                                             | Image                | Database                         |
 | ----------------------------- | ----------------------- | ------------------------------------------------------ | -------------------- | -------------------------------- |
-| **Prod** (family uses this)   | `http://<server>:3002`  | `~/homelab-docker/docker-compose.yml`                  | `skylite-ux:pwa`     | `homelab-docker-skylite-ux-db-1` |
+| **Prod** (family uses this)   | `http://<server>:3002`  | `~/docker-compose.yml` (project `homelab-docker`)      | `skylite-ux:prod`    | `homelab-docker-skylite-ux-db-1` |
 | **Staging** (test here first) | `http://<server>:3004`  | `.devcontainer/docker-compose.yml` (profile `staging`) | `skylite-ux:staging` | `devcontainer-db-1`              |
 | Dev server (optional)         | `http://localhost:3003` | `.devcontainer/docker-compose.yml` (`app`)             | dev container        | `devcontainer-db-1`              |
 
@@ -25,18 +25,24 @@ docker logs -f devcontainer-staging-1    # look for "Notifications:" and migrati
 # open http://<server>:3004 and test; name test data "ZZ Test ..." and delete it after
 
 # 3. Commit, then promote to prod (only after staging looks right)
-docker tag skylite-ux:pwa skylite-ux:pwa-rollback   # keep a way back
-# back up the prod DB before any release with a migration:
-docker exec homelab-docker-skylite-ux-db-1 pg_dumpall -U <db-user> > ~/skylite-backup-$(date +%F).sql
+docker exec homelab-docker-skylite-ux-db-1 pg_dump -U skylite_admin -d skylite --clean --if-exists \
+  > ~/docker-backups/skylite-prod/skylite-$(date +%F-%H%M).sql
+docker tag skylite-ux:prod skylite-ux:prod-previous   # keep a way back
+docker tag skylite-ux:staging skylite-ux:prod
+docker compose -p homelab-docker -f ~/docker-compose.yml up -d --no-deps skylite-ux
 ```
 
-Rollback: point prod back at the previous image tag and restart it.
+Always pass `-p homelab-docker -f ~/docker-compose.yml`; without them compose starts a second copy of the homelab.
+
+Rollback: `docker tag skylite-ux:prod-previous skylite-ux:prod`, run the same `up` command, and if the release changed data, restore the backup with `docker exec -i homelab-docker-skylite-ux-db-1 psql -U skylite_admin -d skylite < <backup>.sql`.
+
+Only prod sends ntfy reminders; keep the `NUXT_NTFY_*` lines out of `staging.env` or every reminder arrives twice.
 
 The build needs ~3 GB of memory (`Dockerfile` sets the Node heap to 3072 MB). If it gets killed on this box, add swap.
 
 ## Configuration
 
-Secrets live in env files that git ignores (`*.env`). Staging reads `.devcontainer/staging.env`; prod uses its own compose file's environment.
+Secrets live in env files that git ignores (`*.env`). Staging reads `.devcontainer/staging.env`; prod reads `~/skylite-prod.env`.
 
 | Variable                                                                  | What it does                                                                                                         | Default                  |
 | ------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- | ------------------------ |
