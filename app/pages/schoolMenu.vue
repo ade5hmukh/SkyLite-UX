@@ -44,7 +44,7 @@ function dayLabel(day: SchoolMenuDay) {
           School Menu
         </h1>
         <p class="text-sm text-muted">
-          Breakfast and lunch at school for the next two weeks.
+          Meals at school and daycare for the next two weeks.
         </p>
       </div>
       <UButton
@@ -64,7 +64,7 @@ function dayLabel(day: SchoolMenuDay) {
           No school menu yet
         </p>
         <p class="text-sm text-muted mt-1">
-          In Settings, add a Meal integration and paste your school's menu link.
+          In Settings, add a Meal integration: paste your school's menu link, or pick KinderCare.
         </p>
         <UButton
           class="mt-4"
@@ -110,7 +110,10 @@ function dayLabel(day: SchoolMenuDay) {
             <p class="text-sm font-medium text-primary mb-3">
               {{ featuredLabel(featuredDay(menu)!) }}
             </p>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div
+              class="grid grid-cols-1 gap-5"
+              :class="featuredDay(menu)!.meals.length >= 3 ? 'md:grid-cols-3' : 'md:grid-cols-2'"
+            >
               <div v-for="meal in featuredDay(menu)!.meals" :key="meal.name">
                 <p class="text-xs uppercase tracking-wide text-muted flex items-center gap-1.5 mb-2">
                   <UIcon :name="getMealIcon(meal.name)" class="h-4 w-4" />
@@ -126,6 +129,9 @@ function dayLabel(day: SchoolMenuDay) {
                     {{ item.name }}
                   </li>
                 </ul>
+                <p v-if="meal.details?.length" class="text-sm text-muted mt-1.5">
+                  {{ meal.details.join(" · ") }}
+                </p>
               </div>
             </div>
           </div>
@@ -149,9 +155,14 @@ function dayLabel(day: SchoolMenuDay) {
                   class="h-4 w-4 mt-0.5 shrink-0 text-muted"
                   :aria-label="meal.name"
                 />
-                <p class="text-default">
-                  <span v-for="(part, index) in getMealParts(meal)" :key="index"><span class="text-muted">{{ part.separator }}</span>{{ part.name }}</span>
-                </p>
+                <div>
+                  <p class="text-default">
+                    <span v-for="(part, index) in getMealParts(meal)" :key="index"><span class="text-muted">{{ part.separator }}</span>{{ part.name }}</span>
+                  </p>
+                  <p v-if="meal.details?.length" class="text-xs text-muted">
+                    {{ meal.details.join(" · ") }}
+                  </p>
+                </div>
               </div>
             </div>
           </div>

@@ -24,6 +24,10 @@ export default defineNuxtConfig({
       model: "gemini-3.5-flash",
       fallbackModel: "gemini-3.1-flash-lite",
     },
+    // Server-only. NUXT_KINDERCARE_SESSION is the _himama_session cookie from classroom.kindercare.com.
+    kindercare: {
+      session: "",
+    },
     public: {
       skyliteVersion: pkg.version,
       nuxtVersion: pkg.devDependencies.nuxt,

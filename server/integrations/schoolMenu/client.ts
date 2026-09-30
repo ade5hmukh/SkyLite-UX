@@ -14,6 +14,8 @@ export type SchoolMenuItem = {
 export type SchoolMenuMeal = {
   name: string;
   items: SchoolMenuItem[];
+  /** Components served with the dish (sides, fruit, milk). */
+  details?: string[];
 };
 
 export type SchoolMenuDay = {

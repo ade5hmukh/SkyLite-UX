@@ -8,7 +8,7 @@ import type { GoogleCalendarSettings } from "~/server/integrations/googleCalenda
 import { createGoogleCalendarService } from "./googleCalendar/googleCalendar";
 import { createICalService } from "./iCal/iCalendar";
 import { createMealieService, getMealieFieldsForItem } from "./mealie/mealieShoppingLists";
-import { createSchoolMenuService } from "./schoolMenu/schoolMenu";
+import { createKinderCareService, createSchoolMenuService } from "./schoolMenu/schoolMenu";
 import { createTandoorService, getTandoorFieldsForItem } from "./tandoor/tandoorShoppingLists";
 
 export const integrationConfigs: IntegrationConfig[] = [
@@ -143,6 +143,29 @@ export const integrationConfigs: IntegrationConfig[] = [
     ],
     dialogFields: [],
     // Read on demand by the School Menu page, so no background sync.
+    syncInterval: 0,
+  },
+  {
+    type: "meal",
+    service: "KinderCare",
+    settingsFields: [
+      {
+        key: "user",
+        label: "User",
+        type: "text" as const,
+        placeholder: "Jane Doe",
+        required: false,
+        description: "Select the kid(s) at KinderCare. Uses the login set in NUXT_KINDERCARE_SESSION on the server.",
+      },
+    ],
+    capabilities: ["get_menu"],
+    icon: "https://unpkg.com/lucide-static@latest/icons/utensils.svg",
+    files: [
+      "/integrations/schoolMenu/schoolMenu.ts",
+      "/server/api/integrations/kinderCare/index.get.ts",
+      "/server/integrations/kinderCare/",
+    ],
+    dialogFields: [],
     syncInterval: 0,
   },
   // Shopping integration configs can support the following list-level capabilities:
@@ -288,6 +311,7 @@ const serviceFactoryMap = {
     return createGoogleCalendarService(_id, apiKey, calendarId, eventColor, user, useUserColors);
   },
   "meal:School Menu": createSchoolMenuService,
+  "meal:KinderCare": createKinderCareService,
   "shopping:mealie": createMealieService,
   "shopping:tandoor": createTandoorService,
 } as const;

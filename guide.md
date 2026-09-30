@@ -52,6 +52,7 @@ Secrets live in env files that git ignores (`*.env`). Staging reads `.devcontain
 | `NUXT_NTFY_TOKEN`                                                         | Only if the ntfy server needs a login                                                                                | –                        |
 | `NUXT_NTFY_EVENT_LEAD_MINUTES`, `_MORNING_TIME`, `_EVENING_TIME`          | Reminder timing                                                                                                      | `30`, `07:00`, `19:30`   |
 | `NUXT_GEMINI_API_KEY` (`NUXT_GEMINI_MODEL`, `NUXT_GEMINI_FALLBACK_MODEL`) | Turns on "Import from email or flyer"                                                                                | off (`gemini-3.5-flash`) |
+| `NUXT_KINDERCARE_SESSION` | KinderCare daycare menu (the `_himama_session` cookie) | off |
 
 Settings → **Phone Reminders** shows whether ntfy is on and has "Send test" / "Send today's plan" buttons.
 
@@ -73,6 +74,8 @@ Settings → **Phone Reminders** shows whether ntfy is on and has "Send test" / 
 - `/rewards` is the shop: kids spend all-time points on rewards (45 templates, 15–250 pts). Parents approve or cancel redemptions in Settings → Rewards; cancelling refunds points.
 
 **School menu** (`/schoolMenu`, replaces the old meal planner). Breakfast and lunch for the next two weeks from a School Nutrition and Fitness web menu (the `…/webmenus2/#/view?id=…` link districts publish). Add it in Settings → Integrations → Meal → Add Integration → School Menu, paste the link (any month; later months are found automatically) and pick the kid(s). Before 2 PM the big card shows today; after that, the next school day. Menus are read live and cached for 3 hours, with no background sync.
+
+- _KinderCare (daycare):_ Meal → **KinderCare**, pick the kid. It reads the weekly calendar at `classroom.kindercare.com` (breakfast, lunch, snacks, closures) using `NUXT_KINDERCARE_SESSION`, the `_himama_session` cookie copied from a logged-in browser (DevTools → Application → Cookies). It's unofficial, so it can break if KinderCare changes the site, and the cookie is full account access, so keep it only in the env files. When it expires, the card says "KinderCare login expired": paste a fresh cookie into `~/skylite-prod.env` (and `.devcontainer/staging.env`) and restart.
 
 **Phone reminders (ntfy).** "In 30 min: …" before each timed event, a "Today" summary at 07:00 and a "Tomorrow" summary at 19:30 (events, due to-dos, routines). Subscribe to the topic in the ntfy app.
 

@@ -6,6 +6,7 @@ export type SchoolMenuItem = {
 export type SchoolMenuMeal = {
   name: string;
   items: SchoolMenuItem[];
+  details?: string[];
 };
 
 export type SchoolMenuDay = {
@@ -41,5 +42,7 @@ export function getMealIcon(mealName: string) {
     return "i-lucide-egg-fried";
   if (name.includes("lunch"))
     return "i-lucide-sandwich";
+  if (name.includes("snack"))
+    return "i-lucide-apple";
   return "i-lucide-utensils";
 }
