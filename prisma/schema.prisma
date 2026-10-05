@@ -31,6 +31,7 @@ model User {
   activityLogs ActivityLog[]
   rewardRedemptions RewardRedemption[]
   routines Routine[]
+  dailyReports DailyReport[]
 
   @@map("users")
 }
@@ -278,6 +279,26 @@ model RoutineCompletion {
 
   @@unique([routineId, day])
   @@map("routine_completions")
+}
+
+// What each person finished and left undone on a day, saved just before the midnight reset.
+model DailyReport {
+  id           String   @id @default(cuid())
+  userId       String
+  day          String // YYYY-MM-DD in the app timezone
+  completed    Json     @default("[]") // DailyReportItem[]
+  incomplete   Json     @default("[]") // DailyReportItem[]
+  pointsEarned Int      @default(0)
+  // Rebuilt from the activity log after the fact, so the incomplete list is a best guess.
+  estimated    Boolean  @default(false)
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, day])
+  @@index([day])
+  @@map("daily_reports")
 }
 
 enum RedemptionStatus {

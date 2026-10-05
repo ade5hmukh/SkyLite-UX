@@ -1,7 +1,9 @@
 <script setup lang="ts">
+import { useEventListener, useIntervalFn } from "@vueuse/core";
 import { addDays, addMonths, addWeeks, format, isSameMonth, subMonths, subWeeks } from "date-fns";
 
 import type { CalendarEvent, CalendarView } from "~/types/calendar";
+import type { DailyReportsResponse } from "~/types/dailyReport";
 
 import GlobalDateHeader from "~/components/global/globalDateHeader.vue";
 import GlobalFloatingActionButton from "~/components/global/globalFloatingActionButton.vue";
@@ -78,12 +80,12 @@ onMounted(() => {
   const checkDateChange = () => {
     const now = new Date();
     const currentDateValue = currentDate.value;
-    
+
     // If user hasn't manually navigated and we're on a different day, update
     if (!hasManuallyNavigated.value) {
       const currentDay = new Date(currentDateValue.getFullYear(), currentDateValue.getMonth(), currentDateValue.getDate());
       const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-      
+
       if (currentDay.getTime() !== today.getTime()) {
         currentDate.value = now;
       }
@@ -242,6 +244,13 @@ const filteredEvents = computed(() => {
 
 const conflicts = computed(() => findEventConflicts(filteredEvents.value));
 const conflictsOpen = ref(false);
+
+const { refresh: refreshDailyReports } = useFetch<DailyReportsResponse>("/api/dailyReports", {
+  key: "daily-reports",
+  query: { from: format(addDays(new Date(), -90), "yyyy-MM-dd") },
+});
+useIntervalFn(refreshDailyReports, 5 * 60 * 1000);
+useEventListener("focus", () => refreshDailyReports());
 
 const { data: aiStatus } = useFetch<{ eventImport: boolean }>("/api/ai/status", { key: "ai-status" });
 const isImportDialogOpen = ref(false);

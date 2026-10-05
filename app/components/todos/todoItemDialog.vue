@@ -3,7 +3,7 @@ import type { CalendarDate, DateValue } from "@internationalized/date";
 
 import { getLocalTimeZone, parseDate } from "@internationalized/date";
 
-import type { Priority, TodoColumnBasic, TodoListItem } from "~/types/database";
+import type { Priority, Todo, TodoColumnBasic, TodoListItem } from "~/types/database";
 import type { ChoreTemplate } from "~/types/chores";
 
 import { useStableDate } from "~/composables/useStableDate";
@@ -24,7 +24,12 @@ const { parseStableDate } = useStableDate();
 
 // Mode: 'custom' for custom to-do, 'chore' for chore template
 const mode = ref<'custom' | 'chore'>('custom');
-const selectedChore = ref<ChoreTemplate | null>(null);
+const selectedChores = ref<ChoreTemplate[]>([]);
+const selectedChore = computed(() => selectedChores.value[0] ?? null);
+// Picking several chores adds them for today only; repeating chores are added one at a time.
+const isMultiChore = computed(() => mode.value === "chore" && !props.todo?.id && selectedChores.value.length > 1);
+
+const { data: cachedTodos } = useNuxtData<Todo[]>("todos");
 
 // Form fields
 const todoTitle = ref("");
@@ -123,17 +128,86 @@ function resetForm() {
   todoRecurringDaysOfWeek.value = [];
   todoRecurringDayOfMonth.value = 1;
   todoError.value = null;
-  selectedChore.value = null;
+  selectedChores.value = [];
+}
+
+function isChoreSelected(chore: ChoreTemplate) {
+  return selectedChores.value.some(selected => selected.id === chore.id);
 }
 
 function handleChoreSelect(chore: ChoreTemplate) {
-  selectedChore.value = chore;
-  todoTitle.value = chore.title;
-  todoDescription.value = chore.description;
-  todoPoints.value = chore.points;
+  selectedChores.value = isChoreSelected(chore)
+    ? selectedChores.value.filter(selected => selected.id !== chore.id)
+    : [...selectedChores.value, chore];
+
+  const single = selectedChores.value.length === 1 ? selectedChores.value[0]! : null;
+  todoTitle.value = single?.title ?? "";
+  todoDescription.value = single?.description ?? "";
+  todoPoints.value = single?.points ?? 0;
+}
+
+function hasChoreAlready(columnId: string, chore: ChoreTemplate) {
+  const title = chore.title.trim().toLowerCase();
+  return (cachedTodos.value ?? []).some(todo =>
+    todo.todoColumnId === columnId
+    && (todo.recurring || !todo.completed)
+    && (todo.choreType === chore.id || todo.title.trim().toLowerCase() === title),
+  );
+}
+
+function endOfToday() {
+  const date = new Date();
+  date.setHours(23, 59, 59, 999);
+  return date;
+}
+
+function handleMultiChoreSave() {
+  const columnIds = todoColumnIds.value.length > 0
+    ? todoColumnIds.value
+    : [props.todoColumns[0]?.id].filter((id): id is string => !!id);
+
+  let skipped = 0;
+  for (const columnId of columnIds) {
+    for (const chore of selectedChores.value) {
+      if (hasChoreAlready(columnId, chore)) {
+        skipped++;
+        continue;
+      }
+      emit("save", {
+        name: chore.title,
+        description: chore.description || null,
+        priority: todoPriority.value,
+        dueDate: endOfToday(),
+        todoColumnId: columnId,
+        checked: false,
+        order: 0,
+        isChore: true,
+        choreType: chore.id,
+        choreIcon: chore.icon,
+        points: chore.points,
+        recurring: false,
+      } as TodoListItem & { isChore: boolean; choreType: string; choreIcon: string; points: number; recurring: boolean });
+    }
+  }
+
+  if (skipped > 0)
+    useToast().add({ title: `Skipped ${skipped} chore${skipped === 1 ? "" : "s"} already on the list`, color: "neutral" });
+
+  resetForm();
+  emit("close");
 }
 
 function handleSave() {
+  if (todoColumnIds.value.length === 0 && props.todoColumns.length > 0) {
+    todoError.value = "Please select at least one user";
+    return;
+  }
+
+  if (isMultiChore.value) {
+    handleMultiChoreSave();
+    return;
+  }
+
   if (!todoTitle.value.trim()) {
     todoError.value = "Title is required";
     return;
@@ -242,7 +316,7 @@ async function handleDelete() {
             :variant="mode === 'custom' ? 'solid' : 'outline'"
             size="lg"
             class="flex-1"
-            @click="mode = 'custom'; selectedChore = null"
+            @click="mode = 'custom'; selectedChores = []"
           >
             <template #leading>
               <UIcon name="i-lucide-list-todo" class="h-5 w-5" />
@@ -296,12 +370,19 @@ async function handleDelete() {
                 :key="chore.id"
                 :class="[
                   'group relative bg-default hover:bg-muted border rounded-xl p-3 transition-all duration-200 text-left',
-                  selectedChore?.id === chore.id 
-                    ? 'border-primary ring-2 ring-primary ring-offset-1' 
-                    : 'border-default hover:border-primary hover:scale-105'
+                  isChoreSelected(chore)
+                    ? 'border-primary ring-2 ring-primary ring-offset-1'
+                    : 'border-default hover:border-primary hover:scale-105',
                 ]"
+                :aria-pressed="isChoreSelected(chore)"
                 @click="handleChoreSelect(chore)"
               >
+                <div
+                  v-if="isChoreSelected(chore)"
+                  class="absolute top-2 left-2 h-5 w-5 rounded-full bg-primary text-white flex items-center justify-center"
+                >
+                  <UIcon name="i-lucide-check" class="h-3.5 w-3.5" />
+                </div>
                 <!-- Points badge -->
                 <div class="absolute top-2 right-2 bg-yellow-500 text-white text-xs font-bold px-2 py-1 rounded-full flex items-center gap-1">
                   <UIcon name="i-lucide-star" class="h-3 w-3" />
@@ -343,7 +424,26 @@ async function handleDelete() {
 
         <!-- Form fields -->
         <div class="space-y-4">
-          <div class="space-y-2">
+          <div v-if="isMultiChore" class="rounded-lg border border-primary/40 bg-primary/5 p-3 space-y-2">
+            <div class="text-sm font-medium text-highlighted">
+              {{ selectedChores.length }} chores selected, for today only
+            </div>
+            <div class="flex flex-wrap gap-1.5">
+              <UBadge
+                v-for="chore in selectedChores"
+                :key="chore.id"
+                variant="subtle"
+                color="primary"
+              >
+                {{ chore.title }} · +{{ chore.points }}
+              </UBadge>
+            </div>
+            <p class="text-xs text-muted">
+              They're removed at midnight, done or not, and saved in the day's history. To make a chore repeat, pick just that one.
+            </p>
+          </div>
+
+          <div v-if="!isMultiChore" class="space-y-2">
             <label class="block text-sm font-medium text-highlighted">Title</label>
             <UInput
               v-model="todoTitle"
@@ -354,7 +454,7 @@ async function handleDelete() {
             />
           </div>
 
-          <div class="space-y-2">
+          <div v-if="!isMultiChore" class="space-y-2">
             <label class="block text-sm font-medium text-highlighted">Description</label>
             <UTextarea
               v-model="todoDescription"
@@ -413,7 +513,7 @@ async function handleDelete() {
               />
             </div>
 
-            <div class="space-y-2">
+            <div v-if="!isMultiChore" class="space-y-2">
               <label class="block text-sm font-medium text-highlighted flex items-center gap-1">
                 <UIcon name="i-lucide-star" class="h-4 w-4 text-yellow-500" />
                 Points
@@ -434,7 +534,7 @@ async function handleDelete() {
             </div>
           </div>
 
-          <div class="space-y-2">
+          <div v-if="!isMultiChore" class="space-y-2">
             <label class="block text-sm font-medium text-highlighted">Due Date</label>
             <UPopover>
               <UButton
@@ -477,7 +577,7 @@ async function handleDelete() {
             </UPopover>
           </div>
 
-          <div class="space-y-3">
+          <div v-if="!isMultiChore" class="space-y-3">
             <label class="flex items-center gap-2 cursor-pointer">
               <input
                 v-model="todoRecurring"
@@ -562,7 +662,7 @@ async function handleDelete() {
             <template v-if="mode === 'chore'" #leading>
               <UIcon name="i-lucide-sparkles" class="h-4 w-4" />
             </template>
-            {{ todo?.id ? 'Update' : (mode === 'chore' ? 'Add Chore' : 'Add To-Do') }}
+            {{ todo?.id ? 'Update' : isMultiChore ? `Add ${selectedChores.length} Chores` : (mode === 'chore' ? 'Add Chore' : 'Add To-Do') }}
           </UButton>
         </div>
       </div>

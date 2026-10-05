@@ -136,6 +136,7 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
               </h3>
             </div>
           </div>
+          <CalendarDayReport :day="currentDate" class="ml-auto" />
         </div>
         <div class="p-4">
           <div v-show="todaysEvents.length === 0" class="text-center py-8">

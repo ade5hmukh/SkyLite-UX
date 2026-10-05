@@ -93,10 +93,11 @@ function isLastDay(day: Date) {
           'bg-info/10': isToday(day),
         }"
       >
-        <div class="flex items-center justify-between p-2 border-b border-default flex-shrink-0">
+        <div class="flex items-center justify-between gap-2 p-2 border-b border-default flex-shrink-0">
           <div class="text-sm font-medium text-muted">
             <NuxtTime :datetime="day" weekday="short" />
           </div>
+          <CalendarDayReport :day="day" class="flex-1 justify-end" />
           <div
             class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold"
             :class="{
@@ -147,10 +148,11 @@ function isLastDay(day: Date) {
         }"
       >
         <template v-if="day && !isLastDay(day)">
-          <div class="flex items-center justify-between p-2 border-b border-default flex-shrink-0">
+          <div class="flex items-center justify-between gap-2 p-2 border-b border-default flex-shrink-0">
             <div class="text-sm font-medium text-muted">
               <NuxtTime :datetime="day" weekday="short" />
             </div>
+            <CalendarDayReport :day="day" class="flex-1 justify-end" />
             <div
               class="inline-flex h-8 w-8 items-center justify-center rounded-full text-sm font-semibold"
               :class="{

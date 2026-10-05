@@ -200,7 +200,7 @@ async function handleTodoSave(todoData: TodoListItem & { isChore?: boolean; chor
       const { data: cachedTodos } = useNuxtData("todos");
       const previousTodos = cachedTodos.value ? [...cachedTodos.value] : [];
       const newTodo: Todo & { isChore?: boolean; choreType?: string; choreIcon?: string; points?: number; recurring?: boolean } = {
-        id: `temp-${Date.now()}`,
+        id: `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         title: todoData.name,
         description: todoData.description,
         priority: todoData.priority,
@@ -321,7 +321,7 @@ async function handleColumnSave(columnData: { name: string }) {
       const previousColumns = cachedColumns.value ? [...cachedColumns.value] : [];
       const newColumn = {
         ...columnData,
-        id: `temp-${Date.now()}`,
+        id: `temp-${Date.now()}-${Math.random().toString(36).slice(2)}`,
         createdAt: new Date(),
         updatedAt: new Date(),
         isDefault: false,

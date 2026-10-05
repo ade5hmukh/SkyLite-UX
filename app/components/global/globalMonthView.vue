@@ -72,7 +72,12 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
             'bg-info/10': isToday(day),
           }"
         >
-          <div class="flex justify-end items-center p-0.5">
+          <div class="flex justify-end items-center gap-1 p-0.5">
+            <CalendarDayReport
+              :day="day"
+              compact
+              class="flex-1"
+            />
             <div
               class="inline-flex h-6 w-6 items-center justify-center rounded-full text-sm"
               :class="{

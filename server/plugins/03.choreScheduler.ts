@@ -18,12 +18,31 @@ export default defineNitroPlugin((_nitroApp) => {
   async function runMidnightResets() {
     try {
       consola.info("⏰ Running midnight resets (chores + daily points)...");
+      const startedAt = new Date();
+
+      // Save the day that just ended before anything is reset or cleared
+      let reportSaved = false;
+      try {
+        const endedDay = getAppDayKey(new Date(startedAt.getTime() - 6 * 60 * 60 * 1000));
+        const reports = await buildLiveReports(endedDay);
+        await saveDailyReports(reports);
+        reportSaved = true;
+        consola.info(`📒 Saved ${reports.length} daily report(s) for ${endedDay}`);
+      }
+      catch (error) {
+        consola.error("❌ Failed to save daily reports, keeping finished to-dos:", error);
+      }
 
       // Reset recurring chores
       const choreResponse = await $fetch("/api/chores/reset-recurring", {
         method: "POST",
       });
       consola.info(`✅ Chore reset: ${choreResponse.resetCount} chores reset`);
+
+      if (reportSaved) {
+        const clearedCount = await clearFinishedDayItems(startedAt);
+        consola.info(`✅ Cleared ${clearedCount} one-off item(s) from the lists`);
+      }
 
       // Reset daily points
       const pointsResponse = await $fetch("/api/points/reset-daily", {
@@ -65,6 +84,8 @@ export default defineNitroPlugin((_nitroApp) => {
   // Start the scheduler
   if (isProduction || isDevelopment) {
     scheduleNextReset();
+    setTimeout(() => {
+      backfillDailyReports().catch(error => consola.error("❌ Failed to backfill daily reports:", error));
+    }, 30_000);
   }
 });
-

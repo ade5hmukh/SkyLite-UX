@@ -61,10 +61,11 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
             'bg-info/10': isToday(day),
           }"
         >
-          <div class="flex items-center justify-between p-3 border-b border-default flex-shrink-0">
+          <div class="flex items-center justify-between gap-2 p-3 border-b border-default flex-shrink-0">
             <div class="text-lg font-semibold text-muted">
               <NuxtTime :datetime="day" weekday="short" />
             </div>
+            <CalendarDayReport :day="day" class="flex-1 justify-end" />
             <div
               class="inline-flex h-10 w-10 items-center justify-center rounded-full text-lg font-bold"
               :class="{
@@ -107,4 +108,3 @@ function handleEventClick(event: CalendarEvent, e: MouseEvent) {
     </div>
   </div>
 </template>
-
