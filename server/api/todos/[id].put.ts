@@ -14,22 +14,44 @@ export default defineEventHandler(async (event) => {
 
     // Build update data object, only including fields that are explicitly provided
     const updateData: any = {};
-    
-    if (body.title !== undefined) updateData.title = body.title;
-    if (body.description !== undefined) updateData.description = body.description;
-    if (body.completed !== undefined) updateData.completed = body.completed;
-    if (body.priority !== undefined) updateData.priority = body.priority;
-    if (body.dueDate !== undefined) updateData.dueDate = body.dueDate ? new Date(body.dueDate) : null;
-    if (body.todoColumnId !== undefined) updateData.todoColumnId = body.todoColumnId;
-    if (body.order !== undefined) updateData.order = body.order;
-    if (body.isChore !== undefined) updateData.isChore = body.isChore;
-    if (body.choreType !== undefined) updateData.choreType = body.choreType;
-    if (body.choreIcon !== undefined) updateData.choreIcon = body.choreIcon;
-    if (body.points !== undefined) updateData.points = body.points;
-    if (body.recurring !== undefined) updateData.recurring = body.recurring;
-    if (body.recurringPattern !== undefined) updateData.recurringPattern = body.recurringPattern;
-    if (body.recurringDaysOfWeek !== undefined) updateData.recurringDaysOfWeek = body.recurringDaysOfWeek;
-    if (body.recurringDayOfMonth !== undefined) updateData.recurringDayOfMonth = body.recurringDayOfMonth;
+
+    if (body.title !== undefined)
+      updateData.title = body.title;
+    if (body.description !== undefined)
+      updateData.description = body.description;
+    if (body.completed !== undefined)
+      updateData.completed = body.completed;
+    if (body.priority !== undefined)
+      updateData.priority = body.priority;
+    if (body.dueDate !== undefined)
+      updateData.dueDate = body.dueDate ? new Date(body.dueDate) : null;
+    if (body.todoColumnId !== undefined)
+      updateData.todoColumnId = body.todoColumnId;
+    if (body.order !== undefined)
+      updateData.order = body.order;
+    if (body.isChore !== undefined)
+      updateData.isChore = body.isChore;
+    if (body.choreType !== undefined)
+      updateData.choreType = body.choreType;
+    if (body.choreIcon !== undefined)
+      updateData.choreIcon = body.choreIcon;
+    if (body.points !== undefined)
+      updateData.points = body.points;
+    if (body.recurring !== undefined)
+      updateData.recurring = body.recurring;
+    if (body.recurringPattern !== undefined)
+      updateData.recurringPattern = body.recurringPattern;
+    if (body.recurringDaysOfWeek !== undefined)
+      updateData.recurringDaysOfWeek = body.recurringDaysOfWeek;
+    if (body.recurringDayOfMonth !== undefined)
+      updateData.recurringDayOfMonth = body.recurringDayOfMonth;
+
+    // Unchecking takes back the points the check awarded; only the request that flips it counts.
+    let unchecked = false;
+    if (body.completed === false) {
+      const { count } = await prisma.todo.updateMany({ where: { id, completed: true }, data: { completed: false } });
+      unchecked = count === 1;
+    }
 
     const todo = await prisma.todo.update({
       where: { id },
@@ -53,10 +75,20 @@ export default defineEventHandler(async (event) => {
       },
     });
 
+    const user = todo.todoColumn?.user;
+    if (unchecked && user && todo.points > 0) {
+      await prisma.$executeRaw`UPDATE "users" SET "points" = GREATEST("points" - ${todo.points}, 0), "pointsToday" = GREATEST("pointsToday" - ${todo.points}, 0), "pointsThisWeek" = GREATEST("pointsThisWeek" - ${todo.points}, 0), "updatedAt" = NOW() WHERE "id" = ${user.id}`;
+    }
+
     // Log the activity
     try {
       let logMessage = `Updated ${todo.isChore ? "chore" : "todo"}: ${todo.title}`;
-      
+      if (unchecked) {
+        logMessage = todo.points > 0 && user
+          ? `Unchecked ${todo.isChore ? "chore" : "todo"}: ${todo.title} (-${todo.points} points)`
+          : `Unchecked ${todo.isChore ? "chore" : "todo"}: ${todo.title}`;
+      }
+
       // Special message if completing a todo/chore
       if (body.completed !== undefined && body.completed) {
         if (todo.points > 0) {
@@ -66,7 +98,7 @@ export default defineEventHandler(async (event) => {
           logMessage = `Completed ${todo.isChore ? "chore" : "todo"}: ${todo.title}`;
         }
       }
-      
+
       await prisma.activityLog.create({
         data: {
           level: "INFO",

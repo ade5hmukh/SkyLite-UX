@@ -116,7 +116,7 @@
 
   function renderTile(person, item) {
     const classes = `tile${item.completed ? " done" : ""}${state.working[item.id] ? " working" : ""}${item.justDone ? " pop" : ""}`;
-    return `<button type="button" class="${classes}" data-action="complete" data-person="${esc(person.id)}" data-id="${esc(item.id)}"${item.completed ? " disabled" : ""}>${
+    return `<button type="button" class="${classes}" data-action="${item.completed ? "undo" : "complete"}" data-person="${esc(person.id)}" data-id="${esc(item.id)}">${
       item.completed ? `<span class="tile-check">${icon("i-lucide-check")}</span>` : ""
     }${item.points ? `<span class="tile-points">+${esc(item.points)}</span>` : ""
     }<div class="tile-icon" style="background:${hexToRgba(person.color, 0.15)};color:${esc(person.color)}">${icon(item.icon)}</div>`
@@ -830,9 +830,69 @@
       });
   }
 
+  /* ---------- Undo a chore checked by mistake ---------- */
+
+  function openUndo(personId, itemId) {
+    const person = findPerson(personId);
+    const item = findItem(person, itemId);
+    if (!item || !item.completed || state.working[itemId])
+      return;
+    state.quiz = { undo: true, personId, itemId, busy: false };
+    renderUndo();
+  }
+
+  function renderUndo() {
+    const layer = document.getElementById("quiz");
+    const quiz = state.quiz;
+    const person = quiz && findPerson(quiz.personId);
+    const item = findItem(person, quiz && quiz.itemId);
+    if (!item) {
+      closeQuiz();
+      return;
+    }
+    layer.innerHTML = `<div class="quiz-wrap"><div class="quiz-card undo-card" style="border-top-color:${esc(person.color)}">`
+      + `<div class="undo-icon" style="background:${hexToRgba(person.color, 0.15)};color:${esc(person.color)}">${icon(item.icon)}</div>`
+      + `<div class="quiz-title">Oops! Undo “${esc(item.title)}”?</div>`
+      + `<div class="undo-note">${item.points ? `This takes back ${esc(item.points)} ${item.points === 1 ? "point" : "points"}.` : "It goes back on the list."}</div>`
+      + `<div class="undo-actions">`
+      + `<button type="button" class="undo-btn keep" data-quiz="undo-no"${quiz.busy ? " disabled" : ""}>No, keep it ✓</button>`
+      + `<button type="button" class="undo-btn undo" data-quiz="undo-yes"${quiz.busy ? " disabled" : ""}>${quiz.busy ? "Undoing…" : "Yes, undo"}</button>`
+      + `</div></div></div>`;
+  }
+
+  function confirmUndo() {
+    const quiz = state.quiz;
+    if (!quiz || !quiz.undo || quiz.busy)
+      return;
+    const person = findPerson(quiz.personId);
+    const item = findItem(person, quiz.itemId);
+    if (!item)
+      return;
+    quiz.busy = true;
+    renderUndo();
+    api("PUT", `/api/todos/${encodeURIComponent(item.id)}`, { completed: false })
+      .then(() => {
+        item.completed = false;
+        if (item.points) {
+          person.points = Math.max(0, person.points - item.points);
+          person.pointsToday = Math.max(0, person.pointsToday - item.points);
+        }
+        closeQuiz();
+        render();
+      })
+      .catch((error) => {
+        closeQuiz();
+        showError(`Couldn't undo that. Try again. ${error.message}`);
+      });
+  }
+
   function handleQuizClick(target) {
     const action = target.getAttribute("data-quiz");
-    if (action === "close")
+    if (action === "undo-yes")
+      confirmUndo();
+    else if (action === "undo-no")
+      closeQuiz();
+    else if (action === "close")
       closeQuiz();
     else if (action === "speak" && state.quiz)
       speak(state.quiz.question.speak);
@@ -896,6 +956,8 @@
     const action = target.getAttribute("data-action");
     if (action === "complete")
       completeItem(target.getAttribute("data-person"), target.getAttribute("data-id"));
+    else if (action === "undo")
+      openUndo(target.getAttribute("data-person"), target.getAttribute("data-id"));
     else if (action === "step")
       toggleStep(target.getAttribute("data-person"), target.getAttribute("data-routine"), target.getAttribute("data-id"));
   });

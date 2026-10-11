@@ -85,15 +85,17 @@ const todoLists = computed<TodoListWithIntegration[]>(() => {
     updatedAt: parseStableDate(column.updatedAt),
     isDefault: column.isDefault,
     source: "native" as const,
-    user: column.user ? {
-      id: column.user.id,
-      name: column.user.name,
-      avatar: column.user.avatar,
-      color: column.user.color,
-      points: column.user.points || 0,
-      pointsToday: column.user.pointsToday || 0,
-      pointsThisWeek: column.user.pointsThisWeek || 0,
-    } : undefined,
+    user: column.user
+      ? {
+          id: column.user.id,
+          name: column.user.name,
+          avatar: column.user.avatar,
+          color: column.user.color,
+          points: column.user.points || 0,
+          pointsToday: column.user.pointsToday || 0,
+          pointsThisWeek: column.user.pointsThisWeek || 0,
+        }
+      : undefined,
     items: todos.value!
       .filter(todo => todo.todoColumnId === column.id)
       .sort(compareTodos)
@@ -524,23 +526,23 @@ async function handleClearCompleted(columnId: string) {
   try {
     const { data: cachedTodos } = useNuxtData("todos");
     const previousTodos = cachedTodos.value ? [...cachedTodos.value] : [];
-    
+
     // DEBUG: Log ALL todos in this column to see their recurring status
     const allColumnTodos = cachedTodos.value?.filter((t: Todo) => t.todoColumnId === columnId) || [];
-    const todoDetails = allColumnTodos.map(t => ({ 
-      id: t.id, 
-      title: t.title, 
-      completed: t.completed, 
+    const todoDetails = allColumnTodos.map(t => ({
+      id: t.id,
+      title: t.title,
+      completed: t.completed,
       recurring: t.recurring,
       isChore: t.isChore,
-      points: t.points
+      points: t.points,
     }));
     consola.debug(`Clear Completed: All todos in column ${columnId}:`, todoDetails);
-    
+
     // Only clear completed non-recurring todos
     const completedTodos = cachedTodos.value?.filter((t: Todo) => t.todoColumnId === columnId && t.completed && !t.recurring) || [];
     const recurringTodos = cachedTodos.value?.filter((t: Todo) => t.todoColumnId === columnId && t.completed && t.recurring) || [];
-    
+
     consola.debug(`Clear Completed: Found ${completedTodos.length} non-recurring completed, ${recurringTodos.length} recurring completed`);
     if (recurringTodos.length > 0) {
       consola.debug("Recurring todos being kept:", recurringTodos.map(t => ({ id: t.id, title: t.title, recurring: t.recurring })));
@@ -584,8 +586,8 @@ async function handleToggleTodo(itemId: string, completed: boolean) {
     const todoBeforeToggle = cachedTodos.value?.find((t: Todo) => t.id === itemId);
     if (todoBeforeToggle && completed && todoBeforeToggle.points > 0) {
       const todoColumn = todoColumns.value?.find(c => c.id === todoBeforeToggle.todoColumnId);
-      choreInfo = { 
-        chore: todoBeforeToggle, 
+      choreInfo = {
+        chore: todoBeforeToggle,
         userId: todoColumn?.userId || null,
       };
     }
@@ -594,13 +596,16 @@ async function handleToggleTodo(itemId: string, completed: boolean) {
       // Call API first (don't do optimistic update to avoid cache corruption)
       await toggleTodo(itemId, completed);
       consola.debug("Todo Lists: Todo toggled successfully");
-      
+
+      // The server takes the points back when a chore is unchecked.
+      if (!completed && todoBeforeToggle && todoBeforeToggle.points > 0)
+        await refreshNuxtData("todo-columns");
 
       // If this was a chore/todo with points, award points and show celebration
       if (choreInfo) {
         // Show celebration animation immediately
         choreToComplete.value = choreInfo;
-        
+
         // Award points to user if column has a user assigned (with duplicate guard)
         if (choreInfo.userId && !awardingPoints.value.has(itemId)) {
           awardingPoints.value.add(itemId);
@@ -610,7 +615,7 @@ async function handleToggleTodo(itemId: string, completed: boolean) {
               body: { points: choreInfo.chore.points },
             });
             consola.debug(`Awarded ${choreInfo.chore.points} points to user ${choreInfo.userId}`);
-            
+
             // Refresh todo-columns to update points display in UI
             await refreshNuxtData("todo-columns");
           }
