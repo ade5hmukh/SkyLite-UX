@@ -43,6 +43,11 @@ function isRecurringDueOn(todo: Todo, day: string): boolean {
   return true;
 }
 
+/** A weekly recurring item with a due date: handed out on its weekday(s), open until done or the next hand-out. */
+export function isWeeklyAssignment(todo: Todo): boolean {
+  return todo.recurring && todo.recurringPattern === "WEEKLY" && todo.recurringDaysOfWeek.length > 0 && !!todo.dueDate;
+}
+
 function isRoutineDueOn(daysOfWeek: number[], day: string): boolean {
   return daysOfWeek.length === 0 || daysOfWeek.includes(getWeekdayOf(day));
 }
@@ -94,7 +99,7 @@ export function selectDayTodos(todos: Todo[], day: string, start: Date, end: Dat
     if (todo.recurring) {
       if (todo.completed)
         return touchedToday || isRecurringDueOn(todo, day);
-      return isRecurringDueOn(todo, day) && !(todo.snoozedUntil && todo.snoozedUntil >= end);
+      return (isWeeklyAssignment(todo) || isRecurringDueOn(todo, day)) && !(todo.snoozedUntil && todo.snoozedUntil >= end);
     }
     if (todo.completed)
       return touchedToday;
@@ -116,8 +121,12 @@ export async function buildLiveReports(day: string): Promise<BuiltReport[]> {
   const reports: BuiltReport[] = [];
   for (const column of columns) {
     const report: BuiltReport = { userId: column.userId!, day, completed: [], incomplete: [], pointsEarned: 0, estimated: false };
-    for (const todo of selectDayTodos(column.todos, day, start, end))
-      (todo.completed ? report.completed : report.incomplete).push(todoItem(todo));
+    for (const todo of selectDayTodos(column.todos, day, start, end)) {
+      if (todo.completed)
+        report.completed.push(todoItem(todo));
+      else if (!isWeeklyAssignment(todo) || todo.dueDate! < end)
+        report.incomplete.push(todoItem(todo));
+    }
     addRoutineItems(report, routines);
     const finished = finishReport(report);
     if (finished)

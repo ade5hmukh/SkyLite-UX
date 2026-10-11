@@ -1,17 +1,18 @@
-import prisma from "~/lib/prisma";
 import { consola } from "consola";
+
+import prisma from "~/lib/prisma";
 
 export default defineEventHandler(async (_event) => {
   try {
     const now = new Date();
-    const today = now.getDay(); // 0 (Sunday) to 6 (Saturday)
-    const dayOfMonth = now.getDate(); // 1 to 31
-    
-    // Get all recurring todos that are completed
+    const today = getAppWeekday(now); // 0 (Sunday) to 6 (Saturday)
+    const dayOfMonth = Number(getAppDayKey(now).slice(8, 10)); // 1 to 31
+
+    // Completed recurring todos, plus weekly assignments (recurring with a due date) whose due date rolls forward
     const todos = await prisma.todo.findMany({
       where: {
         recurring: true,
-        completed: true,
+        OR: [{ completed: true }, { dueDate: { not: null } }],
       },
     });
 
@@ -19,23 +20,6 @@ export default defineEventHandler(async (_event) => {
     let skipCount = 0;
 
     for (const todo of todos) {
-      // Check if snoozed
-      if (todo.snoozedUntil && todo.snoozedUntil > now) {
-        consola.debug(`⏸️ Todo "${todo.title}" is snoozed until ${todo.snoozedUntil}`);
-        continue;
-      }
-
-      // Check if should skip next occurrence
-      if (todo.skipNext) {
-        consola.debug(`⏭️ Skipping next occurrence of "${todo.title}"`);
-        await prisma.todo.update({
-          where: { id: todo.id },
-          data: { skipNext: false },
-        });
-        skipCount++;
-        continue;
-      }
-
       // Check if should reset based on pattern
       let shouldReset = false;
       const pattern = todo.recurringPattern || "DAILY";
@@ -68,6 +52,38 @@ export default defineEventHandler(async (_event) => {
           break;
       }
 
+      // A weekly assignment gets a new due date on the day it's handed out, finished or not
+      const rollsDueDate = shouldReset && pattern === "WEEKLY" && todo.recurringDaysOfWeek.length > 0 && !!todo.dueDate;
+
+      if (!todo.completed) {
+        if (rollsDueDate) {
+          await prisma.todo.update({
+            where: { id: todo.id },
+            data: { dueDate: getNextWeekdayDueDate(getAppWeekday(todo.dueDate!), now), lastResetDate: now },
+          });
+          resetCount++;
+          consola.debug(`📅 New due date for unfinished "${todo.title}"`);
+        }
+        continue;
+      }
+
+      // Check if snoozed
+      if (todo.snoozedUntil && todo.snoozedUntil > now) {
+        consola.debug(`⏸️ Todo "${todo.title}" is snoozed until ${todo.snoozedUntil}`);
+        continue;
+      }
+
+      // Check if should skip next occurrence
+      if (todo.skipNext) {
+        consola.debug(`⏭️ Skipping next occurrence of "${todo.title}"`);
+        await prisma.todo.update({
+          where: { id: todo.id },
+          data: { skipNext: false },
+        });
+        skipCount++;
+        continue;
+      }
+
       if (shouldReset) {
         await prisma.todo.update({
           where: { id: todo.id },
@@ -75,6 +91,7 @@ export default defineEventHandler(async (_event) => {
             completed: false,
             lastResetDate: now,
             snoozedUntil: null, // Clear snooze when resetting
+            ...(rollsDueDate ? { dueDate: getNextWeekdayDueDate(getAppWeekday(todo.dueDate!), now) } : {}),
           },
         });
         resetCount++;
@@ -99,7 +116,3 @@ export default defineEventHandler(async (_event) => {
     });
   }
 });
-
-
-
-

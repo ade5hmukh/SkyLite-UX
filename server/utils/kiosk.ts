@@ -1,3 +1,5 @@
+import type { Todo } from "@prisma/client";
+
 import { consola } from "consola";
 import { formatInTimeZone } from "date-fns-tz";
 
@@ -12,6 +14,7 @@ export type KioskItem = {
   points: number;
   icon: string;
   completed: boolean;
+  due: string | null;
 };
 
 export type KioskRoutine = {
@@ -46,32 +49,57 @@ export type KioskData = {
 const DEFAULT_COLOR = "#06b6d4";
 const PAGE_ICONS = ["i-lucide-star", "i-lucide-trophy", "i-lucide-check", "i-lucide-calendar", "i-lucide-map-pin", "i-lucide-party-popper"];
 
-function chooseIcon(icon: string | null | undefined, fallback: string) {
-  return icon && icon.startsWith("i-lucide-") ? icon : fallback;
+const ICON_SETS = ["lucide", "skylite"];
+
+function isKioskIcon(icon: string | null | undefined): icon is string {
+  return !!icon && ICON_SETS.some(set => icon.startsWith(`i-${set}-`));
 }
+
+function chooseIcon(icon: string | null | undefined, fallback: string) {
+  return isKioskIcon(icon) ? icon : fallback;
+}
+
+type IconSetResponse = { icons: Record<string, { body: string; width?: number; height?: number }>; width?: number; height?: number };
 
 async function loadIcons(names: string[]): Promise<Record<string, string>> {
   const unique = [...new Set(names)];
-  try {
-    const data = await $fetch<{ icons: Record<string, { body: string; width?: number; height?: number }>; width?: number; height?: number }>(
-      "/api/_nuxt_icon/lucide.json",
-      { query: { icons: unique.map(name => name.replace("i-lucide-", "")).join(",") } },
-    );
-    const icons: Record<string, string> = {};
-    for (const name of unique) {
-      const icon = data.icons[name.replace("i-lucide-", "")];
-      if (!icon)
-        continue;
-      const width = icon.width ?? data.width ?? 24;
-      const height = icon.height ?? data.height ?? 24;
-      icons[name] = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" aria-hidden="true">${icon.body}</svg>`;
+  const icons: Record<string, string> = {};
+  await Promise.all(ICON_SETS.map(async (set) => {
+    const prefix = `i-${set}-`;
+    const wanted = unique.filter(name => name.startsWith(prefix));
+    if (wanted.length === 0)
+      return;
+    try {
+      const data = await $fetch<IconSetResponse>(`/api/_nuxt_icon/${set}.json`, {
+        query: { icons: wanted.map(name => name.slice(prefix.length)).join(",") },
+      });
+      for (const name of wanted) {
+        const icon = data.icons[name.slice(prefix.length)];
+        if (!icon)
+          continue;
+        const width = icon.width ?? data.width ?? 24;
+        const height = icon.height ?? data.height ?? 24;
+        icons[name] = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${width} ${height}" aria-hidden="true">${icon.body}</svg>`;
+      }
     }
-    return icons;
+    catch (error) {
+      consola.warn(`Kiosk: Failed to load ${set} icons:`, error instanceof Error ? error.message : error);
+    }
+  }));
+  return icons;
+}
+
+/** "Due Mon" for open items due after today; "Due today" / "Late" only for weekly assignments. */
+function getDueLabel(todo: Todo, start: Date, end: Date) {
+  if (todo.completed || !todo.dueDate)
+    return null;
+  if (todo.dueDate >= end) {
+    const daysAhead = (todo.dueDate.getTime() - end.getTime()) / 86_400_000;
+    return `Due ${formatInTimeZone(todo.dueDate, getAppTimezone(), daysAhead < 6 ? "EEE" : "MMM d")}`;
   }
-  catch (error) {
-    consola.warn("Kiosk: Failed to load icons:", error instanceof Error ? error.message : error);
-    return {};
-  }
+  if (!isWeeklyAssignment(todo))
+    return null;
+  return todo.dueDate >= start ? "Due today" : "Late";
 }
 
 function getMenuDayLabel(date: string, menus: SchoolMenusResponse) {
@@ -125,6 +153,7 @@ export async function getKioskData(who = ""): Promise<KioskData> {
         points: todo.points,
         icon: chooseIcon(todo.choreIcon, todo.isChore ? "i-lucide-sparkles" : "i-lucide-list-todo"),
         completed: todo.completed,
+        due: getDueLabel(todo, start, end),
       }))
       .sort((a, b) => Number(a.completed) - Number(b.completed));
 
@@ -175,7 +204,7 @@ export async function getKioskData(who = ""): Promise<KioskData> {
     ...PAGE_ICONS,
     ...people.flatMap(person => [
       ...person.items.map(item => item.icon),
-      ...person.routines.flatMap(routine => [routine.icon, ...routine.steps.map(step => step.icon).filter((icon): icon is string => !!icon?.startsWith("i-lucide-"))]),
+      ...person.routines.flatMap(routine => [routine.icon, ...routine.steps.map(step => step.icon).filter(isKioskIcon)]),
       ...person.meals.map(meal => meal.icon),
     ]),
   ];

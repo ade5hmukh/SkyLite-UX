@@ -42,6 +42,11 @@ export default defineNuxtConfig({
 
   modules: ["@nuxt/ui", "@nuxt/eslint", "@nuxtjs/html-validator", "@vite-pwa/nuxt"],
 
+  // Use as i-skylite-<file name>, e.g. i-skylite-hands-praying
+  icon: {
+    customCollections: [{ prefix: "skylite", dir: "./app/assets/icons" }],
+  },
+
   pwa: {
     registerType: "autoUpdate",
     manifest: {

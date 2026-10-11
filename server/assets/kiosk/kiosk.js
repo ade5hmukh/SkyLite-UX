@@ -120,8 +120,9 @@
       item.completed ? `<span class="tile-check">${icon("i-lucide-check")}</span>` : ""
     }${item.points ? `<span class="tile-points">+${esc(item.points)}</span>` : ""
     }<div class="tile-icon" style="background:${hexToRgba(person.color, 0.15)};color:${esc(person.color)}">${icon(item.icon)}</div>`
-    + `<div class="tile-title">${esc(item.title)}</div>`
-    + `</button>`;
+    + `<div class="tile-title">${esc(item.title)}</div>${
+      item.due ? `<div class="tile-due${item.due === "Late" ? " late" : ""}">${esc(item.due)}</div>` : ""
+    }</button>`;
   }
 
   function renderRoutine(person, routine) {
