@@ -1,4 +1,5 @@
 import { consola } from "consola";
+import { Buffer } from "node:buffer";
 
 // A standalone page for old tablets (iOS 12) that can't run the main app.
 async function readAsset(name: string): Promise<string> {
@@ -15,6 +16,8 @@ function toScriptJson(value: unknown) {
 export default defineEventHandler(async (event) => {
   const query = getQuery(event);
   const who = typeof query.who === "string" ? query.who : "";
+  // ?quiz=Siana limits math questions to those names; ?quiz=off turns them off. Default: everyone.
+  const quiz = typeof query.quiz === "string" ? query.quiz : "";
 
   let data = null;
   try {
@@ -42,8 +45,9 @@ export default defineEventHandler(async (event) => {
 </head>
 <body>
 <div id="app"><div class="loading">Loading…</div></div>
+<div id="quiz"></div>
 <div id="celebration"></div>
-<script>window.KIOSK_DATA = ${toScriptJson(data)}; window.KIOSK_WHO = ${toScriptJson(who)};</script>
+<script>window.KIOSK_DATA = ${toScriptJson(data)}; window.KIOSK_WHO = ${toScriptJson(who)}; window.KIOSK_QUIZ = ${toScriptJson(quiz)};</script>
 <script>${js}</script>
 </body>
 </html>`;

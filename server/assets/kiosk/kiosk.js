@@ -9,6 +9,8 @@
   const state = {
     data: window.KIOSK_DATA || null,
     who: window.KIOSK_WHO || "",
+    quizSetting: String(window.KIOSK_QUIZ || "").trim().toLowerCase(),
+    quiz: null,
     working: {},
     celebrating: false,
     failures: 0,
@@ -47,8 +49,11 @@
       headers: body ? { "Content-Type": "application/json" } : {},
       body: body ? JSON.stringify(body) : undefined,
     }).then((response) => {
-      if (!response.ok)
-        throw new Error(`Request failed (${response.status})`);
+      if (!response.ok) {
+        const error = new Error(`Request failed (${response.status})`);
+        error.status = response.status;
+        throw error;
+      }
       return response.json();
     });
   }
@@ -278,17 +283,34 @@
 
   /* ---------- Actions ---------- */
 
-  function completeItem(personId, itemId) {
+  function findItem(person, itemId) {
+    return person ? person.items.filter(candidate => candidate.id === itemId)[0] : null;
+  }
+
+  function isQuizOn(person) {
+    const setting = state.quizSetting;
+    if (setting === "off" || setting === "none" || setting === "no")
+      return false;
+    if (!setting)
+      return true;
+    return setting.split(",").map(name => name.trim()).includes(person.name.toLowerCase());
+  }
+
+  /** Saves the completion; rejects with the request error so callers can react (e.g. a wrong PIN). */
+  function submitCompletion(personId, itemId, extra) {
     const person = findPerson(personId);
-    if (!person || state.working[itemId])
-      return;
-    const item = person.items.filter(candidate => candidate.id === itemId)[0];
-    if (!item || item.completed)
-      return;
+    const item = findItem(person, itemId);
+    if (!item || item.completed || state.working[itemId])
+      return Promise.resolve();
+
+    const payload = { todoId: itemId };
+    Object.keys(extra || {}).forEach((key) => {
+      payload[key] = extra[key];
+    });
 
     state.working[itemId] = true;
     render();
-    api("POST", "/api/kiosk/complete", { todoId: itemId })
+    return api("POST", "/api/kiosk/complete", payload)
       .then((result) => {
         delete state.working[itemId];
         item.completed = true;
@@ -302,12 +324,299 @@
         if (!result.alreadyDone)
           celebrate(item.title, result.pointsAwarded);
         item.justDone = false;
-      })
-      .catch((error) => {
+      }, (error) => {
         delete state.working[itemId];
         render();
-        showError(`Couldn't save that. Try again. ${error.message}`);
+        throw error;
       });
+  }
+
+  function completeItem(personId, itemId) {
+    const person = findPerson(personId);
+    const item = findItem(person, itemId);
+    if (!item || item.completed || state.working[itemId])
+      return;
+    if (isQuizOn(person)) {
+      openQuiz(person, item);
+      return;
+    }
+    submitCompletion(personId, itemId, {}).catch((error) => {
+      showError(`Couldn't save that. Try again. ${error.message}`);
+    });
+  }
+
+  /* ---------- Quiz before a chore counts ---------- */
+
+  function randomInt(min, max) {
+    return min + Math.floor(Math.random() * (max - min + 1));
+  }
+
+  function pick(list) {
+    return list[Math.floor(Math.random() * list.length)];
+  }
+
+  function shuffle(list) {
+    const copy = list.slice();
+    for (let i = copy.length - 1; i > 0; i--) {
+      const j = Math.floor(Math.random() * (i + 1));
+      const swap = copy[i];
+      copy[i] = copy[j];
+      copy[j] = swap;
+    }
+    return copy;
+  }
+
+  function repeat(emoji, count) {
+    let out = "";
+    for (let i = 0; i < count; i++)
+      out += emoji;
+    return out;
+  }
+
+  function numberOptions(answer, max) {
+    const options = [answer];
+    const nearby = shuffle([answer - 2, answer - 1, answer + 1, answer + 2, answer + 3, answer - 3]);
+    for (let i = 0; i < nearby.length && options.length < 4; i++) {
+      if (nearby[i] >= 0 && nearby[i] <= max && !options.includes(nearby[i]))
+        options.push(nearby[i]);
+    }
+    while (options.length < 4) {
+      const extra = randomInt(0, max);
+      if (!options.includes(extra))
+        options.push(extra);
+    }
+    return shuffle(options).map(String);
+  }
+
+  const OBJECTS = ["🍎", "⭐", "🎈", "🐟", "🌸", "🍓", "🚗", "🐞", "⚽", "🧁"];
+  const FOODS = [["🍪", "cookies"], ["🍓", "strawberries"], ["🍇", "grapes"], ["🧁", "cupcakes"]];
+  const HELPERS = ["Mom", "Dad", "Grandma", "Grandpa", "a friend"];
+  const GROUPS = [
+    { name: "fruit", items: ["🍎", "🍌", "🍇", "🍓", "🍊", "🍉"] },
+    { name: "animal", items: ["🐶", "🐱", "🐰", "🐮", "🐷", "🦁"] },
+    { name: "vehicle", items: ["🚗", "🚌", "🚲", "✈️", "🚂", "🚀"] },
+    { name: "clothes", items: ["👕", "👖", "🧦", "👗", "🧢", "👟"] },
+  ];
+
+  function makeQuestion(name) {
+    const kind = pick(["add", "subtract", "story-add", "story-subtract", "count", "bigger", "next-number", "pattern", "odd-one"]);
+    let a;
+    let b;
+    let emoji;
+
+    if (kind === "add") {
+      a = randomInt(1, 6);
+      b = randomInt(1, 10 - a);
+      emoji = pick(OBJECTS);
+      return { prompt: `${a} + ${b} = ?`, speak: `What is ${a} plus ${b}?`, visual: `${repeat(emoji, a)} ➕ ${repeat(emoji, b)}`, options: numberOptions(a + b, 12), answer: String(a + b) };
+    }
+    if (kind === "subtract") {
+      a = randomInt(3, 10);
+      b = randomInt(1, a - 1);
+      return { prompt: `${a} − ${b} = ?`, speak: `What is ${a} minus ${b}?`, visual: "", options: numberOptions(a - b, 10), answer: String(a - b) };
+    }
+    if (kind === "story-add") {
+      a = randomInt(1, 5);
+      b = randomInt(1, 5);
+      emoji = pick(["🎈", "⭐", "🌸", "🐟"]);
+      const helper = pick(HELPERS);
+      const text = `${name} has ${a} ${emoji}. ${helper.charAt(0).toUpperCase()}${helper.slice(1)} gives ${b} more. How many now?`;
+      return { prompt: text, speak: text.replace(emoji, emoji === "🎈" ? "balloons" : emoji === "⭐" ? "stars" : emoji === "🌸" ? "flowers" : "fish"), visual: "", options: numberOptions(a + b, 12), answer: String(a + b) };
+    }
+    if (kind === "story-subtract") {
+      a = randomInt(3, 9);
+      b = randomInt(1, a - 1);
+      const food = pick(FOODS);
+      const text = `There are ${a} ${food[0]} on the plate. ${name} eats ${b}. How many are left?`;
+      return { prompt: text, speak: text.replace(food[0], food[1]), visual: repeat(food[0], a), options: numberOptions(a - b, 10), answer: String(a - b) };
+    }
+    if (kind === "count") {
+      a = randomInt(3, 10);
+      emoji = pick(OBJECTS);
+      return { prompt: `How many ${emoji}?`, speak: "How many do you see?", visual: repeat(emoji, a), options: numberOptions(a, 12), answer: String(a) };
+    }
+    if (kind === "bigger") {
+      const numbers = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]).slice(0, 4);
+      const smaller = Math.random() < 0.4;
+      const answer = smaller ? Math.min.apply(null, numbers) : Math.max.apply(null, numbers);
+      const word = smaller ? "smallest" : "biggest";
+      return { prompt: `Which number is the ${word}?`, speak: `Which number is the ${word}?`, visual: "", options: numbers.map(String), answer: String(answer) };
+    }
+    if (kind === "next-number") {
+      const step = Math.random() < 0.3 ? 2 : 1;
+      a = randomInt(step === 2 ? 0 : 1, step === 2 ? 6 : 15) * (step === 2 ? 2 : 1);
+      const sequence = [a, a + step, a + step * 2];
+      return { prompt: `${sequence.join(", ")}, ?`, speak: `What number comes next? ${sequence.join(", ")}`, visual: "", options: numberOptions(a + step * 3, 24), answer: String(a + step * 3) };
+    }
+    if (kind === "pattern") {
+      const shapes = shuffle(["🔴", "🔵", "🟡", "🟢", "🟣", "⭐", "❤️"]);
+      const unit = Math.random() < 0.6 ? [shapes[0], shapes[1]] : [shapes[0], shapes[1], shapes[2]];
+      const shown = [];
+      for (let i = 0; i < unit.length * 2 + 1; i++)
+        shown.push(unit[i % unit.length]);
+      const answer = unit[shown.length % unit.length];
+      const options = shuffle([answer].concat(shapes.filter(shape => shape !== answer).slice(0, 3)));
+      return { prompt: "What comes next?", speak: "What comes next in the pattern?", visual: `${shown.join("")}❓`, options, answer };
+    }
+    const groups = shuffle(GROUPS);
+    const odd = pick(groups[1].items);
+    const options = shuffle(shuffle(groups[0].items).slice(0, 3).concat([odd]));
+    return { prompt: "Which one does not belong?", speak: "Which one does not belong?", visual: "", options, answer: odd };
+  }
+
+  function speak(text) {
+    try {
+      if (!window.speechSynthesis || !window.SpeechSynthesisUtterance)
+        return;
+      window.speechSynthesis.cancel();
+      const utterance = new window.SpeechSynthesisUtterance(text);
+      utterance.rate = 0.9;
+      window.speechSynthesis.speak(utterance);
+    }
+    catch {
+      /* Reading aloud is optional. */
+    }
+  }
+
+  function openQuiz(person, item) {
+    state.quiz = { personId: person.id, itemId: item.id, question: makeQuestion(person.name), phase: "ask", picked: null, pin: "", message: "", busy: false };
+    renderQuiz();
+    speak(state.quiz.question.speak);
+  }
+
+  function closeQuiz() {
+    state.quiz = null;
+    renderQuiz();
+  }
+
+  function renderQuiz() {
+    const layer = document.getElementById("quiz");
+    const quiz = state.quiz;
+    if (!quiz) {
+      layer.innerHTML = "";
+      return;
+    }
+    const person = findPerson(quiz.personId);
+    const item = findItem(person, quiz.itemId);
+    if (!person || !item) {
+      layer.innerHTML = "";
+      state.quiz = null;
+      return;
+    }
+    const question = quiz.question;
+    const isNumberAnswer = /^\d+$/.test(question.answer);
+
+    let html = `<div class="quiz-wrap"><div class="quiz-card${quiz.shake ? " shake" : ""}" style="border-top-color:${esc(person.color)}">`
+      + `<div class="quiz-head"><span class="quiz-chore"><span class="ic">${icon(item.icon)}</span>${esc(item.title)}</span>`
+      + `<button type="button" class="quiz-icon-btn" data-quiz="speak" aria-label="Read aloud">🔊</button>`
+      + `<button type="button" class="quiz-icon-btn" data-quiz="close" aria-label="Close">✕</button></div>`
+      + `<div class="quiz-title">${quiz.phase === "ask" ? `Quick question, ${esc(person.name)}! 🧠` : "Not quite! 🤔"}</div>`;
+
+    if (question.visual)
+      html += `<div class="quiz-visual">${esc(question.visual)}</div>`;
+    html += `<div class="quiz-prompt">${esc(question.prompt)}</div>`;
+
+    html += `<div class="quiz-options${isNumberAnswer ? "" : " emoji"}">${question.options.map((option) => {
+      let classes = "quiz-option";
+      if (quiz.picked !== null) {
+        if (option === question.answer)
+          classes += " right";
+        else if (option === quiz.picked)
+          classes += " wrong";
+      }
+      return `<button type="button" class="${classes}" data-quiz="answer" data-value="${esc(option)}"${quiz.picked !== null ? " disabled" : ""}>${esc(option)}</button>`;
+    }).join("")}</div>`;
+
+    if (quiz.phase === "pin") {
+      let dots = "";
+      for (let i = 0; i < 4; i++)
+        dots += `<span class="pin-dot${i < quiz.pin.length ? " filled" : ""}"></span>`;
+      html += `<div class="pin-box"><div class="pin-title">Ask a grown-up to enter the PIN</div>`
+        + `<div class="pin-dots">${dots}</div>`
+        + `<div class="pin-message">${esc(quiz.message)}</div>`
+        + `<div class="pin-pad">${["1", "2", "3", "4", "5", "6", "7", "8", "9", "cancel", "0", "back"].map((key) => {
+          const label = key === "cancel" ? "Cancel" : key === "back" ? "⌫" : key;
+          return `<button type="button" class="pin-key${key.length > 1 ? " small" : ""}" data-quiz="pin" data-value="${key}"${quiz.busy ? " disabled" : ""}>${label}</button>`;
+        }).join("")}</div></div>`;
+    }
+
+    layer.innerHTML = `${html}</div></div>`;
+    quiz.shake = false;
+  }
+
+  function answerQuiz(value) {
+    const quiz = state.quiz;
+    if (!quiz || quiz.picked !== null)
+      return;
+    quiz.picked = value;
+    if (value === quiz.question.answer) {
+      renderQuiz();
+      speak("Yes! Great job!");
+      setTimeout(() => {
+        const done = state.quiz;
+        closeQuiz();
+        if (done) {
+          submitCompletion(done.personId, done.itemId, { verifiedBy: "quiz" }).catch((error) => {
+            showError(`Couldn't save that. Try again. ${error.message}`);
+          });
+        }
+      }, 900);
+      return;
+    }
+    quiz.phase = "pin";
+    quiz.shake = true;
+    renderQuiz();
+    speak("Not quite. The right answer is in green. Ask a grown-up to check.");
+  }
+
+  function pressPinKey(key) {
+    const quiz = state.quiz;
+    if (!quiz || quiz.phase !== "pin" || quiz.busy)
+      return;
+    if (key === "cancel") {
+      closeQuiz();
+      return;
+    }
+    if (key === "back") {
+      quiz.pin = quiz.pin.slice(0, -1);
+      renderQuiz();
+      return;
+    }
+    if (quiz.pin.length >= 4)
+      return;
+    quiz.pin += key;
+    quiz.message = "";
+    renderQuiz();
+    if (quiz.pin.length < 4)
+      return;
+
+    quiz.busy = true;
+    renderQuiz();
+    submitCompletion(quiz.personId, quiz.itemId, { pin: quiz.pin })
+      .then(() => {
+        closeQuiz();
+      })
+      .catch((error) => {
+        if (state.quiz !== quiz)
+          return;
+        quiz.busy = false;
+        quiz.pin = "";
+        quiz.shake = true;
+        quiz.message = error.status === 403 ? "Wrong PIN, try again" : error.status === 429 ? "Too many tries. Wait a minute." : "Couldn't save. Try again.";
+        renderQuiz();
+      });
+  }
+
+  function handleQuizClick(target) {
+    const action = target.getAttribute("data-quiz");
+    if (action === "close")
+      closeQuiz();
+    else if (action === "speak" && state.quiz)
+      speak(state.quiz.question.speak);
+    else if (action === "answer")
+      answerQuiz(target.getAttribute("data-value"));
+    else if (action === "pin")
+      pressPinKey(target.getAttribute("data-value"));
   }
 
   function toggleStep(personId, routineId, stepId) {
@@ -353,10 +662,14 @@
 
   document.addEventListener("click", (event) => {
     let target = event.target;
-    while (target && target !== document.body && !(target.getAttribute && target.getAttribute("data-action")))
+    while (target && target !== document.body && !(target.getAttribute && (target.getAttribute("data-action") || target.getAttribute("data-quiz"))))
       target = target.parentNode;
     if (!target || target === document.body || !target.getAttribute)
       return;
+    if (target.getAttribute("data-quiz")) {
+      handleQuizClick(target);
+      return;
+    }
     const action = target.getAttribute("data-action");
     if (action === "complete")
       completeItem(target.getAttribute("data-person"), target.getAttribute("data-id"));
@@ -392,7 +705,7 @@
   }
 
   function refresh() {
-    if (state.celebrating || hasWork())
+    if (state.celebrating || state.quiz || hasWork())
       return;
     api("GET", `/api/kiosk${state.who ? `?who=${encodeURIComponent(state.who)}` : ""}`)
       .then((data) => {

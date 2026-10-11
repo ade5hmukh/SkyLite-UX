@@ -3,10 +3,21 @@ import { consola } from "consola";
 import prisma from "~/lib/prisma";
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<{ todoId?: unknown }>(event);
+  const body = await readBody<{ todoId?: unknown; pin?: unknown; verifiedBy?: unknown }>(event);
   const todoId = typeof body?.todoId === "string" ? body.todoId : "";
   if (!todoId)
     throw createError({ statusCode: 400, message: "todoId is required" });
+
+  // A wrong quiz answer needs a grown-up's PIN before the chore counts.
+  let verifiedBy = body?.verifiedBy === "quiz" ? "quiz" : "none";
+  if (typeof body?.pin === "string") {
+    const result = checkParentPin(body.pin);
+    if (result === "locked")
+      throw createError({ statusCode: 429, message: "Too many tries. Wait a minute." });
+    if (result === "invalid")
+      throw createError({ statusCode: 403, message: "Wrong PIN" });
+    verifiedBy = "parent";
+  }
 
   const todo = await prisma.todo.findUnique({
     where: { id: todoId },
@@ -45,7 +56,7 @@ export default defineEventHandler(async (event) => {
           entityType: "todo",
           entityId: todo.id,
           entityName: todo.title,
-          metadata: { points: todo.points, recurring: todo.recurring, completed: true, columnName: todo.todoColumn?.name, source: "kiosk" },
+          metadata: { points: todo.points, recurring: todo.recurring, completed: true, columnName: todo.todoColumn?.name, source: "kiosk", verifiedBy },
         },
       });
     }

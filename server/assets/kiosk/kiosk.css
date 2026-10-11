@@ -95,6 +95,38 @@ svg { width: 100%; height: 100%; display: block; }
 .step.done .step-box { background: #22c55e; border-color: #22c55e; }
 .step.done .step-title { color: #94a3b8; text-decoration: line-through; }
 
+/* Quiz before a chore counts */
+.quiz-wrap { position: fixed; top: 0; left: 0; right: 0; bottom: 0; z-index: 9000; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 16px; }
+.quiz-card { width: 100%; max-width: 620px; max-height: 100%; overflow-y: auto; -webkit-overflow-scrolling: touch; background: #fff; border-radius: 28px; border-top: 10px solid #06b6d4; padding: 18px 22px 22px; box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3); -webkit-animation: pop 0.35s ease-out; animation: pop 0.35s ease-out; }
+.quiz-card.shake { -webkit-animation: shake 0.45s ease-in-out; animation: shake 0.45s ease-in-out; }
+.quiz-head { display: flex; align-items: center; }
+.quiz-chore { -webkit-box-flex: 1; flex: 1; display: flex; align-items: center; font-size: 16px; font-weight: 700; color: #64748b; }
+.quiz-chore .ic { width: 22px; height: 22px; margin-right: 6px; }
+.quiz-icon-btn { width: 48px; height: 48px; border-radius: 50%; background: #f1f5f9; font-size: 22px; margin-left: 8px; }
+.quiz-title { font-size: 28px; font-weight: 900; color: #0f172a; text-align: center; margin: 10px 0 6px; }
+.quiz-visual { font-size: 40px; line-height: 1.3; text-align: center; margin: 8px 0; word-wrap: break-word; }
+.quiz-prompt { font-size: 30px; font-weight: 800; color: #1e293b; text-align: center; margin: 8px 0 16px; line-height: 1.25; }
+.quiz-options { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); grid-gap: 12px; }
+.quiz-option { height: 92px; border-radius: 22px; background: #eff6ff; border: 4px solid #bfdbfe; font-size: 40px; font-weight: 900; color: #1d4ed8; -webkit-transition: -webkit-transform 0.15s ease; transition: transform 0.15s ease; }
+.quiz-options.emoji .quiz-option { font-size: 46px; background: #fdf4ff; border-color: #f5d0fe; }
+.quiz-option:active { -webkit-transform: scale(0.94); transform: scale(0.94); }
+.quiz-option.right { background: #dcfce7; border-color: #22c55e; color: #15803d; -webkit-animation: pop 0.4s ease-out; animation: pop 0.4s ease-out; }
+.quiz-option.wrong { background: #fee2e2; border-color: #ef4444; color: #b91c1c; }
+.quiz-option[disabled] { cursor: default; }
+.pin-box { margin-top: 18px; padding-top: 14px; border-top: 2px dashed #e2e8f0; text-align: center; }
+.pin-title { font-size: 20px; font-weight: 800; color: #475569; }
+.pin-dots { margin: 12px 0 4px; }
+.pin-dot { display: inline-block; width: 20px; height: 20px; border-radius: 50%; border: 3px solid #94a3b8; margin: 0 8px; }
+.pin-dot.filled { background: #334155; border-color: #334155; }
+.pin-message { min-height: 22px; font-size: 16px; font-weight: 700; color: #dc2626; }
+.pin-pad { display: grid; grid-template-columns: repeat(3, 84px); grid-gap: 10px; justify-content: center; margin-top: 6px; }
+.pin-key { height: 64px; border-radius: 18px; background: #f1f5f9; font-size: 28px; font-weight: 800; color: #0f172a; }
+.pin-key.small { font-size: 18px; color: #475569; }
+.pin-key:active { background: #e2e8f0; }
+
+@-webkit-keyframes shake { 0%, 100% { -webkit-transform: translateX(0); } 20%, 60% { -webkit-transform: translateX(-12px); } 40%, 80% { -webkit-transform: translateX(12px); } }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-12px); } 40%, 80% { transform: translateX(12px); } }
+
 .error-bar { position: fixed; left: 0; right: 0; bottom: 0; background: #dc2626; color: #fff; font-size: 14px; padding: 8px 12px; z-index: 10001; }
 
 /* Celebration, mirrors the app's chore celebration */
