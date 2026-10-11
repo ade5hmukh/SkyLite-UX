@@ -3,7 +3,7 @@ import { consola } from "consola";
 import prisma from "~/lib/prisma";
 
 export default defineEventHandler(async (event) => {
-  const body = await readBody<{ todoId?: unknown; pin?: unknown; verifiedBy?: unknown }>(event);
+  const body = await readBody<{ todoId?: unknown; pin?: unknown; verifiedBy?: unknown; quiz?: Record<string, unknown> }>(event);
   const todoId = typeof body?.todoId === "string" ? body.todoId : "";
   if (!todoId)
     throw createError({ statusCode: 400, message: "todoId is required" });
@@ -18,6 +18,19 @@ export default defineEventHandler(async (event) => {
       throw createError({ statusCode: 403, message: "Wrong PIN" });
     verifiedBy = "parent";
   }
+
+  const rawQuiz = body?.quiz && typeof body.quiz === "object" ? body.quiz : null;
+  const text = (value: unknown) => (typeof value === "string" ? value.slice(0, 200) : null);
+  const quiz = rawQuiz
+    ? {
+        level: Number(rawQuiz.level) || null,
+        kind: text(rawQuiz.kind),
+        prompt: text(rawQuiz.prompt),
+        answer: text(rawQuiz.answer),
+        picked: text(rawQuiz.picked),
+        correct: rawQuiz.correct === true,
+      }
+    : null;
 
   const todo = await prisma.todo.findUnique({
     where: { id: todoId },
@@ -56,7 +69,7 @@ export default defineEventHandler(async (event) => {
           entityType: "todo",
           entityId: todo.id,
           entityName: todo.title,
-          metadata: { points: todo.points, recurring: todo.recurring, completed: true, columnName: todo.todoColumn?.name, source: "kiosk", verifiedBy },
+          metadata: { points: todo.points, recurring: todo.recurring, completed: true, columnName: todo.todoColumn?.name, source: "kiosk", verifiedBy, quiz },
         },
       });
     }

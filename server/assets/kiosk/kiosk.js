@@ -376,12 +376,14 @@
   // Three choices: easy to scan at 5-6, while a random tap only passes one time in three.
   const CHOICES = 3;
 
-  function numberOptions(answer, max) {
+  /** The answer plus believable wrong ones: tried first are `likely` mistakes (e.g. off by ten, swapped digits). */
+  function numberOptions(answer, max, likely) {
     const options = [answer];
-    const nearby = shuffle([answer - 2, answer - 1, answer + 1, answer + 2, answer + 3, answer - 3]);
-    for (let i = 0; i < nearby.length && options.length < CHOICES; i++) {
-      if (nearby[i] >= 0 && nearby[i] <= max && !options.includes(nearby[i]))
-        options.push(nearby[i]);
+    const candidates = shuffle(likely || []).concat(shuffle([answer - 1, answer + 1, answer - 2, answer + 2, answer + 3, answer - 3]));
+    for (let i = 0; i < candidates.length && options.length < CHOICES; i++) {
+      const candidate = candidates[i];
+      if (candidate >= 0 && candidate <= max && !options.includes(candidate))
+        options.push(candidate);
     }
     while (options.length < CHOICES) {
       const extra = randomInt(0, max);
@@ -391,9 +393,25 @@
     return shuffle(options).map(String);
   }
 
-  const OBJECTS = ["🍎", "⭐", "🎈", "🐟", "🌸", "🍓", "🚗", "🐞", "⚽", "🧁"];
-  const FOODS = [["🍪", "cookies"], ["🍓", "strawberries"], ["🍇", "grapes"], ["🧁", "cupcakes"]];
-  const HELPERS = ["Mom", "Dad", "Grandma", "Grandpa", "a friend"];
+  function swapDigits(value) {
+    return value >= 10 && value < 100 ? Number(String(value).split("").reverse().join("")) : -1;
+  }
+
+  function numberQuestion(kind, prompt, speakText, answer, max, likely, visual) {
+    return { kind, prompt, speak: speakText, visual: visual || "", options: numberOptions(answer, max, likely), answer: String(answer) };
+  }
+
+  function clockFace(hour, half) {
+    return String.fromCodePoint((half ? 0x1F55C : 0x1F550) + hour - 1);
+  }
+
+  function wrapHour(hour) {
+    return ((hour + 11) % 12) + 1;
+  }
+
+  const THINGS = [["🍎", "apples"], ["⭐", "stars"], ["🎈", "balloons"], ["🐟", "fish"], ["🌸", "flowers"], ["🍓", "strawberries"], ["🚗", "cars"], ["🐞", "ladybugs"], ["⚽", "balls"], ["🧁", "cupcakes"], ["🍪", "cookies"], ["🖍️", "crayons"]];
+  const LEAVING = [["🎈", "balloons", "pop"], ["🐦", "birds", "fly away"], ["🐟", "fish", "swim away"], ["🍪", "cookies", "get eaten"], ["🦋", "butterflies", "fly away"]];
+  const HELPERS = ["Mom", "Dad", "Grandma", "Grandpa", "A friend"];
   const GROUPS = [
     { name: "fruit", items: ["🍎", "🍌", "🍇", "🍓", "🍊", "🍉"] },
     { name: "animal", items: ["🐶", "🐱", "🐰", "🐮", "🐷", "🦁"] },
@@ -401,70 +419,264 @@
     { name: "clothes", items: ["👕", "👖", "🧦", "👗", "🧢", "👟"] },
   ];
 
-  function makeQuestion(name) {
-    const kind = pick(["add", "subtract", "story-add", "story-subtract", "count", "bigger", "next-number", "pattern", "odd-one"]);
-    let a;
-    let b;
-    let emoji;
+  function compareQuestion(kind, numbers) {
+    const smaller = Math.random() < 0.4;
+    const answer = smaller ? Math.min.apply(null, numbers) : Math.max.apply(null, numbers);
+    const text = `Which number is the ${smaller ? "smallest" : "biggest"}?`;
+    return { kind, prompt: text, speak: text, visual: "", options: shuffle(numbers).map(String), answer: String(answer) };
+  }
 
-    if (kind === "add") {
-      a = randomInt(1, 6);
-      b = randomInt(1, 10 - a);
-      emoji = pick(OBJECTS);
-      return { prompt: `${a} + ${b} = ?`, speak: `What is ${a} plus ${b}?`, visual: `${repeat(emoji, a)} ➕ ${repeat(emoji, b)}`, options: numberOptions(a + b, 12), answer: String(a + b) };
-    }
-    if (kind === "subtract") {
-      a = randomInt(3, 10);
-      b = randomInt(1, a - 1);
-      return { prompt: `${a} − ${b} = ?`, speak: `What is ${a} minus ${b}?`, visual: "", options: numberOptions(a - b, 10), answer: String(a - b) };
-    }
-    if (kind === "story-add") {
-      a = randomInt(1, 5);
-      b = randomInt(1, 5);
-      emoji = pick(["🎈", "⭐", "🌸", "🐟"]);
+  function sequenceQuestion(kind, start, step, max) {
+    const shown = [start, start + step, start + step * 2];
+    const answer = start + step * 3;
+    return numberQuestion(kind, `${shown.join(", ")}, ?`, `What number comes next? ${shown.join(", ")}`, answer, max, [answer + 1, answer - step + 1, start + step * 4]);
+  }
+
+  // Common Core: level 1 reviews kindergarten, levels 2-3 cover first grade (1.OA, 1.NBT, 1.MD.3).
+  const BUILDERS = {
+    // Level 1: kindergarten review, within 10
+    add10() {
+      const a = randomInt(1, 6);
+      const b = randomInt(1, 10 - a);
+      const thing = pick(THINGS);
+      return numberQuestion("add10", `${a} + ${b} = ?`, `What is ${a} plus ${b}?`, a + b, 12, [], `${repeat(thing[0], a)} ➕ ${repeat(thing[0], b)}`);
+    },
+    sub10() {
+      const a = randomInt(3, 10);
+      const b = randomInt(1, a - 1);
+      return numberQuestion("sub10", `${a} − ${b} = ?`, `What is ${a} minus ${b}?`, a - b, 10, [a + b]);
+    },
+    count10() {
+      const a = randomInt(4, 12);
+      const thing = pick(THINGS);
+      return numberQuestion("count10", `How many ${thing[0]}?`, `How many ${thing[1]} do you see?`, a, 14, [], repeat(thing[0], a));
+    },
+    compare10() {
+      return compareQuestion("compare10", shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]).slice(0, CHOICES));
+    },
+    next10() {
+      return sequenceQuestion("next10", randomInt(1, 15), 1, 20);
+    },
+    storyAdd10(name) {
+      const a = randomInt(1, 5);
+      const b = randomInt(1, 5);
+      const thing = pick(THINGS);
       const helper = pick(HELPERS);
-      const text = `${name} has ${a} ${emoji}. ${helper.charAt(0).toUpperCase()}${helper.slice(1)} gives ${b} more. How many now?`;
-      return { prompt: text, speak: text.replace(emoji, emoji === "🎈" ? "balloons" : emoji === "⭐" ? "stars" : emoji === "🌸" ? "flowers" : "fish"), visual: "", options: numberOptions(a + b, 12), answer: String(a + b) };
-    }
-    if (kind === "story-subtract") {
-      a = randomInt(3, 9);
-      b = randomInt(1, a - 1);
-      const food = pick(FOODS);
-      const text = `There are ${a} ${food[0]} on the plate. ${name} eats ${b}. How many are left?`;
-      return { prompt: text, speak: text.replace(food[0], food[1]), visual: repeat(food[0], a), options: numberOptions(a - b, 10), answer: String(a - b) };
-    }
-    if (kind === "count") {
-      a = randomInt(3, 10);
-      emoji = pick(OBJECTS);
-      return { prompt: `How many ${emoji}?`, speak: "How many do you see?", visual: repeat(emoji, a), options: numberOptions(a, 12), answer: String(a) };
-    }
-    if (kind === "bigger") {
-      const numbers = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]).slice(0, CHOICES);
-      const smaller = Math.random() < 0.4;
-      const answer = smaller ? Math.min.apply(null, numbers) : Math.max.apply(null, numbers);
-      const word = smaller ? "smallest" : "biggest";
-      return { prompt: `Which number is the ${word}?`, speak: `Which number is the ${word}?`, visual: "", options: numbers.map(String), answer: String(answer) };
-    }
-    if (kind === "next-number") {
-      const step = Math.random() < 0.3 ? 2 : 1;
-      a = randomInt(step === 2 ? 0 : 1, step === 2 ? 6 : 15) * (step === 2 ? 2 : 1);
-      const sequence = [a, a + step, a + step * 2];
-      return { prompt: `${sequence.join(", ")}, ?`, speak: `What number comes next? ${sequence.join(", ")}`, visual: "", options: numberOptions(a + step * 3, 24), answer: String(a + step * 3) };
-    }
-    if (kind === "pattern") {
+      return numberQuestion("storyAdd10", `${name} has ${a} ${thing[0]}. ${helper} gives ${b} more. How many now?`, `${name} has ${a} ${thing[1]}. ${helper} gives ${b} more. How many now?`, a + b, 12);
+    },
+    pattern() {
       const shapes = shuffle(["🔴", "🔵", "🟡", "🟢", "🟣", "⭐", "❤️"]);
-      const unit = Math.random() < 0.6 ? [shapes[0], shapes[1]] : [shapes[0], shapes[1], shapes[2]];
+      const unit = Math.random() < 0.5 ? [shapes[0], shapes[1]] : [shapes[0], shapes[1], shapes[2]];
       const shown = [];
       for (let i = 0; i < unit.length * 2 + 1; i++)
         shown.push(unit[i % unit.length]);
       const answer = unit[shown.length % unit.length];
       const options = shuffle([answer].concat(shapes.filter(shape => shape !== answer).slice(0, CHOICES - 1)));
-      return { prompt: "What comes next?", speak: "What comes next in the pattern?", visual: `${shown.join("")}❓`, options, answer };
+      return { kind: "pattern", prompt: "What comes next?", speak: "What comes next in the pattern?", visual: `${shown.join("")}❓`, options, answer };
+    },
+    oddOne() {
+      const groups = shuffle(GROUPS);
+      const odd = pick(groups[1].items);
+      const options = shuffle(shuffle(groups[0].items).slice(0, CHOICES - 1).concat([odd]));
+      return { kind: "oddOne", prompt: "Which one does not belong?", speak: "Which one does not belong?", visual: "", options, answer: odd };
+    },
+
+    // Level 2: early first grade, within 20
+    add20() {
+      const a = randomInt(4, 12);
+      const b = randomInt(2, 20 - a);
+      return numberQuestion("add20", `${a} + ${b} = ?`, `What is ${a} plus ${b}?`, a + b, 20, [a + b + 10, a + b - 10]);
+    },
+    sub20() {
+      const a = randomInt(11, 20);
+      const b = randomInt(2, 9);
+      return numberQuestion("sub20", `${a} − ${b} = ?`, `What is ${a} minus ${b}?`, a - b, 20, [a - b + 10]);
+    },
+    makeTen() {
+      const a = randomInt(1, 9);
+      return numberQuestion("makeTen", `${a} + ? = 10`, `${a} plus what makes 10?`, 10 - a, 10, [a, 10 - a + 1], repeat("🟢", a) + repeat("⚪", 10 - a));
+    },
+    missingAddend() {
+      const total = randomInt(9, 20);
+      const a = randomInt(2, total - 2);
+      return numberQuestion("missingAddend", `${a} + ? = ${total}`, `${a} plus what equals ${total}?`, total - a, 20, [total, total + a]);
+    },
+    threeAddends() {
+      const a = randomInt(1, 6);
+      const b = randomInt(1, 6);
+      const c = randomInt(1, 6);
+      return numberQuestion("threeAddends", `${a} + ${b} + ${c} = ?`, `What is ${a} plus ${b} plus ${c}?`, a + b + c, 20, [a + b, b + c]);
+    },
+    storyAdd20(name) {
+      const a = randomInt(5, 12);
+      const b = randomInt(3, 20 - a);
+      const thing = pick(THINGS);
+      const helper = pick(HELPERS);
+      return numberQuestion("storyAdd20", `${name} has ${a} ${thing[0]}. ${helper} gives ${b} more. How many now?`, `${name} has ${a} ${thing[1]}. ${helper} gives ${b} more. How many now?`, a + b, 20);
+    },
+    storySub20() {
+      const a = randomInt(11, 20);
+      const b = randomInt(3, 9);
+      const thing = pick(LEAVING);
+      return numberQuestion("storySub20", `There are ${a} ${thing[0]}. ${b} ${thing[2]}. How many are left?`, `There are ${a} ${thing[1]}. ${b} ${thing[2]}. How many are left?`, a - b, 20, [a + b]);
+    },
+    storyCompare(name) {
+      const a = randomInt(7, 18);
+      const b = randomInt(2, a - 2);
+      const thing = pick(THINGS);
+      const other = pick(["Mom", "Dad", "Grandma", "Grandpa"]);
+      return numberQuestion("storyCompare", `${name} has ${a} ${thing[0]}. ${other} has ${b} ${thing[0]}. How many more does ${name} have?`, `${name} has ${a} ${thing[1]}. ${other} has ${b}. How many more does ${name} have?`, a - b, 20, [a + b, a]);
+    },
+    skipCount() {
+      const step = pick([2, 5, 10]);
+      return sequenceQuestion("skipCount", step * randomInt(0, step === 2 ? 8 : 6), step, 100);
+    },
+    timeHour() {
+      const hour = randomInt(1, 12);
+      const others = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].filter(other => other !== hour)).slice(0, CHOICES - 1);
+      return { kind: "timeHour", prompt: "What time is it?", speak: "What time does the clock show?", visual: clockFace(hour, false), big: true, options: shuffle([hour].concat(others)).map(h => `${h}:00`), answer: `${hour}:00` };
+    },
+
+    // Level 3: end of first grade, place value and two-digit numbers
+    tensOnes() {
+      const tens = randomInt(1, 9);
+      const ones = randomInt(0, 9);
+      const answer = tens * 10 + ones;
+      return numberQuestion("tensOnes", `${tens} tens and ${ones} ones = ?`, `What number is ${tens} tens and ${ones} ones?`, answer, 99, [swapDigits(answer), tens + ones, answer + 10], `${repeat("🔟", tens)} ${repeat("🔹", ones)}`);
+    },
+    tensIn() {
+      const answer = randomInt(2, 9);
+      const ones = randomInt(1, 9);
+      const value = answer * 10 + ones;
+      return numberQuestion("tensIn", `How many tens are in ${value}?`, `How many tens are in ${value}?`, answer, 99, [ones, value]);
+    },
+    tenMoreLess() {
+      const more = Math.random() < 0.5;
+      const value = randomInt(more ? 11 : 20, more ? 89 : 99);
+      const answer = more ? value + 10 : value - 10;
+      return numberQuestion("tenMoreLess", `What is 10 ${more ? "more" : "less"} than ${value}?`, `What is 10 ${more ? "more" : "less"} than ${value}?`, answer, 120, [more ? value + 1 : value - 1, more ? value - 10 : value + 10]);
+    },
+    addTens() {
+      const a = randomInt(1, 7);
+      const b = randomInt(1, 9 - a);
+      return numberQuestion("addTens", `${a * 10} + ${b * 10} = ?`, `What is ${a * 10} plus ${b * 10}?`, (a + b) * 10, 100, [a + b, (a + b + 1) * 10, (a + b - 1) * 10]);
+    },
+    twoDigitPlusOne() {
+      const a = randomInt(12, 88);
+      const b = randomInt(2, 9);
+      const answer = a + b;
+      return numberQuestion("twoDigitPlusOne", `${a} + ${b} = ?`, `What is ${a} plus ${b}?`, answer, 99, [answer + 10, answer - 10, a + b * 10]);
+    },
+    subTens() {
+      const a = randomInt(3, 9);
+      const b = randomInt(1, a - 1);
+      return numberQuestion("subTens", `${a * 10} − ${b * 10} = ?`, `What is ${a * 10} minus ${b * 10}?`, (a - b) * 10, 90, [a - b, (a - b + 1) * 10]);
+    },
+    compare100() {
+      const tens = randomInt(2, 9);
+      const ones = randomInt(1, 9);
+      const base = tens * 10 + ones;
+      const numbers = [base];
+      [swapDigits(base), base + 10, base - 10, base + 1, base - 1, base - 20].forEach((candidate) => {
+        if (numbers.length < CHOICES && candidate > 9 && candidate < 100 && !numbers.includes(candidate))
+          numbers.push(candidate);
+      });
+      return compareQuestion("compare100", numbers);
+    },
+    countTo120() {
+      return sequenceQuestion("countTo120", randomInt(96, 116), 1, 120);
+    },
+    tensFromAny() {
+      const start = randomInt(1, 6) * 10 + randomInt(1, 9);
+      return sequenceQuestion("tensFromAny", start, 10, 120);
+    },
+    missingSub() {
+      const a = randomInt(11, 20);
+      const b = randomInt(2, 9);
+      return numberQuestion("missingSub", `${a} − ? = ${a - b}`, `${a} minus what equals ${a - b}?`, b, 20, [a - b, a + b - 10]);
+    },
+    storyMissing(name) {
+      const start = randomInt(4, 11);
+      const added = randomInt(2, 9);
+      const thing = pick(THINGS);
+      const total = start + added;
+      return numberQuestion("storyMissing", `${name} has ${start} ${thing[0]} and gets some more. Now ${name} has ${total}. How many more did ${name} get?`, `${name} has ${start} ${thing[1]} and gets some more. Now ${name} has ${total}. How many more did ${name} get?`, added, 20, [total, total + start]);
+    },
+    timeHalf() {
+      const hour = randomInt(1, 12);
+      const options = [`${hour}:30`, `${hour}:00`, `${wrapHour(hour + 1)}:30`];
+      return { kind: "timeHalf", prompt: "What time is it?", speak: "What time does the clock show?", visual: clockFace(hour, true), big: true, options: shuffle(options), answer: `${hour}:30` };
+    },
+  };
+
+  const LEVELS = [
+    null,
+    { label: "Warm-up", kinds: ["add10", "sub10", "count10", "compare10", "next10", "storyAdd10", "pattern", "oddOne"] },
+    { label: "1st grade", kinds: ["add20", "sub20", "makeTen", "missingAddend", "threeAddends", "storyAdd20", "storySub20", "storyCompare", "skipCount", "timeHour"] },
+    { label: "1st grade star", kinds: ["tensOnes", "tensIn", "tenMoreLess", "addTens", "twoDigitPlusOne", "subTens", "compare100", "countTo120", "tensFromAny", "missingSub", "storyMissing", "timeHalf"] },
+  ];
+  const MAX_LEVEL = LEVELS.length - 1;
+  const LEVEL_UP_STREAK = 4;
+  const LEVEL_DOWN_MISSES = 2;
+
+  /** Mostly questions at the kid's level, with some review from easier levels. */
+  function makeQuestion(name, level) {
+    let from = level;
+    if (level > 1 && Math.random() < 0.3)
+      from = randomInt(1, level - 1);
+    const question = BUILDERS[pick(LEVELS[from].kinds)](name);
+    question.level = level;
+    return question;
+  }
+
+  function progressKey(name) {
+    return `skylite.kiosk.quiz.${name.toLowerCase()}`;
+  }
+
+  function loadProgress(name) {
+    try {
+      const saved = JSON.parse(window.localStorage.getItem(progressKey(name)) || "null");
+      if (saved && saved.level >= 1 && saved.level <= MAX_LEVEL)
+        return saved;
     }
-    const groups = shuffle(GROUPS);
-    const odd = pick(groups[1].items);
-    const options = shuffle(shuffle(groups[0].items).slice(0, CHOICES - 1).concat([odd]));
-    return { prompt: "Which one does not belong?", speak: "Which one does not belong?", visual: "", options, answer: odd };
+    catch {
+      /* Private browsing or bad data: start fresh. */
+    }
+    return { level: 1, streak: 0, misses: 0 };
+  }
+
+  function saveProgress(name, progress) {
+    try {
+      window.localStorage.setItem(progressKey(name), JSON.stringify(progress));
+    }
+    catch {
+      /* Progress just won't persist. */
+    }
+  }
+
+  /** Returns true when the kid moved up a level. */
+  function recordAnswer(name, correct) {
+    const progress = loadProgress(name);
+    let leveledUp = false;
+    if (correct) {
+      progress.streak++;
+      progress.misses = 0;
+      if (progress.streak >= LEVEL_UP_STREAK && progress.level < MAX_LEVEL) {
+        progress.level++;
+        progress.streak = 0;
+        leveledUp = true;
+      }
+    }
+    else {
+      progress.misses++;
+      progress.streak = 0;
+      if (progress.misses >= LEVEL_DOWN_MISSES && progress.level > 1) {
+        progress.level--;
+        progress.misses = 0;
+      }
+    }
+    saveProgress(name, progress);
+    return leveledUp;
   }
 
   function speak(text) {
@@ -482,7 +694,8 @@
   }
 
   function openQuiz(person, item) {
-    state.quiz = { personId: person.id, itemId: item.id, question: makeQuestion(person.name), phase: "ask", picked: null, pin: "", message: "", busy: false };
+    const level = loadProgress(person.name).level;
+    state.quiz = { personId: person.id, itemId: item.id, name: person.name, question: makeQuestion(person.name, level), phase: "ask", picked: null, pin: "", message: "", busy: false, leveledUp: false };
     renderQuiz();
     speak(state.quiz.question.speak);
   }
@@ -513,10 +726,13 @@
       + `<div class="quiz-head"><span class="quiz-chore"><span class="ic">${icon(item.icon)}</span>${esc(item.title)}</span>`
       + `<button type="button" class="quiz-icon-btn" data-quiz="speak" aria-label="Read aloud">🔊</button>`
       + `<button type="button" class="quiz-icon-btn" data-quiz="close" aria-label="Close">✕</button></div>`
+      + `<div class="quiz-level">Level ${question.level} · ${esc(LEVELS[question.level].label)}</div>`
       + `<div class="quiz-title">${quiz.phase === "ask" ? `Quick question, ${esc(person.name)}! 🧠` : "Not quite! 🤔"}</div>`;
 
+    if (quiz.leveledUp)
+      html += `<div class="quiz-levelup">⭐ Level up! Now level ${question.level + 1} ⭐</div>`;
     if (question.visual)
-      html += `<div class="quiz-visual">${esc(question.visual)}</div>`;
+      html += `<div class="quiz-visual${question.big ? " big" : ""}">${esc(question.visual)}</div>`;
     html += `<div class="quiz-prompt">${esc(question.prompt)}</div>`;
 
     html += `<div class="quiz-options${isNumberAnswer ? "" : " emoji"}">${question.options.map((option) => {
@@ -552,20 +768,24 @@
     if (!quiz || quiz.picked !== null)
       return;
     quiz.picked = value;
-    if (value === quiz.question.answer) {
+    const correct = value === quiz.question.answer;
+    quiz.summary = { level: quiz.question.level, kind: quiz.question.kind, prompt: quiz.question.prompt, answer: quiz.question.answer, picked: value, correct };
+    if (correct) {
+      quiz.leveledUp = recordAnswer(quiz.name, true);
       renderQuiz();
-      speak("Yes! Great job!");
+      speak(quiz.leveledUp ? "Yes! Great job! Level up!" : "Yes! Great job!");
       setTimeout(() => {
         const done = state.quiz;
         closeQuiz();
         if (done) {
-          submitCompletion(done.personId, done.itemId, { verifiedBy: "quiz" }).catch((error) => {
+          submitCompletion(done.personId, done.itemId, { verifiedBy: "quiz", quiz: done.summary }).catch((error) => {
             showError(`Couldn't save that. Try again. ${error.message}`);
           });
         }
-      }, 900);
+      }, quiz.leveledUp ? 1800 : 900);
       return;
     }
+    recordAnswer(quiz.name, false);
     quiz.phase = "pin";
     quiz.shake = true;
     renderQuiz();
@@ -595,7 +815,7 @@
 
     quiz.busy = true;
     renderQuiz();
-    submitCompletion(quiz.personId, quiz.itemId, { pin: quiz.pin })
+    submitCompletion(quiz.personId, quiz.itemId, { pin: quiz.pin, quiz: quiz.summary })
       .then(() => {
         closeQuiz();
       })

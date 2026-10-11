@@ -105,6 +105,9 @@ svg { width: 100%; height: 100%; display: block; }
 .quiz-icon-btn { width: 48px; height: 48px; border-radius: 50%; background: #f1f5f9; font-size: 22px; margin-left: 8px; }
 .quiz-title { font-size: 28px; font-weight: 900; color: #0f172a; text-align: center; margin: 10px 0 6px; }
 .quiz-visual { font-size: 40px; line-height: 1.3; text-align: center; margin: 8px 0; word-wrap: break-word; }
+.quiz-visual.big { font-size: 110px; line-height: 1.1; }
+.quiz-level { text-align: center; margin-top: 6px; font-size: 14px; font-weight: 800; letter-spacing: 0.5px; text-transform: uppercase; color: #7c3aed; }
+.quiz-levelup { margin: 6px auto 0; text-align: center; font-size: 24px; font-weight: 900; color: #b45309; background: #fef3c7; border-radius: 16px; padding: 8px 12px; -webkit-animation: wiggle 0.6s ease-in-out 2; animation: wiggle 0.6s ease-in-out 2; }
 .quiz-prompt { font-size: 30px; font-weight: 800; color: #1e293b; text-align: center; margin: 8px 0 16px; line-height: 1.25; }
 .quiz-options { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); grid-gap: 16px; }
 .quiz-option { height: 110px; border-radius: 22px; background: #eff6ff; border: 4px solid #bfdbfe; font-size: 40px; font-weight: 900; color: #1d4ed8; -webkit-transition: -webkit-transform 0.15s ease; transition: transform 0.15s ease; }
