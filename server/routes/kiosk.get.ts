@@ -16,8 +16,10 @@ function toScriptJson(value: unknown) {
 export default defineEventHandler(async (event) => {
   const query = getQuery(event);
   const who = typeof query.who === "string" ? query.who : "";
-  // ?quiz=Siana limits math questions to those names; ?quiz=off turns them off. Default: everyone.
-  const quiz = typeof query.quiz === "string" ? query.quiz : "";
+  // ?quiz=Siana,Aarin overrides who gets math questions; ?quiz=off turns them off. Default: NUXT_QUIZ_USERS.
+  const quiz = typeof query.quiz === "string" && query.quiz.trim()
+    ? query.quiz
+    : (String(useRuntimeConfig(event).quizUsers || "").trim() || "off");
 
   let data = null;
   try {

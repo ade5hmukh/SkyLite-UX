@@ -9,6 +9,8 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // Server-only. Set with NUXT_PARENT_PIN (NUXT_PUBLIC_PARENT_PIN is still accepted).
     parentPin: "",
+    // Server-only. NUXT_QUIZ_USERS: comma-separated names who answer a math question before a chore counts ("off" for nobody).
+    quizUsers: "Siana",
     // Server-only. NUXT_NTFY_URL (e.g. https://ntfy.sh), NUXT_NTFY_TOPIC, optional NUXT_NTFY_TOKEN.
     ntfy: {
       url: "",

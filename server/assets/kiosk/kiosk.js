@@ -289,10 +289,8 @@
 
   function isQuizOn(person) {
     const setting = state.quizSetting;
-    if (setting === "off" || setting === "none" || setting === "no")
+    if (!setting || setting === "off" || setting === "none" || setting === "no")
       return false;
-    if (!setting)
-      return true;
     return setting.split(",").map(name => name.trim()).includes(person.name.toLowerCase());
   }
 
