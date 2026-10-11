@@ -82,6 +82,8 @@ export default defineNuxtConfig({
     },
     workbox: {
       navigateFallback: "/",
+      // /kiosk is a separate server-rendered page for old tablets, not part of the app shell.
+      navigateFallbackDenylist: [/^\/kiosk/, /^\/api\//],
       globPatterns: ["**/*.{js,css,html,png,svg,ico,json}"],
       runtimeCaching: [
         {

@@ -20,7 +20,7 @@ export type BuiltReport = {
   estimated: boolean;
 };
 
-function getDayBounds(day: string) {
+export function getDayBounds(day: string) {
   const start = fromZonedTime(`${day}T00:00:00`, getAppTimezone());
   const end = fromZonedTime(`${getNextDay(day)}T00:00:00`, getAppTimezone());
   return { start, end };
@@ -87,6 +87,21 @@ function addRoutineItems(report: BuiltReport, routines: Awaited<ReturnType<typeo
   }
 }
 
+/** To-dos that belong to `day`: due recurring ones, open one-offs, and anything finished that day. */
+export function selectDayTodos(todos: Todo[], day: string, start: Date, end: Date): Todo[] {
+  return todos.filter((todo) => {
+    const touchedToday = todo.updatedAt >= start && todo.updatedAt < end;
+    if (todo.recurring) {
+      if (todo.completed)
+        return touchedToday || isRecurringDueOn(todo, day);
+      return isRecurringDueOn(todo, day) && !(todo.snoozedUntil && todo.snoozedUntil >= end);
+    }
+    if (todo.completed)
+      return touchedToday;
+    return !todo.dueDate || todo.dueDate < end;
+  });
+}
+
 /** Everyone's results for `day` from the current to-do state. Only accurate before the midnight reset. */
 export async function buildLiveReports(day: string): Promise<BuiltReport[]> {
   const { start, end } = getDayBounds(day);
@@ -101,22 +116,8 @@ export async function buildLiveReports(day: string): Promise<BuiltReport[]> {
   const reports: BuiltReport[] = [];
   for (const column of columns) {
     const report: BuiltReport = { userId: column.userId!, day, completed: [], incomplete: [], pointsEarned: 0, estimated: false };
-    for (const todo of column.todos) {
-      const touchedToday = todo.updatedAt >= start && todo.updatedAt < end;
-      if (todo.recurring) {
-        if (todo.completed && (touchedToday || isRecurringDueOn(todo, day)))
-          report.completed.push(todoItem(todo));
-        else if (!todo.completed && isRecurringDueOn(todo, day) && !(todo.snoozedUntil && todo.snoozedUntil >= end))
-          report.incomplete.push(todoItem(todo));
-      }
-      else if (todo.completed) {
-        if (touchedToday)
-          report.completed.push(todoItem(todo));
-      }
-      else if (!todo.dueDate || todo.dueDate < end) {
-        report.incomplete.push(todoItem(todo));
-      }
-    }
+    for (const todo of selectDayTodos(column.todos, day, start, end))
+      (todo.completed ? report.completed : report.incomplete).push(todoItem(todo));
     addRoutineItems(report, routines);
     const finished = finishReport(report);
     if (finished)
