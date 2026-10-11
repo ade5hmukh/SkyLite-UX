@@ -373,14 +373,17 @@
     return out;
   }
 
+  // Three choices: easy to scan at 5-6, while a random tap only passes one time in three.
+  const CHOICES = 3;
+
   function numberOptions(answer, max) {
     const options = [answer];
     const nearby = shuffle([answer - 2, answer - 1, answer + 1, answer + 2, answer + 3, answer - 3]);
-    for (let i = 0; i < nearby.length && options.length < 4; i++) {
+    for (let i = 0; i < nearby.length && options.length < CHOICES; i++) {
       if (nearby[i] >= 0 && nearby[i] <= max && !options.includes(nearby[i]))
         options.push(nearby[i]);
     }
-    while (options.length < 4) {
+    while (options.length < CHOICES) {
       const extra = randomInt(0, max);
       if (!options.includes(extra))
         options.push(extra);
@@ -436,7 +439,7 @@
       return { prompt: `How many ${emoji}?`, speak: "How many do you see?", visual: repeat(emoji, a), options: numberOptions(a, 12), answer: String(a) };
     }
     if (kind === "bigger") {
-      const numbers = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20]).slice(0, 4);
+      const numbers = shuffle([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]).slice(0, CHOICES);
       const smaller = Math.random() < 0.4;
       const answer = smaller ? Math.min.apply(null, numbers) : Math.max.apply(null, numbers);
       const word = smaller ? "smallest" : "biggest";
@@ -455,12 +458,12 @@
       for (let i = 0; i < unit.length * 2 + 1; i++)
         shown.push(unit[i % unit.length]);
       const answer = unit[shown.length % unit.length];
-      const options = shuffle([answer].concat(shapes.filter(shape => shape !== answer).slice(0, 3)));
+      const options = shuffle([answer].concat(shapes.filter(shape => shape !== answer).slice(0, CHOICES - 1)));
       return { prompt: "What comes next?", speak: "What comes next in the pattern?", visual: `${shown.join("")}❓`, options, answer };
     }
     const groups = shuffle(GROUPS);
     const odd = pick(groups[1].items);
-    const options = shuffle(shuffle(groups[0].items).slice(0, 3).concat([odd]));
+    const options = shuffle(shuffle(groups[0].items).slice(0, CHOICES - 1).concat([odd]));
     return { prompt: "Which one does not belong?", speak: "Which one does not belong?", visual: "", options, answer: odd };
   }
 
