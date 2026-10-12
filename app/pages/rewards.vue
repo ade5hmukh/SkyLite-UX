@@ -1,12 +1,14 @@
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { computed, ref } from "vue";
+
+import { BIG_REWARD_CATEGORY } from "~/types/rewards";
 
 definePageMeta({
   layout: "default",
 });
 
 // Fetch users for point display
-const { data: users } = await useFetch("/api/users");
+const { data: users, refresh: refreshUsers } = await useFetch("/api/users");
 const selectedUserId = ref<string | null>(users.value && users.value.length > 0 ? users.value[0]!.id : null);
 
 // Fetch rewards
@@ -24,20 +26,24 @@ const selectedCategory = ref("all");
 
 // Computed: filtered rewards
 const filteredRewards = computed(() => {
-  if (!rewards.value) return [];
-  if (selectedCategory.value === "all") return rewards.value;
+  if (!rewards.value)
+    return [];
+  if (selectedCategory.value === "all")
+    return rewards.value;
   return rewards.value.filter(r => r.category === selectedCategory.value);
 });
 
 // Computed: current user
 const currentUser = computed(() => {
-  if (!selectedUserId.value || !users.value) return null;
+  if (!selectedUserId.value || !users.value)
+    return null;
   return users.value.find(u => u.id === selectedUserId.value);
 });
 
 // Computed: pending redemptions count
 const pendingRedemptionsCount = computed(() => {
-  if (!redemptions.value) return 0;
+  if (!redemptions.value)
+    return 0;
   return redemptions.value.filter(r => r.status === "PENDING").length;
 });
 
@@ -50,7 +56,28 @@ const categories = [
   { id: "privileges", name: "Privileges", icon: "i-lucide-star" },
   { id: "toys", name: "Toys", icon: "i-lucide-toy-brick" },
   { id: "special", name: "Special", icon: "i-lucide-sparkles" },
+  { id: BIG_REWARD_CATEGORY, name: "Big Goals", icon: "i-lucide-piggy-bank" },
 ];
+
+const goalReward = computed(() => {
+  const goalId = currentUser.value?.savingGoalId;
+  return goalId ? rewards.value?.find(r => r.id === goalId) ?? null : null;
+});
+
+const settingGoal = ref(false);
+async function toggleGoal(rewardId: string) {
+  if (!currentUser.value)
+    return;
+  settingGoal.value = true;
+  try {
+    const next = currentUser.value.savingGoalId === rewardId ? null : rewardId;
+    await $fetch(`/api/users/${currentUser.value.id}/goal`, { method: "PUT", body: { rewardId: next } });
+    await refreshUsers();
+  }
+  finally {
+    settingGoal.value = false;
+  }
+}
 
 // Redeem reward
 const redeemingRewardId = ref<string | null>(null);
@@ -58,7 +85,8 @@ const isRedeeming = computed(() => redeemingRewardId.value !== null);
 const redeemError = ref<string | null>(null);
 
 async function redeemReward(rewardId: string) {
-  if (!selectedUserId.value) return;
+  if (!selectedUserId.value)
+    return;
 
   redeemingRewardId.value = rewardId;
   redeemError.value = null;
@@ -76,7 +104,7 @@ async function redeemReward(rewardId: string) {
       refreshRewards(),
       refreshRedemptions(),
       // Refresh users to update points
-      $fetch("/api/users").then(data => {
+      $fetch("/api/users").then((data) => {
         users.value = data;
       }),
     ]);
@@ -93,8 +121,14 @@ async function redeemReward(rewardId: string) {
   }
 }
 
-function canAfford(pointCost: number): boolean {
-  return currentUser.value ? currentUser.value.points >= pointCost : false;
+function spendable(reward: { category: string | null }): number {
+  if (!currentUser.value)
+    return 0;
+  return currentUser.value.points + (reward.category === BIG_REWARD_CATEGORY ? currentUser.value.savedPoints : 0);
+}
+
+function canAfford(reward: { pointCost: number; category: string | null }): boolean {
+  return spendable(reward) >= reward.pointCost;
 }
 </script>
 
@@ -130,6 +164,9 @@ function canAfford(pointCost: number): boolean {
                 <UIcon name="i-lucide-star" class="h-3 w-3 text-yellow-500" />
                 <span class="font-bold text-highlighted">{{ currentUser.points }}</span>
                 <span class="text-muted">points</span>
+                <UIcon name="i-lucide-piggy-bank" class="h-3 w-3 text-pink-500 ml-2" />
+                <span class="font-bold text-highlighted">{{ currentUser.savedPoints }}</span>
+                <span class="text-muted">saved</span>
               </div>
             </div>
           </div>
@@ -150,7 +187,11 @@ function canAfford(pointCost: number): boolean {
             to="/settings?tab=redemptions"
             class="relative"
           >
-            <UButton color="primary" variant="outline" icon="i-lucide-clock">
+            <UButton
+              color="primary"
+              variant="outline"
+              icon="i-lucide-clock"
+            >
               Pending
             </UButton>
             <span class="absolute -top-1 -right-1 bg-red-500 text-white text-xs rounded-full w-5 h-5 flex items-center justify-center">
@@ -159,6 +200,20 @@ function canAfford(pointCost: number): boolean {
           </NuxtLink>
         </div>
       </div>
+
+      <div v-if="goalReward && currentUser" class="mb-4 rounded-lg border border-pink-200 bg-pink-50 dark:bg-pink-950/30 px-4 py-3">
+        <div class="flex items-center justify-between text-sm mb-2">
+          <span class="flex items-center gap-2 font-medium text-highlighted">
+            <UIcon :name="goalReward.icon || 'i-lucide-gift'" class="h-4 w-4 text-pink-500" />
+            Saving for {{ goalReward.title }}
+          </span>
+          <span class="font-bold text-highlighted">{{ currentUser.savedPoints }} / {{ goalReward.pointCost }}</span>
+        </div>
+        <UProgress :model-value="Math.min(100, Math.round((currentUser.savedPoints / goalReward.pointCost) * 100))" color="secondary" />
+      </div>
+      <p class="text-xs text-muted mb-3">
+        Points expire after two weekends (Friday midnight). The savings jar never expires and can only be spent on Big Goals.
+      </p>
 
       <!-- Category Filter -->
       <div class="flex gap-2 overflow-x-auto pb-2">
@@ -190,7 +245,7 @@ function canAfford(pointCost: number): boolean {
           v-for="reward in filteredRewards"
           :key="reward.id"
           class="bg-default border border-default rounded-xl overflow-hidden hover:shadow-lg transition-all"
-          :class="{ 'opacity-60': !canAfford(reward.pointCost) }"
+          :class="{ 'opacity-60': !canAfford(reward) }"
         >
           <!-- Reward Image/Icon -->
           <div class="h-32 flex items-center justify-center bg-gradient-to-br from-primary/10 to-primary/5">
@@ -219,8 +274,8 @@ function canAfford(pointCost: number): boolean {
 
               <!-- Redeem Button -->
               <UButton
-                :disabled="!canAfford(reward.pointCost) || isRedeeming || !selectedUserId"
-                :color="canAfford(reward.pointCost) ? 'primary' : 'gray'"
+                :disabled="!canAfford(reward) || isRedeeming || !selectedUserId"
+                :color="canAfford(reward) ? 'primary' : 'gray'"
                 size="sm"
                 :loading="redeemingRewardId === reward.id"
                 @click="redeemReward(reward.id)"
@@ -230,13 +285,24 @@ function canAfford(pointCost: number): boolean {
             </div>
 
             <!-- Not Enough Points Message -->
-            <p v-if="!canAfford(reward.pointCost)" class="text-xs text-red-500 mt-2">
-              Need {{ reward.pointCost - (currentUser?.points || 0) }} more points
+            <p v-if="!canAfford(reward)" class="text-xs text-red-500 mt-2">
+              Need {{ reward.pointCost - spendable(reward) }} more points
             </p>
+            <UButton
+              v-if="reward.category === BIG_REWARD_CATEGORY && currentUser"
+              class="mt-2"
+              size="xs"
+              :variant="currentUser.savingGoalId === reward.id ? 'solid' : 'outline'"
+              color="secondary"
+              icon="i-lucide-target"
+              :loading="settingGoal"
+              @click="toggleGoal(reward.id)"
+            >
+              {{ currentUser.savingGoalId === reward.id ? "Saving for this" : "Save for this" }}
+            </UButton>
           </div>
         </div>
       </div>
     </div>
   </div>
 </template>
-

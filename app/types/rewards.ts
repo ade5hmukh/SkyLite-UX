@@ -1,4 +1,4 @@
-export interface RewardTemplate {
+export type RewardTemplate = {
   id: string;
   title: string;
   description: string;
@@ -6,7 +6,7 @@ export interface RewardTemplate {
   category: "screen-time" | "treats" | "activities" | "privileges" | "toys" | "special";
   pointCost: number;
   color: string;
-}
+};
 
 export const rewardTemplates: RewardTemplate[] = [
   // Screen Time Rewards
@@ -427,6 +427,9 @@ export const rewardTemplates: RewardTemplate[] = [
   },
 ];
 
+/** Rewards in this category can be a savings goal and can be paid for from the savings jar. */
+export const BIG_REWARD_CATEGORY = "big";
+
 export const rewardCategories = [
   { id: "all", name: "All Rewards", icon: "i-lucide-gift" },
   { id: "screen-time", name: "Screen Time", icon: "i-lucide-tablet" },
@@ -435,5 +438,5 @@ export const rewardCategories = [
   { id: "privileges", name: "Privileges", icon: "i-lucide-star" },
   { id: "toys", name: "Toys & Items", icon: "i-lucide-toy-brick" },
   { id: "special", name: "Special Rewards", icon: "i-lucide-sparkles" },
+  { id: BIG_REWARD_CATEGORY, name: "Big Goals", icon: "i-lucide-piggy-bank" },
 ];
-

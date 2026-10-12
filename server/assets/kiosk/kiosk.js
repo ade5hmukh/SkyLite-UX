@@ -140,6 +140,37 @@
       }</div>`;
   }
 
+  function findReward(rewardId) {
+    return ((state.data && state.data.rewards) || []).filter(reward => reward.id === rewardId)[0] || null;
+  }
+
+  function spendable(person, reward) {
+    return person.points + (reward.big ? person.savedPoints : 0);
+  }
+
+  function renderGoal(person) {
+    const goal = person.goalId && findReward(person.goalId);
+    if (!goal)
+      return "";
+    const percent = Math.min(100, Math.round((person.savedPoints / goal.cost) * 100));
+    return `<div class="goal"><div class="goal-head"><span class="ic">${icon(goal.icon)}</span>`
+      + `<span class="goal-name">Saving for <b>${esc(goal.title)}</b></span>`
+      + `<span class="goal-count">${esc(person.savedPoints)} / ${esc(goal.cost)}</span></div>`
+      + `<div class="progress goal-progress"><div class="progress-bar" style="width:${percent}%"></div></div>${
+        spendable(person, goal) >= goal.cost ? "<div class=\"goal-ready\">✨ You can get it now!</div>" : ""
+      }</div>`;
+  }
+
+  function renderWallet(person) {
+    if (!state.data || !state.data.rewards || !state.data.rewards.length)
+      return "";
+    return `<div class="wallet">${renderGoal(person)}${
+      person.expiringPoints > 0
+        ? `<div class="expiring"><span class="ic">${icon("i-lucide-hourglass")}</span>${esc(person.expiringPoints)} ${person.expiringPoints === 1 ? "point expires" : "points expire"} Friday night. Spend or save!</div>`
+        : ""
+    }<button type="button" class="shop-btn" data-action="shop" data-person="${esc(person.id)}"><span class="ic">${icon("i-lucide-gift")}</span>Rewards</button></div>`;
+  }
+
   function renderPerson(person) {
     const total = person.items.length + person.routines.length;
     const finished = person.items.filter(item => item.completed).length
@@ -151,8 +182,9 @@
       }<div><div class="person-name">${esc(person.name)}</div>`
       + `<div class="points">`
       + `<span class="pill pill-today" id="today-${esc(person.id)}"><span class="ic">${icon("i-lucide-star")}</span>${esc(person.pointsToday)} today</span>`
-      + `<span class="pill pill-total" id="total-${esc(person.id)}"><span class="ic">${icon("i-lucide-trophy")}</span>${esc(person.points)}</span>`
-      + `</div></div></div>`;
+      + `<span class="pill pill-total" id="total-${esc(person.id)}"><span class="ic">${icon("i-lucide-trophy")}</span>${esc(person.points)}</span>${
+        person.savedPoints || person.goalId ? `<span class="pill pill-saved"><span class="ic">${icon("i-lucide-piggy-bank")}</span>${esc(person.savedPoints)}</span>` : ""
+      }</div></div></div>${renderWallet(person)}`;
 
     if (total) {
       html += `<div class="progress"><div class="progress-bar" style="width:${percent}%;background:${esc(person.color)}"></div></div>`
@@ -235,7 +267,7 @@
     }
   }
 
-  function celebrate(name, points) {
+  function celebrate(name, points, title) {
     state.celebrating = true;
     playChime();
 
@@ -248,7 +280,7 @@
     layer.innerHTML = `<div class="celebrate-wrap" id="celebrate-wrap">`
       + `<div class="celebrate-card">`
       + `<div class="celebrate-star">${icon("i-lucide-star")}</div>`
-      + `<div class="celebrate-title">🎉 Great Job! 🎉</div>`
+      + `<div class="celebrate-title">${esc(title || "🎉 Great Job! 🎉")}</div>`
       + `<div class="celebrate-name">${esc(name)}</div>${
         points > 0
           ? `<div class="celebrate-points"><span class="ic">${icon("i-lucide-trophy")}</span><span><small>You earned</small><strong>+${esc(points)} ${points === 1 ? "point" : "points"}!</strong></span></div>`
@@ -745,21 +777,29 @@
       return `<button type="button" class="${classes}" data-quiz="answer" data-value="${esc(option)}"${quiz.picked !== null ? " disabled" : ""}>${esc(option)}</button>`;
     }).join("")}</div>`;
 
-    if (quiz.phase === "pin") {
-      let dots = "";
-      for (let i = 0; i < 4; i++)
-        dots += `<span class="pin-dot${i < quiz.pin.length ? " filled" : ""}"></span>`;
-      html += `<div class="pin-box"><div class="pin-title">Ask a grown-up to enter the PIN</div>`
-        + `<div class="pin-dots">${dots}</div>`
-        + `<div class="pin-message">${esc(quiz.message)}</div>`
-        + `<div class="pin-pad">${["1", "2", "3", "4", "5", "6", "7", "8", "9", "cancel", "0", "back"].map((key) => {
-          const label = key === "cancel" ? "Cancel" : key === "back" ? "⌫" : key;
-          return `<button type="button" class="pin-key${key.length > 1 ? " small" : ""}" data-quiz="pin" data-value="${key}"${quiz.busy ? " disabled" : ""}>${label}</button>`;
-        }).join("")}</div></div>`;
-    }
+    if (quiz.phase === "pin")
+      html += pinPadHtml(quiz, "pin", "Ask a grown-up to enter the PIN");
 
     layer.innerHTML = `${html}</div></div>`;
     quiz.shake = false;
+  }
+
+  /** `entry` has pin, message and busy; keys are sent as data-quiz="<action>". */
+  function pinPadHtml(entry, action, title) {
+    let dots = "";
+    for (let i = 0; i < 4; i++)
+      dots += `<span class="pin-dot${i < entry.pin.length ? " filled" : ""}"></span>`;
+    return `<div class="pin-box"><div class="pin-title">${esc(title)}</div>`
+      + `<div class="pin-dots">${dots}</div>`
+      + `<div class="pin-message">${esc(entry.message)}</div>`
+      + `<div class="pin-pad">${["1", "2", "3", "4", "5", "6", "7", "8", "9", "cancel", "0", "back"].map((key) => {
+        const label = key === "cancel" ? "Cancel" : key === "back" ? "⌫" : key;
+        return `<button type="button" class="pin-key${key.length > 1 ? " small" : ""}" data-quiz="${action}" data-value="${key}"${entry.busy ? " disabled" : ""}>${label}</button>`;
+      }).join("")}</div></div>`;
+  }
+
+  function pinErrorMessage(error) {
+    return error.status === 403 ? "Wrong PIN, try again" : error.status === 429 ? "Too many tries. Wait a minute." : "Couldn't save. Try again.";
   }
 
   function answerQuiz(value) {
@@ -824,8 +864,204 @@
         quiz.busy = false;
         quiz.pin = "";
         quiz.shake = true;
-        quiz.message = error.status === 403 ? "Wrong PIN, try again" : error.status === 429 ? "Too many tries. Wait a minute." : "Couldn't save. Try again.";
+        quiz.message = pinErrorMessage(error);
         renderQuiz();
+      });
+  }
+
+  /* ---------- Rewards: spend, save, pick a goal ---------- */
+
+  const SAVE_AMOUNTS = [5, 10, 20];
+
+  function openShop(personId) {
+    if (!findPerson(personId))
+      return;
+    state.quiz = { shop: true, personId, phase: "list", rewardId: null, pin: "", message: "", note: "", busy: false };
+    renderShop();
+  }
+
+  function renderRewardCard(person, reward) {
+    const can = spendable(person, reward) >= reward.cost;
+    const isGoal = person.goalId === reward.id;
+    return `<div class="reward${can ? " can" : ""}${isGoal ? " is-goal" : ""}">`
+      + `<button type="button" class="reward-main" data-quiz="shop-pick" data-value="${esc(reward.id)}"${can ? "" : " disabled"}>`
+      + `<span class="reward-icon" style="background:${hexToRgba(person.color, 0.15)};color:${esc(person.color)}">${icon(reward.icon)}</span>`
+      + `<span class="reward-title">${esc(reward.title)}</span>`
+      + `<span class="reward-cost"><span class="ic">${icon("i-lucide-star")}</span>${esc(reward.cost)}</span>${
+        can ? "" : `<span class="reward-need">Need ${esc(reward.cost - spendable(person, reward))} more</span>`
+      }</button>${
+        reward.big
+          ? `<button type="button" class="reward-goal" data-quiz="shop-goal" data-value="${esc(reward.id)}">${isGoal ? "🎯 My goal" : "🎯 Save for this"}</button>`
+          : ""
+      }</div>`;
+  }
+
+  function renderShop() {
+    const layer = document.getElementById("quiz");
+    const shop = state.quiz;
+    const person = shop && findPerson(shop.personId);
+    if (!person) {
+      closeQuiz();
+      return;
+    }
+    const rewards = state.data.rewards || [];
+    let html = `<div class="quiz-wrap"><div class="quiz-card shop-card${shop.shake ? " shake" : ""}" style="border-top-color:${esc(person.color)}">`
+      + `<div class="quiz-head"><span class="quiz-chore"><span class="ic">${icon("i-lucide-gift")}</span>${esc(person.name)}'s rewards</span>`
+      + `<button type="button" class="quiz-icon-btn" data-quiz="close" aria-label="Close">✕</button></div>`
+      + `<div class="shop-balance"><span class="pill pill-total"><span class="ic">${icon("i-lucide-star")}</span>${esc(person.points)} points</span>`
+      + `<span class="pill pill-saved"><span class="ic">${icon("i-lucide-piggy-bank")}</span>${esc(person.savedPoints)} saved</span></div>`;
+
+    if (shop.phase === "pin") {
+      const reward = findReward(shop.rewardId);
+      if (!reward) {
+        closeQuiz();
+        return;
+      }
+      const fromSaved = Math.max(0, reward.cost - person.points);
+      html += `<div class="shop-confirm"><span class="undo-icon" style="background:${hexToRgba(person.color, 0.15)};color:${esc(person.color)}">${icon(reward.icon)}</span>`
+        + `<div class="quiz-title">${esc(reward.title)}</div>`
+        + `<div class="undo-note">Costs ${esc(reward.cost)} points${fromSaved ? ` (${esc(fromSaved)} from the savings jar)` : ""}.</div></div>${
+          pinPadHtml(shop, "shop-pin", "Grown-up: enter the PIN to say yes")}`;
+    }
+    else if (shop.phase === "save") {
+      const amounts = SAVE_AMOUNTS.filter(amount => amount < person.points);
+      html += `<div class="quiz-title">🐷 Save points</div>`
+        + `<div class="undo-note">Saved points never expire. Use them for a big reward!</div>`
+        + `<div class="save-amounts">${amounts.concat([person.points]).map((amount) => {
+          return `<button type="button" class="save-amount" data-quiz="shop-save-amount" data-value="${amount}"${shop.busy ? " disabled" : ""}>${
+            amount === person.points ? `All ${esc(amount)}` : `+${esc(amount)}`}</button>`;
+        }).join("")}</div>`
+        + `<button type="button" class="shop-back" data-quiz="shop-back">‹ Back</button>`;
+    }
+    else {
+      if (shop.note)
+        html += `<div class="shop-note">${esc(shop.note)}</div>`;
+      if (person.expiringPoints > 0)
+        html += `<div class="expiring"><span class="ic">${icon("i-lucide-hourglass")}</span>${esc(person.expiringPoints)} ${person.expiringPoints === 1 ? "point expires" : "points expire"} Friday night. Spend or save!</div>`;
+      if (person.points > 0)
+        html += `<button type="button" class="save-btn" data-quiz="shop-save"><span class="ic">${icon("i-lucide-piggy-bank")}</span>Put points in my savings jar</button>`;
+      const small = rewards.filter(reward => !reward.big);
+      const big = rewards.filter(reward => reward.big);
+      if (small.length)
+        html += `<div class="section-title">Spend this week</div><div class="rewards">${small.map(reward => renderRewardCard(person, reward)).join("")}</div>`;
+      if (big.length)
+        html += `<div class="section-title">Big goals · the savings jar can pay</div><div class="rewards">${big.map(reward => renderRewardCard(person, reward)).join("")}</div>`;
+    }
+
+    layer.innerHTML = `${html}</div></div>`;
+    shop.shake = false;
+  }
+
+  function pickReward(rewardId) {
+    const shop = state.quiz;
+    const person = findPerson(shop.personId);
+    const reward = findReward(rewardId);
+    if (!person || !reward || spendable(person, reward) < reward.cost)
+      return;
+    shop.phase = "pin";
+    shop.rewardId = rewardId;
+    shop.pin = "";
+    shop.message = "";
+    renderShop();
+    speak(`${reward.title}? Ask a grown-up to say yes.`);
+  }
+
+  function pressShopPin(key) {
+    const shop = state.quiz;
+    if (!shop || !shop.shop || shop.phase !== "pin" || shop.busy)
+      return;
+    if (key === "cancel") {
+      shop.phase = "list";
+      renderShop();
+      return;
+    }
+    if (key === "back") {
+      shop.pin = shop.pin.slice(0, -1);
+      renderShop();
+      return;
+    }
+    if (shop.pin.length >= 4)
+      return;
+    shop.pin += key;
+    shop.message = "";
+    renderShop();
+    if (shop.pin.length < 4)
+      return;
+
+    const person = findPerson(shop.personId);
+    const reward = findReward(shop.rewardId);
+    shop.busy = true;
+    renderShop();
+    api("POST", "/api/kiosk/redeem", { rewardId: reward.id, personId: person.id, pin: shop.pin })
+      .then((result) => {
+        const spentPoints = person.points - result.points;
+        person.points = result.points;
+        person.savedPoints = result.savedPoints;
+        person.expiringPoints = Math.max(0, person.expiringPoints - spentPoints);
+        if (person.goalId === reward.id)
+          person.goalId = null;
+        closeQuiz();
+        render();
+        celebrate(reward.title, 0, "🎁 Yay! Enjoy! 🎁");
+      })
+      .catch((error) => {
+        if (state.quiz !== shop)
+          return;
+        shop.busy = false;
+        shop.pin = "";
+        shop.shake = true;
+        shop.message = error.status === 400 ? "Not enough points" : pinErrorMessage(error);
+        renderShop();
+      });
+  }
+
+  function saveToJar(amount) {
+    const shop = state.quiz;
+    const person = findPerson(shop.personId);
+    if (!person || shop.busy || !(amount > 0) || amount > person.points)
+      return;
+    shop.busy = true;
+    renderShop();
+    api("POST", `/api/users/${encodeURIComponent(person.id)}/savings`, { amount })
+      .then((result) => {
+        person.points = result.points;
+        person.savedPoints = result.savedPoints;
+        person.expiringPoints = Math.max(0, person.expiringPoints - amount);
+        shop.busy = false;
+        shop.phase = "list";
+        shop.note = `🐷 Saved ${amount} ${amount === 1 ? "point" : "points"}!`;
+        renderShop();
+        render();
+        playChime();
+      })
+      .catch((error) => {
+        shop.busy = false;
+        shop.phase = "list";
+        shop.note = "";
+        renderShop();
+        showError(`Couldn't save points. ${error.message}`);
+      });
+  }
+
+  function toggleGoal(rewardId) {
+    const shop = state.quiz;
+    const person = findPerson(shop.personId);
+    if (!person || shop.busy)
+      return;
+    const next = person.goalId === rewardId ? null : rewardId;
+    shop.busy = true;
+    api("PUT", `/api/users/${encodeURIComponent(person.id)}/goal`, { rewardId: next })
+      .then(() => {
+        person.goalId = next;
+        shop.busy = false;
+        const reward = next && findReward(next);
+        shop.note = reward ? `🎯 Saving for ${reward.title}!` : "";
+        renderShop();
+        render();
+      })
+      .catch((error) => {
+        shop.busy = false;
+        showError(`Couldn't set the goal. ${error.message}`);
       });
   }
 
@@ -887,18 +1123,45 @@
 
   function handleQuizClick(target) {
     const action = target.getAttribute("data-quiz");
-    if (action === "undo-yes")
+    if (action === "shop-pick") {
+      pickReward(target.getAttribute("data-value"));
+    }
+    else if (action === "shop-goal") {
+      toggleGoal(target.getAttribute("data-value"));
+    }
+    else if (action === "shop-save" && state.quiz) {
+      state.quiz.phase = "save";
+      state.quiz.note = "";
+      renderShop();
+    }
+    else if (action === "shop-save-amount") {
+      saveToJar(Number(target.getAttribute("data-value")));
+    }
+    else if (action === "shop-back" && state.quiz) {
+      state.quiz.phase = "list";
+      renderShop();
+    }
+    else if (action === "shop-pin") {
+      pressShopPin(target.getAttribute("data-value"));
+    }
+    else if (action === "undo-yes") {
       confirmUndo();
-    else if (action === "undo-no")
+    }
+    else if (action === "undo-no") {
       closeQuiz();
-    else if (action === "close")
+    }
+    else if (action === "close") {
       closeQuiz();
-    else if (action === "speak" && state.quiz)
+    }
+    else if (action === "speak" && state.quiz) {
       speak(state.quiz.question.speak);
-    else if (action === "answer")
+    }
+    else if (action === "answer") {
       answerQuiz(target.getAttribute("data-value"));
-    else if (action === "pin")
+    }
+    else if (action === "pin") {
       pressPinKey(target.getAttribute("data-value"));
+    }
   }
 
   function toggleStep(personId, routineId, stepId) {
@@ -957,6 +1220,8 @@
       completeItem(target.getAttribute("data-person"), target.getAttribute("data-id"));
     else if (action === "undo")
       openUndo(target.getAttribute("data-person"), target.getAttribute("data-id"));
+    else if (action === "shop")
+      openShop(target.getAttribute("data-person"));
     else if (action === "step")
       toggleStep(target.getAttribute("data-person"), target.getAttribute("data-routine"), target.getAttribute("data-id"));
   });

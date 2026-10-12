@@ -50,9 +50,8 @@ export default defineNitroPlugin((_nitroApp) => {
       });
       consola.info(`✅ Daily points reset: ${pointsResponse.resetCount} users reset`);
 
-      // Check if it's Sunday for weekly reset
-      const now = new Date();
-      if (now.getDay() === 0) { // 0 = Sunday
+      // The points week ends Friday at midnight, so the new week starts Saturday
+      if (getAppWeekday(new Date()) === 6) {
         const weeklyResponse = await $fetch("/api/points/reset-weekly", {
           method: "POST",
         });

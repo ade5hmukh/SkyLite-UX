@@ -45,7 +45,10 @@ export default defineEventHandler(async (event) => {
           where: { id: currentRedemption.userId },
           data: {
             points: {
-              increment: currentRedemption.pointsSpent,
+              increment: currentRedemption.pointsSpent - currentRedemption.pointsFromSaved,
+            },
+            savedPoints: {
+              increment: currentRedemption.pointsFromSaved,
             },
           },
         });
@@ -117,4 +120,3 @@ export default defineEventHandler(async (event) => {
     });
   }
 });
-

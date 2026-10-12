@@ -40,3 +40,12 @@ export function checkParentPin(pin: string): "valid" | "invalid" | "locked" {
   }
   return "invalid";
 }
+
+/** Throws 403 for a wrong PIN and 429 while locked out. */
+export function requireParentPin(pin: unknown) {
+  const result = checkParentPin(String(pin ?? ""));
+  if (result === "locked")
+    throw createError({ statusCode: 429, message: "Too many tries. Wait a minute." });
+  if (result === "invalid")
+    throw createError({ statusCode: 403, message: "Wrong PIN" });
+}

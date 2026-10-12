@@ -22,10 +22,13 @@ model User {
   todoOrder      Int      @default(0)
   points         Int      @default(0)
   pointsToday    Int      @default(0)
-  pointsThisWeek Int      @default(0)
+  pointsThisWeek Int      @default(0) // Saturday to Friday
+  savedPoints    Int      @default(0) // Savings jar: never expires, spent only on "big" rewards
+  savingGoalId   String?
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
 
+  savingGoal Reward? @relation("SavingGoal", fields: [savingGoalId], references: [id], onDelete: SetNull)
   todoColumn TodoColumn?
   calendarEvents CalendarEventUser[]
   activityLogs ActivityLog[]
@@ -208,6 +211,7 @@ model Reward {
   updatedAt   DateTime @updatedAt
 
   redemptions RewardRedemption[]
+  goalOf      User[]             @relation("SavingGoal")
 
   @@map("rewards")
 }
@@ -216,7 +220,8 @@ model RewardRedemption {
   id          String   @id @default(cuid())
   rewardId    String
   userId      String
-  pointsSpent Int
+  pointsSpent     Int
+  pointsFromSaved Int              @default(0) // Part of pointsSpent that came from the savings jar
   status      RedemptionStatus @default(PENDING)
   redeemedAt  DateTime @default(now())
   fulfilledAt DateTime?

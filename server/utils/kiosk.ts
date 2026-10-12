@@ -33,6 +33,10 @@ export type KioskPerson = {
   avatar: string | null;
   points: number;
   pointsToday: number;
+  savedPoints: number;
+  /** Points that expire Friday at midnight unless spent or saved. */
+  expiringPoints: number;
+  goalId: string | null;
   items: KioskItem[];
   routines: KioskRoutine[];
   meals: { dayLabel: string; name: string; icon: string; text: string }[];
@@ -43,7 +47,18 @@ export type KioskData = {
   dateLabel: string;
   people: KioskPerson[];
   events: { title: string; time: string; location: string | null; people: string[] }[];
+  rewards: KioskReward[];
   icons: Record<string, string>;
+};
+
+export type KioskReward = {
+  id: string;
+  title: string;
+  description: string | null;
+  icon: string;
+  cost: number;
+  /** Can be a savings goal and paid from the savings jar. */
+  big: boolean;
 };
 
 const DEFAULT_COLOR = "#06b6d4";
@@ -117,11 +132,13 @@ export async function getKioskData(who = ""): Promise<KioskData> {
   const { start, end } = getDayBounds(today);
   const wanted = who.split(",").map(name => name.trim().toLowerCase()).filter(Boolean);
 
-  const [columns, routines, events, menus] = await Promise.all([
+  const [columns, routines, events, menus, rewards] = await Promise.all([
     prisma.todoColumn.findMany({
       where: { userId: { not: null } },
       include: {
-        user: { select: { id: true, name: true, color: true, avatar: true, points: true, pointsToday: true } },
+        user: {
+          select: { id: true, name: true, color: true, avatar: true, points: true, pointsToday: true, pointsThisWeek: true, savedPoints: true, savingGoalId: true },
+        },
         todos: { orderBy: { order: "asc" } },
       },
       orderBy: { order: "asc" },
@@ -138,6 +155,7 @@ export async function getKioskData(who = ""): Promise<KioskData> {
         return [];
       }),
     $fetch<SchoolMenusResponse>("/api/schoolMenu").catch(() => null),
+    prisma.reward.findMany({ where: { enabled: true }, orderBy: [{ pointCost: "asc" }, { order: "asc" }] }),
   ]);
 
   const people: KioskPerson[] = [];
@@ -194,14 +212,30 @@ export async function getKioskData(who = ""): Promise<KioskData> {
       avatar: user.avatar,
       points: user.points,
       pointsToday: user.pointsToday,
+      savedPoints: user.savedPoints,
+      expiringPoints: Math.max(0, user.points - Math.max(0, user.pointsThisWeek)),
+      goalId: user.savingGoalId,
       items,
       routines: personRoutines,
       meals,
     });
   }
 
+  const kioskRewards: KioskReward[] = rewards.map(reward => ({
+    id: reward.id,
+    title: reward.title,
+    description: reward.description,
+    icon: chooseIcon(reward.icon, "i-lucide-gift"),
+    cost: reward.pointCost,
+    big: isBigReward(reward),
+  }));
+
   const iconNames = [
     ...PAGE_ICONS,
+    "i-lucide-gift",
+    "i-lucide-piggy-bank",
+    "i-lucide-hourglass",
+    ...kioskRewards.map(reward => reward.icon),
     ...people.flatMap(person => [
       ...person.items.map(item => item.icon),
       ...person.routines.flatMap(routine => [routine.icon, ...routine.steps.map(step => step.icon).filter(isKioskIcon)]),
@@ -219,6 +253,7 @@ export async function getKioskData(who = ""): Promise<KioskData> {
       location: agendaEvent.location,
       people: agendaEvent.people,
     })),
+    rewards: kioskRewards,
     icons: await loadIcons(iconNames),
   };
 }

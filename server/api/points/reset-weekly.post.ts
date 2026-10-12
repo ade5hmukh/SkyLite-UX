@@ -1,24 +1,17 @@
-import prisma from "~/lib/prisma";
 import { consola } from "consola";
 
-// Reset weekly points for all users (runs on Sunday at midnight)
+// End of the points week (Friday midnight): expire points older than this week, then start a new week
 export default defineEventHandler(async (_event) => {
   try {
-    consola.info("🔄 Resetting weekly points for all users...");
-
-    // Reset pointsThisWeek to 0 for all users
-    const result = await prisma.user.updateMany({
-      data: {
-        pointsThisWeek: 0,
-      },
-    });
-
-    consola.info(`✅ Weekly points reset complete: ${result.count} users updated`);
+    consola.info("🔄 Ending the points week for all users...");
+    const { resetCount, expiredTotal } = await expireOldPoints();
+    consola.info(`✅ Weekly points reset complete: ${resetCount} users updated, ${expiredTotal} points expired`);
 
     return {
       success: true,
-      resetCount: result.count,
-      message: `Successfully reset weekly points for ${result.count} user(s)`,
+      resetCount,
+      expiredTotal,
+      message: `Successfully reset weekly points for ${resetCount} user(s)`,
       timestamp: new Date().toISOString(),
     };
   }
@@ -30,7 +23,3 @@ export default defineEventHandler(async (_event) => {
     });
   }
 });
-
-
-
-
