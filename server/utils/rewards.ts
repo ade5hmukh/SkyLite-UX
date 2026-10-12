@@ -138,32 +138,36 @@ export async function setSavingGoal(userId: string, rewardId: string | null) {
 }
 
 /**
- * Friday midnight: points last two weekends, so anything older than the week that just ended expires
- * (oldest points count as spent first). The savings jar is untouched.
+ * Friday midnight: points can be spent for two weekends; anything older than the week that just ended
+ * moves into the savings jar (oldest points count as spent first). Nothing earned is ever lost.
  */
-export async function expireOldPoints() {
+export async function rollOverOldPoints() {
   const users = await prisma.user.findMany({ select: { id: true, name: true, points: true, pointsThisWeek: true } });
-  let expiredTotal = 0;
+  let movedTotal = 0;
   for (const user of users) {
-    const keep = Math.max(0, Math.min(user.points, user.pointsThisWeek));
-    const expired = user.points - keep;
-    await prisma.$executeRaw`UPDATE "users" SET "points" = LEAST("points", GREATEST("pointsThisWeek", 0)), "pointsThisWeek" = 0, "updatedAt" = NOW() WHERE "id" = ${user.id}`;
-    if (expired > 0) {
-      expiredTotal += expired;
+    const moved = Math.max(0, user.points - Math.max(0, user.pointsThisWeek));
+    await prisma.$executeRaw`UPDATE "users" SET
+      "savedPoints" = "savedPoints" + GREATEST("points" - GREATEST("pointsThisWeek", 0), 0),
+      "points" = LEAST("points", GREATEST("pointsThisWeek", 0)),
+      "pointsThisWeek" = 0,
+      "updatedAt" = NOW()
+      WHERE "id" = ${user.id}`;
+    if (moved > 0) {
+      movedTotal += moved;
       await prisma.activityLog.create({
         data: {
           level: "INFO",
           serviceName: "rewards",
-          message: `${expired} unspent points expired for ${user.name}`,
+          message: `${moved} unspent points moved to ${user.name}'s savings jar`,
           userId: user.id,
           username: user.name,
           entityType: "user",
           entityId: user.id,
           entityName: user.name,
-          metadata: { expired, kept: keep },
+          metadata: { moved },
         },
-      }).catch(error => consola.warn("Rewards: Failed to log expired points:", error));
+      }).catch(error => consola.warn("Rewards: Failed to log rolled-over points:", error));
     }
   }
-  return { resetCount: users.length, expiredTotal };
+  return { resetCount: users.length, movedTotal };
 }

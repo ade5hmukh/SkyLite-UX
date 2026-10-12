@@ -161,14 +161,26 @@
       }</div>`;
   }
 
+  function renderJarSoon(person) {
+    if (!(person.jarSoonPoints > 0))
+      return "";
+    return `<div class="expiring"><span class="ic">${icon("i-lucide-piggy-bank")}</span>`
+      + `${esc(person.jarSoonPoints)} ${person.jarSoonPoints === 1 ? "point goes" : "points go"} into your savings jar Friday night</div>`;
+  }
+
+  function renderTickets(person) {
+    if (!person.tickets || !person.tickets.length)
+      return "";
+    return `<div class="tickets">${person.tickets.map((ticket) => {
+      return `<div class="ticket"><span class="ticket-icon">${icon(ticket.icon)}</span><span class="ticket-title">${esc(ticket.title)}</span><span class="ticket-tag">🎟 Ticket</span></div>`;
+    }).join("")}</div>`;
+  }
+
   function renderWallet(person) {
     if (!state.data || !state.data.rewards || !state.data.rewards.length)
       return "";
-    return `<div class="wallet">${renderGoal(person)}${
-      person.expiringPoints > 0
-        ? `<div class="expiring"><span class="ic">${icon("i-lucide-hourglass")}</span>${esc(person.expiringPoints)} ${person.expiringPoints === 1 ? "point expires" : "points expire"} Friday night. Spend or save!</div>`
-        : ""
-    }<button type="button" class="shop-btn" data-action="shop" data-person="${esc(person.id)}"><span class="ic">${icon("i-lucide-gift")}</span>Rewards</button></div>`;
+    return `<div class="wallet">${renderTickets(person)}${renderGoal(person)}${renderJarSoon(person)}`
+      + `<button type="button" class="shop-btn" data-action="shop" data-person="${esc(person.id)}"><span class="ic">${icon("i-lucide-gift")}</span>Rewards</button></div>`;
   }
 
   function renderPerson(person) {
@@ -304,6 +316,63 @@
     }
     layer.onclick = close;
     setTimeout(close, 3000);
+  }
+
+  function confettiHtml(count) {
+    let confetti = "";
+    for (let i = 0; i < count; i++) {
+      confetti += `<span class="confetti" style="left:${Math.round(Math.random() * 100)}%;background:${CONFETTI_COLORS[i % CONFETTI_COLORS.length]
+      };-webkit-animation-delay:${(Math.random() * 0.6).toFixed(2)}s;animation-delay:${(Math.random() * 0.6).toFixed(2)}s"></span>`;
+    }
+    return confetti;
+  }
+
+  /** A gift box shakes, pops open, and shows the reward as a ticket; stays until tapped. */
+  function unwrapReward(person, reward) {
+    state.celebrating = true;
+    const layer = document.getElementById("celebration");
+    layer.onclick = null;
+    layer.innerHTML = `<div class="celebrate-wrap" id="celebrate-wrap"><div class="unwrap" id="unwrap">`
+      + `<div class="gift-box">🎁</div>`
+      + `<div class="gift-reveal">`
+      + `<div class="gift-burst"><span>✨</span><span>🎉</span><span>⭐</span><span>🎊</span><span>💫</span><span>🌟</span></div>`
+      + `<div class="celebrate-title">🎉 You got it! 🎉</div>`
+      + `<div class="gift-icon" style="color:${esc(person.color)}">${icon(reward.icon)}</div>`
+      + `<div class="gift-title">${esc(reward.title)}</div>`
+      + `<div class="gift-ticket"><span class="ic">${icon("i-lucide-ticket")}</span>Your ticket is saved. Show a grown-up!</div>`
+      + `<button type="button" class="gift-done">Yay! ✓</button>`
+      + `</div></div></div>`;
+    speak("Ooh, a present! Let's open it!");
+
+    setTimeout(() => {
+      const unwrap = document.getElementById("unwrap");
+      if (!unwrap)
+        return;
+      unwrap.className += " opened";
+      layer.insertAdjacentHTML("beforeend", confettiHtml(48));
+      playChime();
+      speak(`Yay ${person.name}! You got ${reward.title}!`);
+    }, 1400);
+
+    let finished = false;
+    function close() {
+      if (finished)
+        return;
+      finished = true;
+      const wrap = document.getElementById("celebrate-wrap");
+      if (wrap)
+        wrap.className += " leaving";
+      setTimeout(() => {
+        layer.innerHTML = "";
+        layer.onclick = null;
+        state.celebrating = false;
+      }, 300);
+    }
+    // Ignore taps until the box has opened; then any tap closes, or it closes itself after a while.
+    setTimeout(() => {
+      layer.onclick = close;
+    }, 2400);
+    setTimeout(close, 20 * 1000);
   }
 
   function bumpPoints(personId) {
@@ -926,7 +995,7 @@
     else if (shop.phase === "save") {
       const amounts = SAVE_AMOUNTS.filter(amount => amount < person.points);
       html += `<div class="quiz-title">🐷 Save points</div>`
-        + `<div class="undo-note">Saved points never expire. Use them for a big reward!</div>`
+        + `<div class="undo-note">Jar points are for big rewards. Save up for something special!</div>`
         + `<div class="save-amounts">${amounts.concat([person.points]).map((amount) => {
           return `<button type="button" class="save-amount" data-quiz="shop-save-amount" data-value="${amount}"${shop.busy ? " disabled" : ""}>${
             amount === person.points ? `All ${esc(amount)}` : `+${esc(amount)}`}</button>`;
@@ -936,8 +1005,7 @@
     else {
       if (shop.note)
         html += `<div class="shop-note">${esc(shop.note)}</div>`;
-      if (person.expiringPoints > 0)
-        html += `<div class="expiring"><span class="ic">${icon("i-lucide-hourglass")}</span>${esc(person.expiringPoints)} ${person.expiringPoints === 1 ? "point expires" : "points expire"} Friday night. Spend or save!</div>`;
+      html += renderJarSoon(person);
       if (person.points > 0)
         html += `<button type="button" class="save-btn" data-quiz="shop-save"><span class="ic">${icon("i-lucide-piggy-bank")}</span>Put points in my savings jar</button>`;
       const small = rewards.filter(reward => !reward.big);
@@ -997,12 +1065,13 @@
         const spentPoints = person.points - result.points;
         person.points = result.points;
         person.savedPoints = result.savedPoints;
-        person.expiringPoints = Math.max(0, person.expiringPoints - spentPoints);
+        person.jarSoonPoints = Math.max(0, person.jarSoonPoints - spentPoints);
         if (person.goalId === reward.id)
           person.goalId = null;
+        person.tickets = (person.tickets || []).concat([{ id: result.redemptionId, title: reward.title, icon: reward.icon }]);
         closeQuiz();
         render();
-        celebrate(reward.title, 0, "🎁 Yay! Enjoy! 🎁");
+        unwrapReward(person, reward);
       })
       .catch((error) => {
         if (state.quiz !== shop)
@@ -1026,7 +1095,7 @@
       .then((result) => {
         person.points = result.points;
         person.savedPoints = result.savedPoints;
-        person.expiringPoints = Math.max(0, person.expiringPoints - amount);
+        person.jarSoonPoints = Math.max(0, person.jarSoonPoints - amount);
         shop.busy = false;
         shop.phase = "list";
         shop.note = `🐷 Saved ${amount} ${amount === 1 ? "point" : "points"}!`;

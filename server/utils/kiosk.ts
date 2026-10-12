@@ -34,9 +34,11 @@ export type KioskPerson = {
   points: number;
   pointsToday: number;
   savedPoints: number;
-  /** Points that expire Friday at midnight unless spent or saved. */
-  expiringPoints: number;
+  /** Points that move to the savings jar Friday at midnight unless spent. */
+  jarSoonPoints: number;
   goalId: string | null;
+  /** Redeemed rewards a grown-up hasn't marked done yet. */
+  tickets: { id: string; title: string; icon: string }[];
   items: KioskItem[];
   routines: KioskRoutine[];
   meals: { dayLabel: string; name: string; icon: string; text: string }[];
@@ -132,7 +134,7 @@ export async function getKioskData(who = ""): Promise<KioskData> {
   const { start, end } = getDayBounds(today);
   const wanted = who.split(",").map(name => name.trim().toLowerCase()).filter(Boolean);
 
-  const [columns, routines, events, menus, rewards] = await Promise.all([
+  const [columns, routines, events, menus, rewards, pending] = await Promise.all([
     prisma.todoColumn.findMany({
       where: { userId: { not: null } },
       include: {
@@ -156,6 +158,11 @@ export async function getKioskData(who = ""): Promise<KioskData> {
       }),
     $fetch<SchoolMenusResponse>("/api/schoolMenu").catch(() => null),
     prisma.reward.findMany({ where: { enabled: true }, orderBy: [{ pointCost: "asc" }, { order: "asc" }] }),
+    prisma.rewardRedemption.findMany({
+      where: { status: "PENDING" },
+      include: { reward: { select: { title: true, icon: true } } },
+      orderBy: { redeemedAt: "asc" },
+    }),
   ]);
 
   const people: KioskPerson[] = [];
@@ -213,8 +220,11 @@ export async function getKioskData(who = ""): Promise<KioskData> {
       points: user.points,
       pointsToday: user.pointsToday,
       savedPoints: user.savedPoints,
-      expiringPoints: Math.max(0, user.points - Math.max(0, user.pointsThisWeek)),
+      jarSoonPoints: Math.max(0, user.points - Math.max(0, user.pointsThisWeek)),
       goalId: user.savingGoalId,
+      tickets: pending
+        .filter(redemption => redemption.userId === user.id)
+        .map(redemption => ({ id: redemption.id, title: redemption.reward.title, icon: chooseIcon(redemption.reward.icon, "i-lucide-gift") })),
       items,
       routines: personRoutines,
       meals,
@@ -235,11 +245,13 @@ export async function getKioskData(who = ""): Promise<KioskData> {
     "i-lucide-gift",
     "i-lucide-piggy-bank",
     "i-lucide-hourglass",
+    "i-lucide-ticket",
     ...kioskRewards.map(reward => reward.icon),
     ...people.flatMap(person => [
       ...person.items.map(item => item.icon),
       ...person.routines.flatMap(routine => [routine.icon, ...routine.steps.map(step => step.icon).filter(isKioskIcon)]),
       ...person.meals.map(meal => meal.icon),
+      ...person.tickets.map(ticket => ticket.icon),
     ]),
   ];
 

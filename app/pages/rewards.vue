@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref } from "vue";
 
+import RewardUnwrap from "~/components/rewards/rewardUnwrap.vue";
 import { BIG_REWARD_CATEGORY } from "~/types/rewards";
 
 definePageMeta({
@@ -79,6 +80,22 @@ async function toggleGoal(rewardId: string) {
   }
 }
 
+const toast = useToast();
+const unwrapping = ref<{ title: string; icon: string | null; name: string } | null>(null);
+
+const tickets = computed(() => redemptions.value?.filter(r => r.status === "PENDING") ?? []);
+const fulfillingId = ref<string | null>(null);
+async function markTicketDone(redemptionId: string) {
+  fulfillingId.value = redemptionId;
+  try {
+    await $fetch(`/api/rewards/redemptions/${redemptionId}`, { method: "PUT", body: { status: "FULFILLED" } });
+    await refreshRedemptions();
+  }
+  finally {
+    fulfillingId.value = null;
+  }
+}
+
 // Redeem reward
 const redeemingRewardId = ref<string | null>(null);
 const isRedeeming = computed(() => redeemingRewardId.value !== null);
@@ -109,12 +126,12 @@ async function redeemReward(rewardId: string) {
       }),
     ]);
 
-    // Show success (you could add a toast notification here)
-    alert("Reward redeemed successfully! 🎉");
+    const reward = rewards.value?.find(r => r.id === rewardId);
+    unwrapping.value = { title: reward?.title ?? "your reward", icon: reward?.icon ?? null, name: currentUser.value?.name ?? "" };
   }
   catch (error: any) {
     redeemError.value = error?.data?.message || "Failed to redeem reward";
-    alert(redeemError.value);
+    toast.add({ title: "Couldn't redeem", description: redeemError.value ?? undefined, color: "error" });
   }
   finally {
     redeemingRewardId.value = null;
@@ -211,8 +228,27 @@ function canAfford(reward: { pointCost: number; category: string | null }): bool
         </div>
         <UProgress :model-value="Math.min(100, Math.round((currentUser.savedPoints / goalReward.pointCost) * 100))" color="secondary" />
       </div>
+      <div v-if="tickets.length" class="mb-4 space-y-2">
+        <div
+          v-for="ticket in tickets"
+          :key="ticket.id"
+          class="flex items-center gap-3 rounded-lg border-2 border-dashed border-purple-300 bg-purple-50 dark:bg-purple-950/30 px-4 py-2"
+        >
+          <UIcon :name="ticket.reward?.icon || 'i-lucide-ticket'" class="h-5 w-5 text-purple-500" />
+          <span class="flex-1 text-sm font-semibold text-highlighted">🎟 {{ ticket.reward?.title }}</span>
+          <UButton
+            size="xs"
+            color="success"
+            icon="i-lucide-check"
+            :loading="fulfillingId === ticket.id"
+            @click="markTicketDone(ticket.id)"
+          >
+            Done
+          </UButton>
+        </div>
+      </div>
       <p class="text-xs text-muted mb-3">
-        Points expire after two weekends (Friday midnight). The savings jar never expires and can only be spent on Big Goals.
+        Points can be spent for two weekends. Anything left moves into the savings jar on Friday at midnight; jar points buy Big Goals.
       </p>
 
       <!-- Category Filter -->
@@ -304,5 +340,13 @@ function canAfford(reward: { pointCost: number; category: string | null }): bool
         </div>
       </div>
     </div>
+
+    <RewardUnwrap
+      v-if="unwrapping"
+      :title="unwrapping.title"
+      :icon="unwrapping.icon"
+      :name="unwrapping.name"
+      @close="unwrapping = null"
+    />
   </div>
 </template>

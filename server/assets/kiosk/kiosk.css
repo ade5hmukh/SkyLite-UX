@@ -1112,9 +1112,295 @@ svg {
   -webkit-animation: confetti-fall 2.6s linear forwards;
   animation: confetti-fall 2.6s linear forwards;
 }
+/* Unwrapping a redeemed reward */
+.unwrap {
+  position: relative;
+  text-align: center;
+  color: #fff;
+  max-width: 90%;
+}
+.gift-box {
+  font-size: 180px;
+  line-height: 1;
+  -webkit-animation: gift-shake 0.35s ease-in-out 4;
+  animation: gift-shake 0.35s ease-in-out 4;
+}
+.gift-reveal {
+  display: none;
+  position: relative;
+  background: #fb923c;
+  background-image: linear-gradient(135deg, #a855f7 0%, #ec4899 55%, #fb923c 100%);
+  border-radius: 32px;
+  padding: 30px 40px 26px;
+  box-shadow: 0 25px 50px rgba(0, 0, 0, 0.3);
+}
+.unwrap.opened .gift-box {
+  display: none;
+}
+.unwrap.opened .gift-reveal {
+  display: block;
+  -webkit-animation: bounce-in 0.8s ease-out;
+  animation: bounce-in 0.8s ease-out;
+}
+.gift-icon {
+  width: 150px;
+  height: 150px;
+  margin: 16px auto 10px;
+  padding: 32px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 0 10px rgba(255, 255, 255, 0.35);
+  -webkit-animation: wiggle 0.8s ease-in-out 0.8s 2;
+  animation: wiggle 0.8s ease-in-out 0.8s 2;
+}
+.gift-title {
+  font-size: 34px;
+  font-weight: 900;
+  text-shadow: 0 3px 8px rgba(0, 0, 0, 0.2);
+}
+.gift-ticket {
+  display: inline-flex;
+  align-items: center;
+  margin-top: 16px;
+  padding: 10px 16px;
+  border: 3px dashed rgba(255, 255, 255, 0.8);
+  border-radius: 16px;
+  font-size: 18px;
+  font-weight: 800;
+}
+.gift-ticket .ic {
+  width: 26px;
+  height: 26px;
+  margin-right: 8px;
+}
+.gift-done {
+  display: block;
+  margin: 18px auto 0;
+  padding: 14px 40px;
+  border-radius: 999px;
+  background: #fff;
+  color: #be185d;
+  font-size: 24px;
+  font-weight: 900;
+}
+.gift-burst span {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  font-size: 48px;
+  opacity: 0;
+}
+.unwrap.opened .gift-burst span {
+  -webkit-animation: burst 1.2s ease-out forwards;
+  animation: burst 1.2s ease-out forwards;
+}
+.unwrap.opened .gift-burst span:nth-child(1) {
+  -webkit-animation-name: burst-1;
+  animation-name: burst-1;
+}
+.unwrap.opened .gift-burst span:nth-child(2) {
+  -webkit-animation-name: burst-2;
+  animation-name: burst-2;
+}
+.unwrap.opened .gift-burst span:nth-child(3) {
+  -webkit-animation-name: burst-3;
+  animation-name: burst-3;
+}
+.unwrap.opened .gift-burst span:nth-child(4) {
+  -webkit-animation-name: burst-4;
+  animation-name: burst-4;
+}
+.unwrap.opened .gift-burst span:nth-child(5) {
+  -webkit-animation-name: burst-5;
+  animation-name: burst-5;
+}
+.unwrap.opened .gift-burst span:nth-child(6) {
+  -webkit-animation-name: burst-6;
+  animation-name: burst-6;
+}
+
+/* Reward tickets waiting for a grown-up */
+.tickets {
+  margin-bottom: 8px;
+}
+.ticket {
+  display: flex;
+  align-items: center;
+  background: #faf5ff;
+  border: 3px dashed #c084fc;
+  border-radius: 14px;
+  padding: 6px 10px;
+  margin-bottom: 6px;
+}
+.ticket-icon {
+  width: 30px;
+  height: 30px;
+  flex-shrink: 0;
+  margin-right: 8px;
+  color: #9333ea;
+}
+.ticket-title {
+  -webkit-box-flex: 1;
+  flex: 1;
+  font-size: 16px;
+  font-weight: 800;
+  color: #6b21a8;
+}
+.ticket-tag {
+  font-size: 13px;
+  font-weight: 800;
+  color: #9333ea;
+  margin-left: 6px;
+}
+
 .celebrate-wrap.leaving {
   -webkit-animation: fade-out 0.3s ease-in forwards;
   animation: fade-out 0.3s ease-in forwards;
+}
+
+@-webkit-keyframes gift-shake {
+  0%,
+  100% {
+    -webkit-transform: rotate(0deg) scale(1);
+  }
+  25% {
+    -webkit-transform: rotate(-12deg) scale(1.05);
+  }
+  75% {
+    -webkit-transform: rotate(12deg) scale(1.05);
+  }
+}
+@keyframes gift-shake {
+  0%,
+  100% {
+    transform: rotate(0deg) scale(1);
+  }
+  25% {
+    transform: rotate(-12deg) scale(1.05);
+  }
+  75% {
+    transform: rotate(12deg) scale(1.05);
+  }
+}
+@-webkit-keyframes burst-1 {
+  0% {
+    opacity: 1;
+    -webkit-transform: translate(0, 0) scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    -webkit-transform: translate(-220px, -200px) scale(1.4);
+  }
+}
+@keyframes burst-1 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-220px, -200px) scale(1.4);
+  }
+}
+@-webkit-keyframes burst-2 {
+  0% {
+    opacity: 1;
+    -webkit-transform: translate(0, 0) scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    -webkit-transform: translate(220px, -200px) scale(1.4);
+  }
+}
+@keyframes burst-2 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(220px, -200px) scale(1.4);
+  }
+}
+@-webkit-keyframes burst-3 {
+  0% {
+    opacity: 1;
+    -webkit-transform: translate(0, 0) scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    -webkit-transform: translate(-260px, 40px) scale(1.4);
+  }
+}
+@keyframes burst-3 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-260px, 40px) scale(1.4);
+  }
+}
+@-webkit-keyframes burst-4 {
+  0% {
+    opacity: 1;
+    -webkit-transform: translate(0, 0) scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    -webkit-transform: translate(260px, 40px) scale(1.4);
+  }
+}
+@keyframes burst-4 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(260px, 40px) scale(1.4);
+  }
+}
+@-webkit-keyframes burst-5 {
+  0% {
+    opacity: 1;
+    -webkit-transform: translate(0, 0) scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    -webkit-transform: translate(-140px, 230px) scale(1.4);
+  }
+}
+@keyframes burst-5 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-140px, 230px) scale(1.4);
+  }
+}
+@-webkit-keyframes burst-6 {
+  0% {
+    opacity: 1;
+    -webkit-transform: translate(0, 0) scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    -webkit-transform: translate(140px, 230px) scale(1.4);
+  }
+}
+@keyframes burst-6 {
+  0% {
+    opacity: 1;
+    transform: translate(0, 0) scale(0.5);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(140px, 230px) scale(1.4);
+  }
 }
 
 @-webkit-keyframes bump {
