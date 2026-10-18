@@ -1327,6 +1327,11 @@
       return;
     api("GET", `/api/kiosk${state.who ? `?who=${encodeURIComponent(state.who)}` : ""}`)
       .then((data) => {
+        // A new kiosk version was deployed: reload to pick up the new page.
+        if (data.version && window.KIOSK_VERSION && data.version !== window.KIOSK_VERSION) {
+          window.location.reload();
+          return;
+        }
         state.data = data;
         state.failures = 0;
         state.lastLoaded = Date.now();

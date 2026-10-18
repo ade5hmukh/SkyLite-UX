@@ -1,14 +1,6 @@
 import { consola } from "consola";
-import { Buffer } from "node:buffer";
 
 // A standalone page for old tablets (iOS 12) that can't run the main app.
-async function readAsset(name: string): Promise<string> {
-  const raw = await useStorage("assets:server").getItemRaw(`kiosk/${name}`);
-  if (typeof raw === "string")
-    return raw;
-  return raw ? Buffer.from(raw as Uint8Array).toString("utf8") : "";
-}
-
 function toScriptJson(value: unknown) {
   return JSON.stringify(value).replace(/</g, "\\u003c").replace(/\u2028/g, "\\u2028").replace(/\u2029/g, "\\u2029");
 }
@@ -29,7 +21,7 @@ export default defineEventHandler(async (event) => {
     consola.error("Kiosk: Failed to load initial data:", error);
   }
 
-  const [css, js] = await Promise.all([readAsset("kiosk.css"), readAsset("kiosk.js")]);
+  const { css, js, version } = await getKioskAssets();
 
   setHeader(event, "Content-Type", "text/html; charset=utf-8");
   setHeader(event, "Cache-Control", "no-store");
@@ -49,7 +41,7 @@ export default defineEventHandler(async (event) => {
 <div id="app"><div class="loading">Loading…</div></div>
 <div id="quiz"></div>
 <div id="celebration"></div>
-<script>window.KIOSK_DATA = ${toScriptJson(data)}; window.KIOSK_WHO = ${toScriptJson(who)}; window.KIOSK_QUIZ = ${toScriptJson(quiz)};</script>
+<script>window.KIOSK_DATA = ${toScriptJson(data)}; window.KIOSK_WHO = ${toScriptJson(who)}; window.KIOSK_QUIZ = ${toScriptJson(quiz)}; window.KIOSK_VERSION = ${toScriptJson(version)};</script>
 <script>${js}</script>
 </body>
 </html>`;
